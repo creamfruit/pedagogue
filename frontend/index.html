@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#08090a" />
+    <meta name="description" content="Your repertoire, your weaknesses, your route to the next piece." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Piano Pedagogue</title>
+  </head>
+  <body>
+    <div id="boot" class="boot">
+      <div class="boot-ring"></div>
+      <p class="boot-text">Initialising</p>
+    </div>
+
+    <div id="app" class="app" hidden>
+      <header class="topbar">
+        <a class="brand" href="/" data-link>
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-text">Piano<em>Pedagogue</em></span>
+        </a>
+        <div class="topbar-right">
+          <a id="wallet" class="wallet" href="/observatory" data-link hidden></a>
+          <span id="net-status" class="pill pill-ok" title="Connection status">online</span>
+          <button id="nav-toggle" class="icon-button" aria-label="Menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </header>
+
+      <nav id="nav" class="nav" aria-label="Main">
+        <a href="/" data-link data-nav="/">Dashboard</a>
+        <a href="/repertoire" data-link data-nav="/repertoire">Repertoire</a>
+        <a href="/constellation" data-link data-nav="/constellation">Constellation</a>
+        <a href="/practice" data-link data-nav="/practice">Practice</a>
+        <a href="/progression" data-link data-nav="/progression">Progression</a>
+        <a href="/performances" data-link data-nav="/performances">Performances</a>
+        <a href="/observatory" data-link data-nav="/observatory">Observatory</a>
+      </nav>
+
+      <main id="view" class="view" tabindex="-1"></main>
+
+      <footer class="footer">
+        <span id="build-tag" class="mono"></span>
+      </footer>
+    </div>
+
+    <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+    <div id="update-bar" class="update-bar" hidden>
+      <span>A new version is ready.</span>
+      <button id="update-apply" class="btn btn-small">Reload</button>
+      <button id="update-dismiss" class="btn btn-small btn-ghost">Later</button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
