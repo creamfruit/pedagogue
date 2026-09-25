@@ -1,7 +1,7 @@
 import { api } from "../api/client.js";
 import { el, empty, skeletonBlock } from "../lib/dom.js";
 import { ERA_STYLE, eraGlyph } from "../lib/palette.js";
-import { store } from "../lib/store.js";
+import { store, subscribe } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 
 const KIND_LABELS = {
@@ -91,40 +91,61 @@ export async function shopView(outlet) {
     achievementHost
   );
 
-  async function renderWallet() {
-    try {
-      const wallet = await api.wallet();
-      walletHost.replaceChildren(
-        el(
-          "div",
-          { class: "panel", style: "display:flex;align-items:center;gap:16px" },
-          el("div", { class: "stat-ring" }, el("div", { class: "stat" }, wallet.level)),
-          el(
-            "div",
-            {},
-            el("div", { class: "stat-label" }, "Level"),
-            el("div", { class: "bar", style: "width:150px;margin:6px 0 4px" }, el("span", { style: `width:${wallet.level_progress * 100}%` })),
-            el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.xp_for_next_level} xp to level ${wallet.level + 1}`)
-          )
-        ),
-        el(
-          "div",
-          { class: "panel" },
-          el("div", { class: "stat-label" }, "Gold"),
-          el("div", { class: "stat", style: "color:var(--yellow)" }, wallet.gold.toLocaleString()),
-          el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.lifetime_gold.toLocaleString()} earned in total`)
-        ),
-        el(
-          "div",
-          { class: "panel" },
-          el("div", { class: "stat-label" }, "Total XP"),
-          el("div", { class: "stat" }, wallet.xp.toLocaleString())
-        )
-      );
-    } catch (error) {
-      walletHost.replaceChildren(empty(error.detail || "Could not load your wallet."));
+  // The wallet comes from the same store.wallet the header reads, so the two can
+  // never disagree. drawWallet only renders; the store subscription below calls
+  // it on every change, and renderWallet asks the store to refetch.
+  let drawnWallet = null;
+
+  function drawWallet(wallet) {
+    if (!wallet) {
+      drawnWallet = null;
+      walletHost.replaceChildren(empty("Could not load your wallet."));
+      return;
     }
+    const signature = JSON.stringify(wallet);
+    if (signature === drawnWallet) return;
+    drawnWallet = signature;
+    walletHost.replaceChildren(
+      el(
+        "div",
+        { class: "panel", style: "display:flex;align-items:center;gap:16px" },
+        el("div", { class: "stat-ring" }, el("div", { class: "stat" }, wallet.level)),
+        el(
+          "div",
+          {},
+          el("div", { class: "stat-label" }, "Level"),
+          el("div", { class: "bar", style: "width:150px;margin:6px 0 4px" }, el("span", { style: `width:${wallet.level_progress * 100}%` })),
+          el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.xp_for_next_level} xp to level ${wallet.level + 1}`)
+        )
+      ),
+      el(
+        "div",
+        { class: "panel" },
+        el("div", { class: "stat-label" }, "Gold"),
+        el("div", { class: "stat", style: "color:var(--yellow)" }, wallet.gold.toLocaleString()),
+        el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.lifetime_gold.toLocaleString()} earned in total`)
+      ),
+      el(
+        "div",
+        { class: "panel" },
+        el("div", { class: "stat-label" }, "Total XP"),
+        el("div", { class: "stat" }, wallet.xp.toLocaleString())
+      )
+    );
   }
+
+  async function renderWallet() {
+    await store.refreshProfile();
+    drawWallet(store.wallet);
+  }
+
+  const unsubscribe = subscribe(() => {
+    if (!walletHost.isConnected) {
+      unsubscribe();
+      return;
+    }
+    drawWallet(store.wallet);
+  });
 
   async function renderShop() {
     try {
@@ -188,7 +209,6 @@ export async function shopView(outlet) {
                 try {
                   await api.buyCosmetic(item.id);
                   notify.success(`Bought ${item.name}`);
-                  await store.refreshProfile();
                   await renderWallet();
                   await renderShop();
                 } catch (error) {
@@ -249,4 +269,5 @@ export async function shopView(outlet) {
   }
 
   await Promise.all([renderWallet(), renderShop(), renderAchievements()]);
+  return unsubscribe;
 }

@@ -230,3 +230,65 @@ the piece detail page. It's fixed and verified before/after. I also hardened the
 path and the overview renderer against placeholder text. Composer/Catalogue/Era/Duration now
 lead the meta-grid, and difficulty everywhere on the page is a paired "for you | baseline"
 badge.
+
+### 2026-09-26 — Phase 4: Constellation
+
+**4a — drag duplication.** `dragging`/`panning` are now owned by an explicit `activePointer`,
+and all release logic lives in one `finishInteraction()`, which releases capture, clears the
+pan, calls `release()` on the grabbed star, spawns the throw ripple, and opens the detail only
+on a real `pointerup`.
+- `pointerdown`: if a drag or pan is still live, it's finished first. **Decision: I did this
+  for *any* live interaction, not only one owned by a different pointerId** (a superset of your
+  spec). The mouse always reuses `pointerId` 1, so a lost `pointerup` (e.g. focus stolen
+  mid-drag) followed by a new press is a *same-id* case, and it strands a star exactly like
+  the two-finger case.
+- `pointermove` from a pointer that doesn't own the interaction is ignored.
+- `endPointer()` returns early unless `event.pointerId === activePointer`, so a stray up or
+  cancel from another finger no longer releases (or throws) the star someone else is holding.
+  It's also wired to `lostpointercapture`, and a window `blur` finishes any live interaction.
+- `setPointerCapture` is now in a try/catch, and capture is taken only when a drag or pan
+  actually starts (no capture-then-release for connector taps).
+- **Behaviour change:** `pointercancel` no longer opens the piece detail. Only a real tap
+  (`pointerup` with <3px movement) does.
+- **Evidence** (synthetic pointer events against a temporary, uncommitted debug hook):
+  - Pre-fix code, press star A then star B with pointerId 1 and no up in between: both
+    grabbed; after the up, **star 20 stayed grabbed forever**. That's the reported glitch.
+  - Post-fix: B's press releases A; a stray up from finger A leaves B held; B's up releases B;
+    the same-id case cleans up; nothing is left grabbed.
+  - Real mouse input: click opens detail; drag holds, then throws on release (speed 9.7);
+    nothing stranded.
+
+**4b — star size.** Measured the difficulty distribution from `backend/app/seed.py` (stored as
+`scale100`, i.e. 0–100): 23 catalogue pieces, **min 30, p10 40, median 78, p90 92, max 98**.
+It's heavily clustered in 75–95, which the old linear ramp (dot 3.0→6.8) compressed. New:
+`dot = 1.6 · (9.5/1.6)^(d/100)` gives d=30 → 2.7, 50 → 3.9, 78 → 6.4, 90 → 8.0, 98 → 9.2, so
+the crowded top end now spreads out (78→98 grows 43%, versus 20% before). `radius = 2.8 × dot`
+follows the same curve, so size and mass stay proportional.
+- **Trade-off to be aware of:** `massOf()` = r²/190, so the hardest stars go from mass ≈1.7 to
+  ≈3.4 (heavier and slower to throw, and less affected by the ambient current), while easy ones
+  stay at the 0.45 floor. This is intended ("looks bigger, feels heavier"), but if the big stars
+  feel sluggish, lower `RADIUS_PER_DOT` in `constellation.js`.
+- The API's own `radius` field (`progression.py`, a linear formula) was already ignored by the
+  frontend and is left unchanged.
+
+**4c — header / Observatory desync.** `shop.js` no longer calls `api.wallet()`. `renderWallet()`
+now calls `store.refreshProfile()` and draws from `store.wallet`, the same source as the header.
+`shopView` subscribes via `subscribe()` from `lib/store.js` and redraws the wallet on any store
+change.
+- The subscriber only *draws*, it never refetches. If it called `refreshProfile()`, that would
+  emit, which would trigger the subscriber again, forever.
+- It skips redraws when nothing changed (so the level ring's animation doesn't restart), and it
+  unsubscribes itself if the view is gone. `shopView` also returns the unsubscribe for the
+  router's cleanup.
+- The purchase handler's extra `store.refreshProfile()` + `renderWallet()` double fetch is now
+  one refresh.
+- `api.wallet()`/`api.ledger()` are kept in `client.js` as instructed. **Note:** a grep found no
+  remaining callers (there's no ledger view in `frontend/src`), so they're currently unused.
+- **Verified:** `/wallet` hit 0 times; an external `store.refreshProfile()` moved both the header
+  and the Observatory from LV 4 to LV 9 together; navigating away and back threw no errors.
+
+**Verification**: build ✔, pytest 52/52 ✔, plus the headless checks above.
+
+**Summary**: Constellation drags can no longer strand a star, verified before and after. Stars
+now scale exponentially, which spreads apart the crowded high-difficulty range, with mass
+following size. The Observatory wallet comes from the same store as the header and updates live.

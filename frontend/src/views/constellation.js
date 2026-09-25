@@ -28,6 +28,19 @@ const LINK_LABELS = {
   era_genre: "era / genre",
 };
 
+// Star size grows exponentially with difficulty (0-100). The catalogue clusters
+// between roughly 75 and 95, so a linear ramp left most stars looking alike.
+// radius feeds mass and wall padding in lib/drift.js, so it scales with the same
+// curve: a star that looks twice as big is also heavier to throw.
+const DOT_MIN = 1.6;
+const DOT_MAX = 9.5;
+const RADIUS_PER_DOT = 2.8;
+
+export function starDot(difficulty) {
+  const t = Math.min(Math.max(difficulty ?? 50, 0), 100) / 100;
+  return DOT_MIN * Math.pow(DOT_MAX / DOT_MIN, t);
+}
+
 const AMBIENT_ALPHA = 0.015;
 const BACKDROP_STARS = 240;
 const PARALLAX = 0.3;
@@ -162,12 +175,12 @@ export async function constellationView(outlet) {
   }
 
   const nodes = graph.nodes.map((node) => {
-    const difficulty = (node.difficulty ?? 50) / 10;
     const look = starLook(node);
+    const dot = starDot(node.difficulty);
     return {
       ...node,
-      dot: 1.3 + difficulty * 0.56,
-      radius: 7 + difficulty * 1.1,
+      dot,
+      radius: dot * RADIUS_PER_DOT,
       color: look.color,
       halo: look.halo || look.color,
       outline: look.outline || null,
@@ -190,6 +203,7 @@ export async function constellationView(outlet) {
   let selectedLink = null;
   let dragging = null;
   let panning = null;
+  let activePointer = null;
   let running = true;
   let backdrop = [];
   let clock = 0;
@@ -541,11 +555,46 @@ export async function constellationView(outlet) {
     simulation.restart();
   }
 
+  function capture(pointerId) {
+    activePointer = pointerId;
+    try {
+      canvas.setPointerCapture(pointerId);
+    } catch {
+      /* pointer already gone; the interaction still ends on the next pointerdown */
+    }
+  }
+
+  // Exactly one drag or pan is live at a time, owned by activePointer. Ending it
+  // releases that star's grab, so no star can be left pulled toward a stale point.
+  function finishInteraction({ open = false } = {}) {
+    const pointerId = activePointer;
+    activePointer = null;
+    if (pointerId !== null && canvas.hasPointerCapture?.(pointerId)) {
+      canvas.releasePointerCapture(pointerId);
+    }
+    panning = null;
+    if (dragging) {
+      const node = dragging;
+      dragging = null;
+      const thrown = release(node, tracker.velocity(), DRIFT);
+      const energy = Math.min(Math.hypot(thrown.x, thrown.y) / DRIFT.maxThrowSpeed, 1);
+      node.trail = energy > 0.08 ? 1 : 0;
+      if (energy > 0.08) ripples.spawn(node.x, node.y, energy);
+      tracker.reset();
+      wake(0.18);
+      if (open && node.moved < 3) openDetail(node);
+    }
+    canvas.style.cursor = hovered ? "pointer" : "grab";
+  }
+
   canvas.addEventListener("pointerdown", (event) => {
+    // A second finger, or a new press after a pointerup that never arrived (the
+    // mouse always reuses pointerId 1), must not strand the star already held.
+    if (dragging || panning) finishInteraction();
     const point = toWorld(event);
     const found = nodeAt(point);
-    canvas.setPointerCapture(event.pointerId);
     if (found) {
+      capture(event.pointerId);
       dragging = found;
       dragging.moved = 0;
       tracker.reset();
@@ -557,12 +606,12 @@ export async function constellationView(outlet) {
     }
     const edge = linkAt(point);
     if (edge) {
-      canvas.releasePointerCapture(event.pointerId);
       selectedLink = edge;
       draw();
       openLinkDetail(edge);
       return;
     }
+    capture(event.pointerId);
     panning = {
       startX: event.clientX,
       startY: event.clientY,
@@ -573,6 +622,7 @@ export async function constellationView(outlet) {
   });
 
   canvas.addEventListener("pointermove", (event) => {
+    if (activePointer !== null && event.pointerId !== activePointer) return;
     if (panning) {
       transform = {
         ...transform,
@@ -602,32 +652,16 @@ export async function constellationView(outlet) {
     }
   });
 
+  // Only the pointer that owns the live interaction can end it; a stray up or
+  // cancel from another finger leaves the current drag alone.
   function endPointer(event) {
-    if (event && canvas.hasPointerCapture?.(event.pointerId)) {
-      canvas.releasePointerCapture(event.pointerId);
-    }
-
-    if (panning) {
-      panning = null;
-      canvas.style.cursor = hovered ? "pointer" : "grab";
-      return;
-    }
-
-    if (!dragging) return;
-    const node = dragging;
-    const thrown = release(node, tracker.velocity(), DRIFT);
-    const energy = Math.min(Math.hypot(thrown.x, thrown.y) / DRIFT.maxThrowSpeed, 1);
-    node.trail = energy > 0.08 ? 1 : 0;
-    if (energy > 0.08) ripples.spawn(node.x, node.y, energy);
-    dragging = null;
-    tracker.reset();
-    canvas.style.cursor = hovered ? "pointer" : "grab";
-    wake(0.18);
-    if (node.moved < 3) openDetail(node);
+    if (activePointer === null || event.pointerId !== activePointer) return;
+    finishInteraction({ open: event.type === "pointerup" });
   }
 
   canvas.addEventListener("pointerup", endPointer);
   canvas.addEventListener("pointercancel", endPointer);
+  canvas.addEventListener("lostpointercapture", endPointer);
 
   async function openLinkDetail(link) {
     const sourceId = link.source.id ?? link.source;
@@ -724,6 +758,11 @@ export async function constellationView(outlet) {
   const onResize = () => recentre();
   window.addEventListener("resize", onResize);
 
+  const onBlur = () => {
+    if (dragging || panning) finishInteraction();
+  };
+  window.addEventListener("blur", onBlur);
+
   const onVisibility = () => {
     if (document.hidden && running) {
       simulation.stop();
@@ -741,6 +780,7 @@ export async function constellationView(outlet) {
   return () => {
     simulation.stop();
     window.removeEventListener("resize", onResize);
+    window.removeEventListener("blur", onBlur);
     document.removeEventListener("visibilitychange", onVisibility);
   };
 }
