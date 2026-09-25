@@ -292,3 +292,33 @@ change.
 **Summary**: Constellation drags can no longer strand a star, verified before and after. Stars
 now scale exponentially, which spreads apart the crowded high-difficulty range, with mass
 following size. The Observatory wallet comes from the same store as the header and updates live.
+
+### 2026-09-26 — Phase 5: header XP bar
+
+Checked `index.html` first: the top-right is `.topbar-right` with `#wallet` (a link to
+/observatory) and `#net-status`, and `main.js` inserts the Sign out button before it.
+
+**Decision: I restyled the existing bar into the XP bar instead of adding a second one.**
+`level_progress` *is* XP progress through the current level (`xp_into_level /
+(xp_into_level + xp_for_next_level)`, per `Wallet` in `models.py`). A second bar would show the
+same quantity twice, and the only other XP figure, lifetime/total XP, has no target to fill
+towards. So the old 54×3px sliver became a proper XP bar right next to the level pill:
+- **Level pill:** "LV n" as a solid orange chip with black text.
+- **XP bar:** a 92×7px black track with an outline and an orange→yellow fill, plus an
+  "into/span xp" label (e.g. `340/500 xp`). It's `role="progressbar"` with
+  `aria-valuenow`/`aria-valuemax` and "Experience toward level n+1".
+- **Gold:** unchanged, yellow. The tooltip now also shows total XP.
+- **The wallet link:** hover (orange outline) and focus-visible (yellow ring) states added. Only
+  the four accents plus neutrals are used.
+
+**Responsive:** at ≤720px the xp label hides and the bar shrinks to 56px. At ≤420px the brand
+word hides (the logo mark stays), the "online" pill hides **only while online** (the orange
+"offline" pill still shows), and spacing tightens. At ≤360px gold hides; it's still on the
+Observatory. Header buttons no longer wrap. Verified: no horizontal overflow at 1100, 720, 420,
+390, 360, 340 and 320px.
+
+**Verification**: build ✔, pytest 52/52 ✔, plus headless header checks at the widths above.
+
+**Summary**: The header's level pill now has a clearly labelled XP bar beside it (the old
+unlabelled sliver, restyled rather than duplicated), with correct progressbar semantics. The top
+bar also fits down to 320px without overflowing.

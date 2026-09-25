@@ -1227,34 +1227,115 @@ input[type="date"] {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 11px;
+  padding: 4px 11px 4px 4px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition: border-color var(--dur) var(--ease);
+}
+
+.topbar .btn {
+  white-space: nowrap;
+}
+
+.wallet:hover {
+  border-color: var(--orange-line);
+}
+
+.wallet:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
 }
 
 .wallet-level {
-  color: var(--orange);
+  padding: 3px 7px;
+  border-radius: 2px;
+  background: var(--orange);
+  color: var(--black);
+  font-weight: 600;
+}
+
+.wallet-xp {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.wallet-xp-track {
+  position: relative;
+  width: 92px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--black);
+  border: 1px solid var(--line-bright);
+  overflow: hidden;
+}
+
+.wallet-xp-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--orange), var(--yellow));
+  transition: width var(--dur-slow) var(--ease);
+}
+
+.wallet-xp-label {
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 .wallet-gold {
   color: var(--yellow);
 }
 
-.wallet-bar {
-  width: 54px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--bg-sunk);
-  overflow: hidden;
+@media (max-width: 720px) {
+  .topbar {
+    gap: 10px;
+  }
+
+  .wallet {
+    gap: 7px;
+    padding-right: 8px;
+  }
+
+  .wallet-xp-track {
+    width: 56px;
+  }
+
+  .wallet-xp-label {
+    display: none;
+  }
 }
 
-.wallet-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--orange);
+@media (max-width: 420px) {
+  .brand-text {
+    display: none;
+  }
+
+  #net-status.pill-ok {
+    display: none;
+  }
+
+  .topbar-right {
+    gap: 6px;
+  }
+
+  #sign-out {
+    padding: 6px 9px;
+  }
+
+  .wallet-xp-track {
+    width: 40px;
+  }
+}
+
+@media (max-width: 360px) {
+  .wallet-gold {
+    display: none;
+  }
 }
 
 .flow {

@@ -55,16 +55,35 @@ function setWallet() {
   const level = document.createElement("span");
   level.className = "wallet-level";
   level.textContent = `LV ${wallet.level}`;
-  const bar = document.createElement("span");
-  bar.className = "wallet-bar";
+
+  // The level pill's own XP bar: progress through the current level, with the
+  // numbers beside it, rather than a second bar repeating the same quantity.
+  const into = Math.max(wallet.xp_into_level || 0, 0);
+  const span = into + Math.max(wallet.xp_for_next_level || 0, 0);
+  const percent = Math.round(Math.min(Math.max(wallet.level_progress || 0, 0), 1) * 100);
+  const xp = document.createElement("span");
+  xp.className = "wallet-xp";
+  xp.setAttribute("role", "progressbar");
+  xp.setAttribute("aria-label", `Experience toward level ${wallet.level + 1}`);
+  xp.setAttribute("aria-valuemin", "0");
+  xp.setAttribute("aria-valuemax", String(span));
+  xp.setAttribute("aria-valuenow", String(into));
+  const track = document.createElement("span");
+  track.className = "wallet-xp-track";
   const fill = document.createElement("span");
-  fill.style.width = `${Math.round((wallet.level_progress || 0) * 100)}%`;
-  bar.append(fill);
+  fill.className = "wallet-xp-fill";
+  fill.style.width = `${percent}%`;
+  track.append(fill);
+  const label = document.createElement("span");
+  label.className = "wallet-xp-label";
+  label.textContent = `${into.toLocaleString()}/${span.toLocaleString()} xp`;
+  xp.append(track, label);
+
   const gold = document.createElement("span");
   gold.className = "wallet-gold";
   gold.textContent = `${wallet.gold.toLocaleString()}g`;
-  host.append(level, bar, gold);
-  host.title = `${wallet.xp_for_next_level} xp to level ${wallet.level + 1}`;
+  host.append(level, xp, gold);
+  host.title = `${wallet.xp_for_next_level.toLocaleString()} xp to level ${wallet.level + 1} · ${wallet.xp.toLocaleString()} xp in total`;
 }
 
 function setChrome() {
