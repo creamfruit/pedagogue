@@ -159,3 +159,74 @@ hover lost a specificity fight with `.btn-ghost:hover`.
 result when results are already showing. Every onboarding control has distinct hover,
 focus-visible, pressed, disabled and saving looks. The tier quiz shows a one-bar notation
 snippet per technique category.
+
+### 2026-09-26 — Phase 3: Piece Detail overhaul
+
+**3a — meta-grid order.** It's now Composer, Catalogue, Era, Duration, then Key, Composed,
+Marking, Genre, Syllabus grade, Difficulty, Mechanical load, keeping their previous relative
+order. The old separate "For you" row is gone (see 3c).
+
+#### Piece Detail — nullnullnull
+
+**Root cause found and fixed; it was static after all, just not in `metaRow()`.** In
+`entryDetailView` (`frontend/src/views/repertoire.js`), `host.replaceChildren(...)` was passed
+`banner`, `verificationBanner(entry)`, `decayBanner(entry, render)` and
+`overview ? pieceOverview(...) : null` directly. Each is `null` when it doesn't apply, and
+unlike the app's `el()` helper, the DOM's `replaceChildren()`/`append()` does **not** skip
+`null`: it converts it to the text node `"null"`. On an ordinary piece (below the grading
+threshold, not needing verification, not decaying) that's three nulls in a row between the title
+row and the Status/Tempo/Difficulty panels, i.e. **"nullnullnull"**. A fourth appears if the
+overview request fails. **Reproduced** against the mock with the pre-fix file (the page text read
+`…Practice this piece\nBack\nnullnullnull\nSTATUS…`) and **gone** after the fix (no "null" text
+anywhere on the page). Fix: collect the sections in an array and
+`replaceChildren(...sections.filter(Boolean))`.
+
+What I checked and ruled out on the way:
+- **Every DOM insertion in the frontend.** I parsed all of `frontend/src` with acorn and listed
+  each `append/prepend/replaceChildren/before/after/replaceWith` argument that isn't an obvious
+  element or string. The four in `entryDetailView` were the only ones that can be `null`.
+  `practice.js:217` and `progression.js:81` were checked by hand and always pass elements.
+- **Meta-grid fields traced to source.** `PieceOverviewService.render()` in
+  `backend/app/services/catalog.py` → `PieceOverview` in `schemas.py`. The only non-Optional
+  `str` fields are `difficulty_band` (always one of the band names, "unrated" for None) and
+  `duration_label` (the `Piece.duration_label` property returns "unknown" for None, which
+  `metaRow` already filters). In `ComposerProfile`, `lifespan`/`byline` are model properties that
+  never emit None (they return "" or join only present parts). `SectionRead.measure_span` is
+  always "bar N" or "bars A–B". None of these can produce "null"/"None" text.
+- **Frontend concatenations on the page.** No `${a}${b}${c}` anywhere on the detail path. The
+  only adjacent interpolation in the codebase is `repertoire.js:346` (external search), which is
+  guarded. I fixed three single-`null` leaks that would read badly (but not as "nullnullnull"):
+  - plan step `~${est_days}d`, which rendered "~nulld" when `est_days` is null (Optional);
+  - interpretation stats, which rendered "null bpm off" / "rubato variance null";
+  - movement rows, which rendered `null. Title` when `movement_number` is null.
+
+  All three now use the `[...].filter(Boolean).join(" · ")` pattern or a guard.
+- **The database, which I couldn't check.** A literal "null"/"None" string stored in a text
+  column would display as-is; I couldn't inspect this because Postgres isn't running. The most
+  plausible writer is the metadata generator: `_normalize()` in
+  `backend/app/services/metadata_generator.py` copied the LLM's `historical_note`, `fun_fact`,
+  `syllabus_grade`, `mood` and `scene` straight into the piece with no type or placeholder check.
+  **Hardened:** a new `clean_text()` turns non-strings and placeholder text ("null", "None",
+  "nullnullnull", "N/A", "unknown", …) into `None`, with 2 new unit tests. **Defence in depth on
+  the frontend:** `metaRow`, the lore paragraphs (`prose`) and the mood strip now hide values
+  made only of null/None/undefined and `console.warn` the field name. So if bad data already in
+  your DB is behind a variant of this, the page stays clean and the console names the field.
+
+**3c — dual difficulty.** A new `difficultyPair(personalized, baseline, {band})` component
+(exported from `components/overview.js`) shows **for you** (orange on a black cell) and
+**baseline · band** (neutral grey) side by side as one badge. Both are always visible, with "--"
+if one is missing. It replaces the meta-grid's "Difficulty" + conditional "For you" rows **and**
+the baseline-only Difficulty stat panel in `entryDetailView`. A tooltip gives the gap ("6.5
+harder for you than the catalogue baseline").
+- **Decision:** passage (section) difficulties and per-movement difficulties were left as single
+  values. The API has no personalised score for those, so a pair would be invented data.
+
+**Verification**: build ✔, pytest 52/52 ✔ (2 new). Headless checks: meta-grid order, both
+pairs render with orange/grey computed colours, junk `fun_fact` hidden with a warning,
+before/after reproduction of "nullnullnull", desktop and 390px mobile layouts.
+
+**Summary**: Found the actual "nullnullnull" bug: null banners passed to `replaceChildren()` on
+the piece detail page. It's fixed and verified before/after. I also hardened the LLM metadata
+path and the overview renderer against placeholder text. Composer/Catalogue/Era/Duration now
+lead the meta-grid, and difficulty everywhere on the page is a paired "for you | baseline"
+badge.

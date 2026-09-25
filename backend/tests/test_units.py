@@ -65,3 +65,27 @@ def test_local_storage_blocks_path_escape(tmp_path):
     storage = LocalStorage(root=str(tmp_path))
     with pytest.raises(Exception):
         storage.path_for("../../etc/passwd")
+
+
+def test_metadata_text_rejects_placeholders():
+    from app.services.metadata_generator import clean_text
+
+    assert clean_text("Stormy and restless") == "Stormy and restless"
+    assert clean_text("  padded  ") == "padded"
+    for junk in (None, 3, ["a"], "", "   ", "null", "None", "nullnullnull", "null null", "undefined", "N/A"):
+        assert clean_text(junk) is None, junk
+    assert clean_text("Nonetheless lyrical") == "Nonetheless lyrical"
+
+
+def test_metadata_normalize_drops_placeholder_fields():
+    from app.services.metadata_generator import MetadataGenerator
+
+    generator = MetadataGenerator([])
+    normalized = generator._normalize(
+        {"mood": "null", "scene": None, "fun_fact": "nullnullnull", "historical_note": "Real note.", "syllabus_grade": 8}
+    )
+    assert normalized["mood"] is None
+    assert normalized["scene"] is None
+    assert normalized["fun_fact"] is None
+    assert normalized["historical_note"] == "Real note."
+    assert normalized["syllabus_grade"] is None

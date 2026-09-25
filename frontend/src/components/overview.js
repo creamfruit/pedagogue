@@ -18,18 +18,67 @@ const CATEGORY_LABELS = {
   endurance: "endurance",
 };
 
+// Strings made only of null/None/undefined (e.g. "nullnullnull") are data junk
+// that slipped past the API. Hide them, but say which field so it can be traced.
+const PLACEHOLDER_JUNK = /^(?:\s|null|none|undefined)+$/i;
+
+function isJunk(label, value) {
+  if (typeof value !== "string" || !PLACEHOLDER_JUNK.test(value)) return false;
+  console.warn(`[piece overview] "${label}" arrived as placeholder text ${JSON.stringify(value)}; hiding it.`);
+  return true;
+}
+
 function metaRow(label, value) {
   if (value === null || value === undefined || value === "" || value === "unknown") return null;
+  if (isJunk(label, value)) return null;
   return el(
     "div",
     { class: "meta-row" },
     el("span", { class: "meta-key" }, label),
-    el("span", { class: "meta-value mono" }, String(value))
+    el("span", { class: "meta-value mono" }, value instanceof Node ? value : String(value))
+  );
+}
+
+function formatScore(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return String(Math.round(number * 10) / 10);
+}
+
+// Personalised ("for you") difficulty in the orange accent beside the neutral
+// catalogue baseline. Both are always shown; "--" stands in for a missing value.
+export function difficultyPair(personalized, baseline, { band } = {}) {
+  const forYou = formatScore(personalized);
+  const base = formatScore(baseline);
+  if (forYou === null && base === null) return null;
+  const delta = forYou !== null && base !== null ? Math.round((Number(forYou) - Number(base)) * 10) / 10 : 0;
+  return el(
+    "span",
+    {
+      class: "difficulty-pair",
+      title:
+        delta === 0
+          ? "Your difficulty matches the catalogue baseline"
+          : `${Math.abs(delta)} ${delta > 0 ? "harder" : "easier"} for you than the catalogue baseline`,
+    },
+    el(
+      "span",
+      { class: "difficulty-half difficulty-for-you" },
+      el("span", { class: "difficulty-value" }, forYou ?? "--"),
+      el("span", { class: "difficulty-caption" }, "for you")
+    ),
+    el(
+      "span",
+      { class: "difficulty-half difficulty-base" },
+      el("span", { class: "difficulty-value" }, base ?? "--"),
+      el("span", { class: "difficulty-caption" }, band ? `baseline · ${band}` : "baseline")
+    )
   );
 }
 
 function prose(title, body) {
-  if (!body) return null;
+  if (!body || isJunk(title, body)) return null;
   return el(
     "div",
     { class: "lore-block" },
@@ -212,25 +261,22 @@ export function pieceOverview(overview, { heading = true } = {}) {
       { class: "meta-grid" },
       metaRow("Composer", composer ? composer.name : null),
       metaRow("Catalogue", overview.catalog_number),
+      metaRow("Era", overview.era),
+      metaRow("Duration", overview.duration_label),
       metaRow("Key", overview.key_signature),
       metaRow("Composed", overview.year_composed),
       metaRow("Marking", overview.tempo_marking),
-      metaRow("Duration", overview.duration_label),
       metaRow("Genre", overview.genre),
-      metaRow("Era", overview.era),
       metaRow("Syllabus grade", overview.syllabus_grade),
-      metaRow("Difficulty", overview.difficulty_score != null ? `${overview.difficulty_score} · ${overview.difficulty_band}` : null),
-      metaRow("Mechanical load", overview.mechanical_load),
       metaRow(
-        "For you",
-        overview.personalized_difficulty != null && overview.personalized_difficulty !== overview.difficulty_score
-          ? overview.personalized_difficulty
-          : null
-      )
+        "Difficulty",
+        difficultyPair(overview.personalized_difficulty, overview.difficulty_score, { band: overview.difficulty_band })
+      ),
+      metaRow("Mechanical load", overview.mechanical_load)
     )
   );
 
-  if (overview.mood) {
+  if (overview.mood && !isJunk("Character", overview.mood)) {
     wrap.append(el("div", { class: "mood-strip" }, el("span", { class: "cue-tag" }, "Character"), overview.mood));
   }
 
@@ -327,7 +373,7 @@ export function pieceOverview(overview, { heading = true } = {}) {
               el(
                 "div",
                 {},
-                el("div", {}, `${movement.movement_number}. ${movement.title}`),
+                el("div", {}, movement.movement_number != null ? `${movement.movement_number}. ${movement.title}` : movement.title),
                 el("div", { class: "faint mono", style: "font-size:11.5px" }, movement.duration_label)
               ),
               movement.difficulty_score != null

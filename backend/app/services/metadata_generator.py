@@ -22,6 +22,19 @@ GRADE_BY_BAND = {
     "virtuoso": "Professional / Concert repertoire",
 }
 
+PLACEHOLDER_TEXT = {"", "null", "none", "undefined", "n/a", "unknown"}
+
+
+def clean_text(value: object) -> Optional[str]:
+    """Model output is untrusted: keep real prose, turn non-strings and placeholders into None."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    collapsed = text.lower().replace("null", "").replace("none", "").replace("undefined", "")
+    if text.lower() in PLACEHOLDER_TEXT or not collapsed.strip(" .,-/"):
+        return None
+    return text
+
 
 class MetadataGenerator:
     def __init__(self, techniques: Sequence[Technique]) -> None:
@@ -128,9 +141,9 @@ class MetadataGenerator:
         return {
             "techniques": techniques,
             "hard_bars": hard_bars,
-            "historical_note": data.get("historical_note"),
-            "fun_fact": data.get("fun_fact"),
-            "syllabus_grade": data.get("syllabus_grade"),
-            "mood": data.get("mood"),
-            "scene": data.get("scene"),
+            "historical_note": clean_text(data.get("historical_note")),
+            "fun_fact": clean_text(data.get("fun_fact")),
+            "syllabus_grade": clean_text(data.get("syllabus_grade")),
+            "mood": clean_text(data.get("mood")),
+            "scene": clean_text(data.get("scene")),
         }

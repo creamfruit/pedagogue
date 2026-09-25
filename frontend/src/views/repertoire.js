@@ -1,5 +1,5 @@
 import { api, pollSubmission } from "../api/client.js";
-import { pieceOverview } from "../components/overview.js";
+import { difficultyPair, pieceOverview } from "../components/overview.js";
 import { el, empty, openModal, optionCard, skeletonBlock } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
@@ -639,7 +639,11 @@ function planPanel(entryId, plan, onBuild, onAdvance) {
             "div",
             {},
             el("div", {}, step.instruction),
-            el("div", { class: "faint mono", style: "font-size:11px" }, `${step.scope_label} · ~${step.est_days}d`)
+            el(
+              "div",
+              { class: "faint mono", style: "font-size:11px" },
+              [step.scope_label, step.est_days != null ? `~${step.est_days}d` : null].filter(Boolean).join(" · ")
+            )
           ),
           step.status === "active"
             ? el("button", { class: "btn btn-small btn-ghost", onclick: () => onAdvance(step.id) }, "Mark done")
@@ -684,11 +688,16 @@ function submissionCard(submission) {
         el(
           "div",
           { class: "row", style: "justify-content:space-between" },
-          el("span", { class: "stat", style: "font-size:20px" }, interp.match_score),
+          el("span", { class: "stat", style: "font-size:20px" }, interp.match_score ?? "--"),
           el(
             "span",
             { class: "faint mono", style: "font-size:11px" },
-            `avg ${interp.mean_absolute_deviation_bpm} bpm off · rubato variance ${interp.rubato_variance}`
+            [
+              interp.mean_absolute_deviation_bpm != null ? `avg ${interp.mean_absolute_deviation_bpm} bpm off` : null,
+              interp.rubato_variance != null ? `rubato variance ${interp.rubato_variance}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")
           )
         )
       )
@@ -871,7 +880,10 @@ export async function entryDetailView(outlet, context) {
             )
           : null;
 
-    host.replaceChildren(
+    // The banners and the overview are null when they do not apply, and
+    // replaceChildren() would render each null as the literal text "null"
+    // (three in a row on an ordinary piece: the "nullnullnull" bug).
+    const sections = [
       el(
         "div",
         { class: "row", style: "justify-content:space-between;margin-bottom:18px" },
@@ -891,7 +903,14 @@ export async function entryDetailView(outlet, context) {
         { class: "grid" },
         el("div", { class: "panel" }, el("div", { class: "stat-label" }, "Status"), el("div", { class: "stat", style: "font-size:20px" }, entry.status.replace(/_/g, " "))),
         el("div", { class: "panel" }, el("div", { class: "stat-label" }, "Tempo"), el("div", { class: "stat", style: "font-size:20px" }, `${entry.current_tempo_bpm ?? "--"} / ${entry.target_tempo_bpm ?? "--"}`)),
-        el("div", { class: "panel" }, el("div", { class: "stat-label" }, "Difficulty"), el("div", { class: "stat", style: "font-size:20px" }, entry.piece.difficulty_score ?? "--"))
+        el(
+          "div",
+          { class: "panel" },
+          el("div", { class: "stat-label" }, "Difficulty"),
+          difficultyPair(overview?.personalized_difficulty, overview?.difficulty_score ?? entry.piece.difficulty_score, {
+            band: overview?.difficulty_band,
+          }) || el("div", { class: "stat", style: "font-size:20px" }, "--")
+        )
       ),
       el(
         "section",
@@ -945,8 +964,9 @@ export async function entryDetailView(outlet, context) {
         }
       ),
       submissionsPanel(entry, submissions, render),
-      overview ? pieceOverview(overview, { heading: false }) : null
-    );
+      overview ? pieceOverview(overview, { heading: false }) : null,
+    ];
+    host.replaceChildren(...sections.filter(Boolean));
   }
 
   try {
