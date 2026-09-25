@@ -200,7 +200,7 @@ export async function repertoireView(outlet, context) {
               { class: "row" },
               entry.is_top_ten ? el("span", { class: "pill pill-accent" }, "top ten") : null,
               entry.needs_verification ? el("span", { class: "pill pill-warn" }, "unverified") : null,
-              entry.decay_level >= 0.85 ? el("span", { class: "pill", style: "color:#9fd4f0" }, "frozen") : null,
+              entry.decay_level >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen") : null,
               el("span", { class: "pill" }, entry.status.replace(/_/g, " ")),
               entry.piece.difficulty_score ? el("span", { class: "pill mono" }, entry.piece.difficulty_score) : null
             )
@@ -591,7 +591,7 @@ function decayBanner(entry, onMaintained) {
       "div",
       { class: "row", style: "justify-content:space-between" },
       el("strong", { style: "font-weight:500" }, entry.is_frozen ? "Frozen · orbital decay" : "Drifting · orbital decay"),
-      el("span", { class: "pill", style: "color:#9fd4f0" }, `${Math.round(entry.decay_level * 100)}%`)
+      el("span", { class: "pill pill-frozen" }, `${Math.round(entry.decay_level * 100)}%`)
     ),
     el(
       "p",

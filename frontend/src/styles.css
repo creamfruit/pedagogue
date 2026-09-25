@@ -12,19 +12,34 @@
   --text-dim: #9a958d;
   --text-faint: #63605a;
 
-  --amber: #f0a13c;
-  --amber-deep: #a86a1f;
-  --amber-wash: rgba(240, 161, 60, 0.1);
-  --coral: #e8734a;
-  --rose: #e05a78;
-  --cool: #7fa8c9;
+  /* The accent system is exactly four colours. Everything above is a neutral;
+     every tint below is an opacity step of an accent, never a new hue.
+     lib/palette.js reads these for canvas drawing, so rename in both places. */
+  --yellow: #ffd08a;
+  --orange: #f0a13c;
+  --pink: #e05a78;
+  --black: #020202;
 
-  --ok: #9bb86a;
-  --warn: var(--amber);
-  --bad: var(--rose);
+  --yellow-rgb: 255, 208, 138;
+  --orange-rgb: 240, 161, 60;
+  --pink-rgb: 224, 90, 120;
 
-  --glow-soft: 0 0 14px rgba(240, 161, 60, 0.16);
-  --glow-ring: 0 0 22px rgba(240, 161, 60, 0.22);
+  --yellow-wash: rgba(var(--yellow-rgb), 0.1);
+  --orange-line: rgba(var(--orange-rgb), 0.5);
+  --orange-wash: rgba(var(--orange-rgb), 0.1);
+  --pink-line: rgba(var(--pink-rgb), 0.5);
+  --pink-wash: rgba(var(--pink-rgb), 0.1);
+
+  /* Status: bad is pink, warn is orange, ok is the black/white contrast
+     treatment. The pill classes also give each status its own marker shape
+     so it never depends on colour alone. */
+  --ok: var(--text);
+  --ok-fill: var(--black);
+  --warn: var(--orange);
+  --bad: var(--pink);
+
+  --glow-soft: 0 0 14px rgba(var(--orange-rgb), 0.16);
+  --glow-ring: 0 0 22px rgba(var(--orange-rgb), 0.22);
 
   --radius: 4px;
   --shell-pad: clamp(16px, 4vw, 40px);
@@ -73,8 +88,8 @@ body::before {
       transparent 1px,
       transparent 3px
     ),
-    radial-gradient(1100px 700px at 12% -8%, rgba(240, 161, 60, 0.05), transparent 62%),
-    radial-gradient(800px 560px at 108% 4%, rgba(232, 115, 74, 0.035), transparent 60%);
+    radial-gradient(1100px 700px at 12% -8%, rgba(var(--orange-rgb), 0.05), transparent 62%),
+    radial-gradient(800px 560px at 108% 4%, rgba(var(--pink-rgb), 0.035), transparent 60%);
 }
 
 .mono,
@@ -86,7 +101,7 @@ body::before {
 }
 
 a {
-  color: var(--amber);
+  color: var(--orange);
   text-decoration: none;
   transition: color var(--dur) var(--ease);
 }
@@ -146,7 +161,7 @@ p {
   height: 62px;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
-  border-top-color: var(--amber);
+  border-top-color: var(--orange);
   box-shadow: var(--glow-ring);
   animation: spin 1.1s var(--ease) infinite;
 }
@@ -203,7 +218,7 @@ p {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 1px solid var(--amber);
+  border: 1px solid var(--orange);
   position: relative;
   box-shadow: var(--glow-soft);
 }
@@ -213,7 +228,7 @@ p {
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--orange);
 }
 
 .brand-text {
@@ -223,7 +238,7 @@ p {
 
 .brand-text em {
   font-style: normal;
-  color: var(--amber);
+  color: var(--orange);
 }
 
 .topbar-right {
@@ -282,9 +297,9 @@ p {
 }
 
 .nav a.active {
-  color: var(--amber);
-  border-color: var(--amber-deep);
-  background: var(--amber-wash);
+  color: var(--orange);
+  border-color: var(--orange-line);
+  background: var(--orange-wash);
 }
 
 .view {
@@ -351,13 +366,13 @@ p {
 }
 
 .panel-accent {
-  border-color: var(--amber-deep);
+  border-color: var(--orange-line);
   box-shadow: var(--glow-soft);
 }
 
 .panel-accent::before,
 .panel-accent::after {
-  border-color: var(--amber);
+  border-color: var(--orange);
 }
 
 .panel-head {
@@ -371,7 +386,7 @@ p {
 .stat {
   font-size: 29px;
   font-weight: 400;
-  color: var(--amber);
+  color: var(--orange);
   line-height: 1.12;
   letter-spacing: -0.02em;
 }
@@ -406,8 +421,8 @@ p {
 .stat-ring::after {
   inset: 0;
   border: 1px solid transparent;
-  border-top-color: var(--amber);
-  border-right-color: var(--amber-deep);
+  border-top-color: var(--orange);
+  border-right-color: var(--orange-line);
   box-shadow: var(--glow-ring);
   animation: spin 6.5s linear infinite;
 }
@@ -471,11 +486,11 @@ p {
 }
 
 .list-item-link:hover {
-  border-color: var(--amber-deep);
+  border-color: var(--orange-line);
 }
 
 .list-item-link:focus-visible {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--orange);
   outline-offset: 2px;
 }
 
@@ -496,25 +511,67 @@ p {
   color: var(--text-dim);
 }
 
+.pill-ok::before,
+.pill-warn::before,
+.pill-bad::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+}
+
 .pill-ok {
   color: var(--ok);
-  border-color: rgba(155, 184, 106, 0.38);
+  background: var(--ok-fill);
+  border-color: var(--text-dim);
+}
+
+.pill-ok::before {
+  border-radius: 50%;
 }
 
 .pill-warn {
-  color: var(--amber);
-  border-color: var(--amber-deep);
+  color: var(--warn);
+  border-color: var(--orange-line);
+}
+
+.pill-warn::before {
+  transform: rotate(45deg) scale(0.85);
 }
 
 .pill-bad {
-  color: var(--rose);
-  border-color: rgba(224, 90, 120, 0.4);
+  color: var(--bad);
+  border-color: var(--pink);
+  background: var(--pink-wash);
+  font-weight: 600;
+}
+
+.pill-bad::before {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.pill-custom {
+  color: var(--text);
+  background: var(--black);
+  border: 1px dashed var(--text-dim);
+}
+
+.pill-frozen {
+  color: var(--text-dim);
+  border-style: dashed;
+  border-color: var(--text-faint);
+}
+
+.pill-unverified {
+  color: var(--text-faint);
+  border-style: dotted;
 }
 
 .pill-accent {
-  color: var(--amber);
-  border-color: var(--amber-deep);
-  background: var(--amber-wash);
+  color: var(--orange);
+  border-color: var(--orange-line);
+  background: var(--orange-wash);
 }
 
 .tier-buttons {
@@ -581,7 +638,7 @@ p {
 }
 
 .option-card:hover {
-  border-color: var(--amber-deep);
+  border-color: var(--orange-line);
   transform: translateY(-2px);
 }
 
@@ -596,9 +653,10 @@ p {
 }
 
 .tier-btn-active {
-  background: var(--amber-wash);
-  border-color: var(--amber);
-  color: var(--amber);
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--black);
+  font-weight: 600;
 }
 
 .btn {
@@ -609,9 +667,9 @@ p {
   padding: 9px 17px;
   min-height: 40px;
   border-radius: var(--radius);
-  border: 1px solid var(--amber-deep);
-  background: var(--amber-wash);
-  color: var(--amber);
+  border: 1px solid var(--orange);
+  background: var(--black);
+  color: var(--orange);
   font-family: var(--font);
   font-size: 13px;
   font-weight: 500;
@@ -622,8 +680,8 @@ p {
 }
 
 .btn:hover {
-  background: rgba(240, 161, 60, 0.17);
-  border-color: var(--amber);
+  background: var(--orange);
+  color: var(--black);
   box-shadow: var(--glow-soft);
 }
 
@@ -657,9 +715,15 @@ p {
 }
 
 .btn-danger {
-  border-color: rgba(224, 90, 120, 0.45);
-  background: rgba(224, 90, 120, 0.1);
-  color: var(--rose);
+  border-color: var(--pink);
+  background: var(--black);
+  color: var(--pink);
+}
+
+.btn-danger:hover {
+  background: var(--pink);
+  color: var(--black);
+  box-shadow: none;
 }
 
 label {
@@ -687,8 +751,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--amber-deep);
-  box-shadow: 0 0 0 2px rgba(240, 161, 60, 0.13);
+  border-color: var(--orange-line);
+  box-shadow: 0 0 0 2px rgba(var(--orange-rgb), 0.13);
 }
 
 input[type="number"],
@@ -701,7 +765,7 @@ input[type="date"] {
 }
 
 .field-error {
-  color: var(--rose);
+  color: var(--pink);
   font-size: 12.5px;
   margin-top: 6px;
   text-transform: none;
@@ -729,17 +793,18 @@ input[type="date"] {
   border-radius: var(--radius);
   background: var(--bg-panel);
   border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--amber);
+  border-left: 2px solid var(--orange);
   font-size: 13.5px;
   animation: toast-in var(--dur) var(--ease);
 }
 
 .toast-error {
-  border-left-color: var(--rose);
+  border-left-color: var(--pink);
 }
 
 .toast-success {
   border-left-color: var(--ok);
+  background: var(--ok-fill);
 }
 
 @keyframes toast-in {
@@ -759,7 +824,7 @@ input[type="date"] {
   gap: 12px;
   padding: 10px 15px;
   background: var(--bg-panel);
-  border: 1px solid var(--amber-deep);
+  border: 1px solid var(--orange-line);
   border-radius: var(--radius);
   z-index: 60;
   font-size: 13.5px;
@@ -802,7 +867,7 @@ input[type="date"] {
 .bar > span {
   display: block;
   height: 100%;
-  background: var(--amber);
+  background: var(--orange);
   box-shadow: var(--glow-soft);
   transition: width var(--dur-slow) var(--ease);
 }
@@ -837,7 +902,7 @@ input[type="date"] {
   border-radius: var(--radius);
   overflow: hidden;
   min-height: 420px;
-  background-color: #000000;
+  background-color: var(--black);
 }
 
 .constellation-wrap canvas {
@@ -900,6 +965,57 @@ input[type="date"] {
   background: currentColor;
 }
 
+.era-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.era-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.era-glyph {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.era-glyph-spiked::before,
+.era-glyph-spiked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: currentColor;
+  border-radius: 1px;
+  opacity: 0.85;
+}
+
+.era-glyph-spiked::before {
+  width: 15px;
+  height: 1px;
+  transform: translate(-50%, -50%);
+}
+
+.era-glyph-spiked::after {
+  width: 1px;
+  height: 15px;
+  transform: translate(-50%, -50%);
+}
+
 @media (max-width: 720px) {
   .icon-button {
     display: flex;
@@ -943,11 +1059,11 @@ input[type="date"] {
 }
 
 .wallet-level {
-  color: var(--amber);
+  color: var(--orange);
 }
 
 .wallet-gold {
-  color: #ffd08a;
+  color: var(--yellow);
 }
 
 .wallet-bar {
@@ -961,7 +1077,7 @@ input[type="date"] {
 .wallet-bar > span {
   display: block;
   height: 100%;
-  background: var(--amber);
+  background: var(--orange);
 }
 
 .flow {
@@ -982,11 +1098,11 @@ input[type="date"] {
 }
 
 .flow-node[data-owned="true"] {
-  border-color: var(--amber-deep);
+  border-color: var(--orange-line);
 }
 
 .flow-node[data-target="true"] {
-  border-color: var(--amber);
+  border-color: var(--orange);
   box-shadow: var(--glow-soft);
 }
 
@@ -1004,8 +1120,8 @@ input[type="date"] {
 }
 
 .flow-node[data-target="true"] .flow-index {
-  border-color: var(--amber);
-  color: var(--amber);
+  border-color: var(--orange);
+  color: var(--orange);
 }
 
 .flow-arrow {
@@ -1040,7 +1156,7 @@ input[type="date"] {
 }
 
 .shop-card[data-equipped="true"] {
-  border-color: var(--amber);
+  border-color: var(--orange);
   box-shadow: var(--glow-soft);
 }
 
@@ -1078,7 +1194,7 @@ input[type="date"] {
 }
 
 .achievement[data-earned="true"] {
-  border-color: var(--amber-deep);
+  border-color: var(--orange-line);
 }
 
 .achievement-mark {
@@ -1090,14 +1206,14 @@ input[type="date"] {
 }
 
 .achievement[data-earned="true"] .achievement-mark {
-  border-color: var(--amber);
-  background: var(--amber-wash);
+  border-color: var(--orange);
+  background: var(--orange-wash);
   box-shadow: var(--glow-soft);
 }
 
 .locked-banner {
-  border: 1px solid var(--amber-deep);
-  background: var(--amber-wash);
+  border: 1px solid var(--orange-line);
+  background: var(--orange-wash);
   border-radius: var(--radius);
   padding: 13px 15px;
   margin-bottom: 14px;
@@ -1149,7 +1265,7 @@ input[type="date"] {
   margin-top: 16px;
   padding: 11px 14px;
   border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--amber);
+  border-left: 2px solid var(--orange);
   border-radius: var(--radius);
   background: var(--bg-raised);
   font-size: 14px;
@@ -1161,16 +1277,16 @@ input[type="date"] {
   font-size: 9.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--amber);
-  border: 1px solid var(--amber-deep);
+  color: var(--orange);
+  border: 1px solid var(--orange-line);
   border-radius: 2px;
   padding: 2px 6px;
   margin-right: 9px;
 }
 
 .cue-warn {
-  color: var(--rose);
-  border-color: var(--rose);
+  color: var(--pink);
+  border-color: var(--pink);
 }
 
 .lore-panel {
@@ -1213,7 +1329,7 @@ input[type="date"] {
 }
 
 .section-card:first-child {
-  border-left-color: var(--amber);
+  border-left-color: var(--orange);
 }
 
 .section-card:hover {
@@ -1224,7 +1340,7 @@ input[type="date"] {
   font-size: 10.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--amber);
+  color: var(--orange);
 }
 
 .section-label {
@@ -1312,7 +1428,7 @@ input[type="date"] {
 }
 
 .link-arrow {
-  color: var(--amber);
+  color: var(--orange);
   font-family: var(--mono);
 }
 

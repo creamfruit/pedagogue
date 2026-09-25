@@ -1,5 +1,6 @@
 import { api } from "../api/client.js";
 import { el, empty, skeletonBlock } from "../lib/dom.js";
+import { ERA_STYLE, eraGlyph } from "../lib/palette.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 
@@ -15,12 +16,14 @@ const KIND_ORDER = ["star_color", "glow", "nebula", "link_style"];
 function preview(cosmetic) {
   const payload = cosmetic.payload || {};
   if (cosmetic.kind === "star_color") {
+    if (payload.mode === "era") {
+      return el("div", { class: "swatch-row", style: "gap:10px" }, ...Object.keys(ERA_STYLE).map((era) => eraGlyph(era)));
+    }
+    // Fixed colours are the cosmetic's own purchased data, not app accents.
     const colors =
-      payload.mode === "era"
-        ? ["#ffe3b0", "#f0a13c", "#e8865a", "#e0687e"]
-        : payload.mode === "difficulty"
-          ? ["#9fd4f0", "#ffe3b0", "#f0a13c", "#ffffff"]
-          : [payload.color || "#f0a13c"];
+      payload.mode === "difficulty"
+        ? ["var(--pink)", "var(--orange)", "var(--yellow)", "var(--text)"]
+        : [payload.color || "var(--orange)"];
     return el(
       "div",
       { class: "swatch-row" },
@@ -39,9 +42,9 @@ function preview(cosmetic) {
       { class: "swatch-row" },
       el("span", {
         class: "swatch-dot",
-        style: `background:#f0a13c;box-shadow:0 0 ${Math.round(4 + scale * 12)}px ${Math.round(
+        style: `background:var(--orange);box-shadow:0 0 ${Math.round(4 + scale * 12)}px ${Math.round(
           1 + scale * 5
-        )}px rgba(240,161,60,${0.15 + scale * 0.18})`,
+        )}px rgba(var(--orange-rgb),${0.15 + scale * 0.18})`,
       })
     );
   }
@@ -59,10 +62,12 @@ function preview(cosmetic) {
       : "none";
     return el("div", {
       class: "swatch-row",
-      style: `background-color:#000;background-image:${background};border-radius:var(--radius);border:1px solid var(--line)`,
+      style: `background-color:var(--black);background-image:${background};border-radius:var(--radius);border:1px solid var(--line)`,
     });
   }
-  const dash = payload.dash ? "repeating-linear-gradient(90deg,#f0a13c 0 5px,transparent 5px 10px)" : "#f0a13c";
+  const dash = payload.dash
+    ? "repeating-linear-gradient(90deg,var(--orange) 0 5px,transparent 5px 10px)"
+    : "var(--orange)";
   return el(
     "div",
     { class: "swatch-row" },
@@ -106,7 +111,7 @@ export async function shopView(outlet) {
           "div",
           { class: "panel" },
           el("div", { class: "stat-label" }, "Gold"),
-          el("div", { class: "stat", style: "color:#ffd08a" }, wallet.gold.toLocaleString()),
+          el("div", { class: "stat", style: "color:var(--yellow)" }, wallet.gold.toLocaleString()),
           el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.lifetime_gold.toLocaleString()} earned in total`)
         ),
         el(

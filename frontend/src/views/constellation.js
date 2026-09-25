@@ -12,11 +12,14 @@ import {
   moveGrab,
   release,
 } from "../lib/drift.js";
+import { ERA_STYLE, difficultyTone, eraGlyph, palette } from "../lib/palette.js";
 
-const LINK_COLORS = {
-  composer: "#f0a13c",
-  technique: "#e8734a",
-  era_genre: "#e05a78",
+// Link type is carried by accent and dash pattern together, so the three types
+// stay distinct in the legend and on the canvas even where hues sit close.
+const LINK_STYLES = {
+  composer: { tone: "orange", dash: null },
+  technique: { tone: "yellow", dash: [7, 4] },
+  era_genre: { tone: "pink", dash: [1.5, 4] },
 };
 
 const LINK_LABELS = {
@@ -25,18 +28,6 @@ const LINK_LABELS = {
   era_genre: "era / genre",
 };
 
-const ERA_COLORS = {
-  Baroque: "#ffe3b0",
-  Classical: "#ffd08a",
-  Romantic: "#f0a13c",
-  Impressionist: "#e8865a",
-  Modern: "#e0687e",
-  Contemporary: "#d9718f",
-};
-
-const STAR_DEFAULT = "#cdd3dc";
-const CUSTOM_COLOR = "#b48af0";
-const UNVERIFIED_COLOR = "#8a8f99";
 const AMBIENT_ALPHA = 0.015;
 const BACKDROP_STARS = 240;
 const PARALLAX = 0.3;
@@ -91,15 +82,18 @@ export async function constellationView(outlet) {
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const enabled = new Set(graph.link_types);
+  const colors = palette();
+  const linkColor = (type) => (LINK_STYLES[type] ? colors[LINK_STYLES[type].tone] : colors.lineStrong);
 
-  Object.keys(LINK_COLORS).forEach((type) => {
+  Object.keys(LINK_STYLES).forEach((type) => {
     if (!graph.link_types.includes(type)) return;
+    const { dash } = LINK_STYLES[type];
     const button = el(
       "button",
       {
         type: "button",
         "aria-pressed": "true",
-        style: `color:${LINK_COLORS[type]}`,
+        style: `color:${linkColor(type)}`,
         onclick: () => {
           if (enabled.has(type)) enabled.delete(type);
           else enabled.add(type);
@@ -107,7 +101,12 @@ export async function constellationView(outlet) {
           draw();
         },
       },
-      el("span", { class: "swatch" }),
+      el("span", {
+        class: "swatch",
+        style: dash
+          ? `background:repeating-linear-gradient(90deg,currentColor 0 ${dash[0]}px,transparent ${dash[0]}px ${dash[0] + dash[1]}px)`
+          : null,
+      }),
       LINK_LABELS[type]
     );
     legendHost.append(button);
@@ -137,26 +136,42 @@ export async function constellationView(outlet) {
   };
   const nebulaLayers = (loadout && loadout.nebula && loadout.nebula.payload?.layers) || [];
 
-  function starColor(node) {
-    const difficulty = node.difficulty ?? 50;
-    if (node.is_custom) return CUSTOM_COLOR;
-    if (starStyle.mode === "fixed" && starStyle.color) return starStyle.color;
-    if (starStyle.mode === "difficulty") {
-      if (difficulty >= 90) return "#ffffff";
-      if (difficulty >= 75) return "#ffe3b0";
-      if (difficulty >= 55) return "#f0a13c";
-      return "#9fd4f0";
+  if (starStyle.mode === "era" || !starStyle.mode) {
+    const eras = Object.keys(ERA_STYLE).filter((era) => graph.nodes.some((node) => node.era === era));
+    if (eras.length) {
+      legendHost.append(
+        el(
+          "div",
+          { class: "era-keys", "aria-label": "Era key" },
+          ...eras.map((era) => el("span", { class: "era-key" }, eraGlyph(era), era))
+        )
+      );
     }
-    return ERA_COLORS[node.era] || STAR_DEFAULT;
+  }
+
+  // Custom pieces are a black core with a white outline regardless of the star
+  // cosmetic: the only hollow-looking lit star on the chart.
+  function starLook(node) {
+    const difficulty = node.difficulty ?? 50;
+    if (node.is_custom) return { color: colors.black, halo: colors.text, outline: colors.text, spiked: false };
+    if (starStyle.mode === "fixed" && starStyle.color) return { color: starStyle.color, spiked: false };
+    if (starStyle.mode === "difficulty") return { color: colors[difficultyTone(difficulty)], spiked: false };
+    const era = ERA_STYLE[node.era];
+    if (!era) return { color: colors.text, spiked: false };
+    return { color: colors[era.tone], spiked: era.spiked };
   }
 
   const nodes = graph.nodes.map((node) => {
     const difficulty = (node.difficulty ?? 50) / 10;
+    const look = starLook(node);
     return {
       ...node,
       dot: 1.3 + difficulty * 0.56,
       radius: 7 + difficulty * 1.1,
-      color: starColor(node),
+      color: look.color,
+      halo: look.halo || look.color,
+      outline: look.outline || null,
+      spiked: look.spiked,
     };
   });
   const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -325,7 +340,7 @@ export async function constellationView(outlet) {
     ctx.translate(transform.x * PARALLAX, transform.y * PARALLAX);
     const zoom = 1 + (transform.k - 1) * PARALLAX;
     ctx.scale(zoom, zoom);
-    ctx.fillStyle = "#dfe4ec";
+    ctx.fillStyle = colors.text;
     backdrop.forEach((star) => {
       const twinkle = reduceMotion ? 1 : 0.7 + 0.3 * Math.sin(clock * star.speed + star.phase);
       ctx.globalAlpha = star.base * twinkle;
@@ -342,7 +357,7 @@ export async function constellationView(outlet) {
       const radius = (1 - ripple.life) * 58 * ripple.energy + 4;
       ctx.beginPath();
       ctx.arc(ripple.x, ripple.y, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(240,161,60,1)";
+      ctx.strokeStyle = colors.orange;
       ctx.globalAlpha = ripple.life * 0.22 * ripple.energy;
       ctx.lineWidth = 1 / transform.k;
       ctx.stroke();
@@ -362,7 +377,7 @@ export async function constellationView(outlet) {
     if (unverified) {
       ctx.save();
       ctx.setLineDash([core * 0.6, core * 0.5]);
-      ctx.strokeStyle = UNVERIFIED_COLOR;
+      ctx.strokeStyle = colors.textDim;
       ctx.lineWidth = Math.max(1.4, core * 0.22) / transform.k;
       ctx.globalAlpha = isActive ? 0.9 : 0.65;
       ctx.beginPath();
@@ -370,7 +385,7 @@ export async function constellationView(outlet) {
       ctx.stroke();
       ctx.restore();
       ctx.globalAlpha = 1;
-      if (node.is_custom) drawCustomRing(node, core);
+      if (node.is_custom) drawCustomCore(node, core * 0.55, 1);
       return;
     }
 
@@ -378,8 +393,8 @@ export async function constellationView(outlet) {
 
     if (spread > 0) {
       const halo = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glow);
-      halo.addColorStop(0, node.color);
-      halo.addColorStop(0.2, node.color);
+      halo.addColorStop(0, node.halo);
+      halo.addColorStop(0.2, node.halo);
       halo.addColorStop(1, "rgba(0,0,0,0)");
       ctx.globalAlpha = (isActive ? 0.45 : node.is_top_ten ? 0.32 : 0.2) * fade;
       ctx.fillStyle = halo;
@@ -389,18 +404,24 @@ export async function constellationView(outlet) {
       ctx.globalAlpha = 1;
     }
 
-    ctx.globalAlpha = fade;
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, core, 0, Math.PI * 2);
-    ctx.fillStyle = node.color;
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    if (node.spiked) drawSpikes(node, core, fade);
+
+    if (node.outline) {
+      drawCustomCore(node, core, fade);
+    } else {
+      ctx.globalAlpha = fade;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, core, 0, Math.PI * 2);
+      ctx.fillStyle = node.color;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
 
     if (node.is_top_ten || isActive) {
       ctx.globalAlpha = fade;
       ctx.beginPath();
       ctx.arc(node.x, node.y, core * (glowStyle.core ?? 0.42), 0, Math.PI * 2);
-      ctx.fillStyle = "#fff6e6";
+      ctx.fillStyle = colors.white;
       ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -408,7 +429,7 @@ export async function constellationView(outlet) {
     if (frozen) {
       ctx.save();
       ctx.setLineDash([core * 0.35, core * 0.35]);
-      ctx.strokeStyle = "#9fd4f0";
+      ctx.strokeStyle = colors.text;
       ctx.lineWidth = Math.max(1, core * 0.16) / transform.k;
       ctx.globalAlpha = 0.75;
       ctx.beginPath();
@@ -417,21 +438,35 @@ export async function constellationView(outlet) {
       ctx.restore();
       ctx.globalAlpha = 1;
     }
-
-    if (node.is_custom) drawCustomRing(node, core);
   }
 
-  function drawCustomRing(node, core) {
+  function drawCustomCore(node, core, fade) {
     ctx.save();
-    ctx.setLineDash([core * 0.3, core * 0.4]);
-    ctx.strokeStyle = CUSTOM_COLOR;
-    ctx.lineWidth = Math.max(1, core * 0.14) / transform.k;
-    ctx.globalAlpha = 0.8;
+    ctx.globalAlpha = fade;
     ctx.beginPath();
-    ctx.arc(node.x, node.y, core * 1.85, 0, Math.PI * 2);
+    ctx.arc(node.x, node.y, core, 0, Math.PI * 2);
+    ctx.fillStyle = colors.black;
+    ctx.fill();
+    ctx.strokeStyle = node.outline || colors.text;
+    ctx.lineWidth = Math.max(1.2, core * 0.28) / transform.k;
     ctx.stroke();
     ctx.restore();
-    ctx.globalAlpha = 1;
+  }
+
+  function drawSpikes(node, core, fade) {
+    const reach = Math.max(core * 2.6, 5 / transform.k);
+    ctx.save();
+    ctx.globalAlpha = 0.85 * fade;
+    ctx.strokeStyle = node.color;
+    ctx.lineWidth = Math.max(0.8, core * 0.2) / transform.k;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(node.x - reach, node.y);
+    ctx.lineTo(node.x + reach, node.y);
+    ctx.moveTo(node.x, node.y - reach);
+    ctx.lineTo(node.x, node.y + reach);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function draw() {
@@ -449,13 +484,18 @@ export async function constellationView(outlet) {
       ctx.beginPath();
       ctx.moveTo(link.source.x, link.source.y);
       ctx.lineTo(link.target.x, link.target.y);
-      ctx.strokeStyle = LINK_COLORS[link.link_type] || "#2b2e33";
+      ctx.strokeStyle = linkColor(link.link_type);
       const base = Math.min((0.1 + link.strength * 0.32) * (linkStyle.alpha ?? 1), 1);
       ctx.globalAlpha = lit ? Math.min(base + 0.55, 1) : base;
       ctx.lineWidth = ((0.5 + link.strength * 1.1) * (linkStyle.width ?? 1) * (lit ? 2.6 : 1)) / transform.k;
-      if (linkStyle.dash && !lit) ctx.setLineDash(linkStyle.dash.map((value) => value / transform.k));
+      // A type's own pattern always wins; the cosmetic dash only restyles solid types.
+      const typeDash = LINK_STYLES[link.link_type]?.dash;
+      const dash = typeDash || (lit ? null : linkStyle.dash);
+      ctx.lineCap = typeDash ? "round" : "butt";
+      if (dash) ctx.setLineDash(dash.map((value) => value / transform.k));
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.lineCap = "butt";
     });
     ctx.globalAlpha = 1;
 
@@ -471,7 +511,7 @@ export async function constellationView(outlet) {
         ctx.beginPath();
         ctx.moveTo(node.x - node.vx * reach, node.y - node.vy * reach);
         ctx.lineTo(node.x, node.y);
-        ctx.strokeStyle = node.color;
+        ctx.strokeStyle = node.halo;
         ctx.globalAlpha = Math.min((speed - TRAIL_SPEED) / 26, 0.26) * node.trail;
         ctx.lineWidth = node.dot * 0.8;
         ctx.lineCap = "round";
@@ -485,11 +525,13 @@ export async function constellationView(outlet) {
       const isActive = hovered === node || node.grab;
       if (!isActive && !node.is_top_ten && transform.k <= 1.35) return;
       ctx.font = `${11 / transform.k}px 'JetBrains Mono', monospace`;
-      ctx.fillStyle = isActive ? "#e8e4dd" : "rgba(160,156,148,0.72)";
+      ctx.fillStyle = isActive ? colors.text : colors.textDim;
+      ctx.globalAlpha = isActive ? 1 : 0.72;
       ctx.textAlign = "center";
       const label = node.title.length > 30 ? `${node.title.slice(0, 29)}…` : node.title;
       ctx.fillText(label, node.x, node.y + node.dot + 14 / transform.k);
     });
+    ctx.globalAlpha = 1;
 
     ctx.restore();
   }
@@ -614,9 +656,9 @@ export async function constellationView(outlet) {
       el("span", { class: "pill mono" }, `difficulty ${Math.round(node.difficulty ?? 50)}`),
       el("span", { class: "pill" }, node.status.replace(/_/g, " ")),
       node.is_top_ten ? el("span", { class: "pill pill-accent" }, "top ten") : null,
-      node.is_custom ? el("span", { class: "pill", style: `color:${CUSTOM_COLOR}` }, "custom") : null,
-      node.is_verified === false ? el("span", { class: "pill", style: `color:${UNVERIFIED_COLOR}` }, "needs verification") : null,
-      node.decay >= 0.85 ? el("span", { class: "pill", style: "color:#9fd4f0" }, "frozen · needs maintenance") : null,
+      node.is_custom ? el("span", { class: "pill pill-custom" }, "custom") : null,
+      node.is_verified === false ? el("span", { class: "pill pill-unverified" }, "needs verification") : null,
+      node.decay >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen · needs maintenance") : null,
     ];
     const actions = [
       el("a", { class: "btn btn-small", href: `/repertoire/${node.entry_id}`, "data-link": true }, "Open piece"),

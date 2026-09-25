@@ -200,7 +200,7 @@ export function pieceOverview(overview, { heading = true } = {}) {
   }
 
   const badges = [
-    overview.is_custom ? el("span", { class: "pill", style: "color:#b48af0" }, "custom") : null,
+    overview.is_custom ? el("span", { class: "pill pill-custom" }, "custom") : null,
     overview.external_source ? el("span", { class: "pill" }, overview.external_source) : null,
     overview.requires_verification ? el("span", { class: "pill pill-warn" }, "needs verification") : null,
   ].filter(Boolean);
