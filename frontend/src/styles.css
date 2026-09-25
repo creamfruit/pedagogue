@@ -24,10 +24,8 @@
   --orange-rgb: 240, 161, 60;
   --pink-rgb: 224, 90, 120;
 
-  --yellow-wash: rgba(var(--yellow-rgb), 0.1);
   --orange-line: rgba(var(--orange-rgb), 0.5);
   --orange-wash: rgba(var(--orange-rgb), 0.1);
-  --pink-line: rgba(var(--pink-rgb), 0.5);
   --pink-wash: rgba(var(--pink-rgb), 0.1);
 
   /* Status: bad is pink, warn is orange, ok is the black/white contrast

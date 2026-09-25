@@ -1,6 +1,94 @@
 # RUN_NOTES — ui-ux-overhaul overnight run
 
-<!-- CONSOLIDATED SUMMARY is written at the top of this file in Phase 6. -->
+## Read this first — consolidated summary (2026-09-26)
+
+**Status:** all six phases are done, each built and tested, then committed and pushed to
+`origin/ui-ux-overhaul`. **No phase was reverted.** No build or test failed at any phase gate.
+`main` and `origin/master` were not touched and nothing was merged. The backend suite is **52
+passed** (50 existing + 2 new), and `npm run build` is clean.
+
+**How it was verified.** Postgres and Redis weren't running and Docker Desktop was stopped, so I
+didn't start the real backend (I wasn't going to launch Docker unattended). Besides the required
+build and pytest gates, I ran the Vite dev app against a small mock API and drove it with headless
+Chrome to check behaviour, computed styles and console errors, with before/after reproductions for
+the two bugs. The mock and scripts are outside the repo. **Nothing here has been clicked through
+against your real data yet, so please do that first.**
+
+### Decisions I made without you
+1. **Phase 0:** the planned "chore: revert…" commit was skipped because there was nothing to
+   commit. After restoring `onboarding.js` to `main`, both files matched `HEAD`. Cline's
+   discarded edits are only in my session scratchpad, not in git.
+2. **Phase 1 palette:** `--yellow #ffd08a` (the existing gold), `--orange #f0a13c`,
+   `--pink #e05a78`, `--black #020202`. Tints are opacity steps of an accent.
+   - Status: bad = pink + triangle marker, warn = orange + diamond, ok = white-on-black + dot.
+   - Primary buttons are black with an orange outline; selected states are an orange fill with
+     black text.
+3. **Phase 1 constellation encoding:**
+   - Link types = accent + dash pattern: composer = orange solid, technique = yellow dashed,
+     era/genre = pink dotted. A type's pattern overrides the "Survey lines" dashed cosmetic.
+   - Six eras = three hues, with the later era of each pair drawn with diffraction spikes. An
+     era key was added to the legend.
+   - Custom pieces = black core with a white outline; frozen = neutral dashed ring.
+   - "Heat map" cosmetic = pink → orange → yellow → white.
+4. **Phase 1 things left alone on purpose:**
+   - Purchased cosmetic colours in `backend/app/seed.py` (Ice field, Emerald drift, Violet
+     nursery, nebula layers). They're product data sold by name, not app accents.
+   - `public/icons/favicon.svg` and its PNGs (cyan/violet). They're outside `src`, and the PNGs
+     would need regenerating.
+5. **Phase 2b:** Enter picks the first result only if the visible results match the current
+   text; otherwise it searches immediately. Stale out-of-order responses are dropped.
+6. **Phase 2c:** "saving" (`aria-busy`, "Saving…", moving orange stripes) is a separate look from
+   "disabled" (dashed, faint). Yellow is the app-wide focus ring.
+7. **Phase 2d:** hand-written **static one-bar snippets per category**
+   (`lib/techniqueSnippets.js`), shown on each category header. No technique carries a note
+   pattern, and the backend's category builders are random 8-bar exercises, several of them poor
+   illustrations (fourths for "double notes", a fifth for "stretches"). Polyrhythm is only
+   approximate, because `renderNotation()` has no tuplets.
+8. **Phase 3b:** fixed the root cause, and also hardened the LLM metadata normalizer and the
+   overview renderer against placeholder text as defence in depth.
+9. **Phase 3c:** section and movement difficulties stay single values (the API has no personalised
+   score for them).
+10. **Phase 4a:** a new `pointerdown` finishes *any* live drag or pan, not just one from a
+    different pointerId, because the mouse reuses pointerId 1 after a lost `pointerup`.
+    `pointercancel` no longer opens the piece detail.
+11. **Phase 4b:** `dot = 1.6·(9.5/1.6)^(d/100)` and `radius = 2.8·dot`. The hardest stars' mass
+    roughly doubles (≈1.7 → ≈3.4). If they feel sluggish, lower `RADIUS_PER_DOT`.
+12. **Phase 5:** I restyled the existing header level bar into a labelled XP bar instead of adding
+    a second bar, because `level_progress` already is XP-into-level. On small screens the header
+    hides the "online" pill while online (offline still shows) and hides gold at ≤360px.
+
+### Bugs found and fixed
+- **"nullnullnull" on Piece Detail: root cause found.** `entryDetailView` passed null banners to
+  `replaceChildren()`, and the DOM renders each `null` as the text "null". An ordinary piece
+  gets three in a row. Reproduced before the fix and gone after it. Details are under
+  "Piece Detail — nullnullnull" below.
+- **Constellation stranded star**, reproduced on the old code (a star stayed grabbed forever)
+  and fixed.
+- **Tier-quiz Continue label:** "Rank every technique (0/N)" now shows from the start.
+- **Tier hover** was losing a specificity fight with `.btn-ghost:hover`.
+- **Unguarded `null`s on the detail page:** "~nulld" on plan steps, "null bpm" in
+  interpretation stats, "null. Title" on movements.
+
+### Still open / worth your attention
+- **Nothing is known broken.** Please click through against the real backend, especially:
+  - the constellation feel with the new masses;
+  - whether your existing data contains literal "null"/"None" strings. The frontend now hides
+    them and logs `[piece overview] "<field>" arrived as placeholder text` in the console.
+- **Backend gap (not fixed):** `GET /catalog/techniques` returns `TechniqueRead`, which has no
+  `mechanic` field, so the onboarding tier list's mechanic sub-line never shows with real data.
+- `api.wallet()`/`api.ledger()` were kept as instructed, but they now have **no callers** (I
+  couldn't find a ledger view in `frontend/src`).
+- `npm install` reported 3 advisories (2 moderate, 1 high) that I didn't address. The esbuild
+  postinstall "allowScripts" warning is harmless for the build.
+- Follow-ups outside `src`: the favicon/PWA icons still use cyan/violet, and the cosmetic seed
+  descriptions say "Cool for easy" for the heat map, whose easy end is now pink.
+
+### Commits on `ui-ux-overhaul` (all pushed)
+`6ce5fe7` Phase 1 tokens · `9ee232e` Phase 2 onboarding · `4d10623` Phase 3 piece detail ·
+`ffb606c` Phase 4 constellation + wallet · `ca50b23` Phase 5 header XP · Phase 6 final pass
+(this file + unused-token cleanup).
+
+---
 
 ## Phase-by-phase log
 
@@ -322,3 +410,21 @@ Observatory. Header buttons no longer wrap. Verified: no horizontal overflow at 
 **Summary**: The header's level pill now has a clearly labelled XP bar beside it (the old
 unlabelled sliver, restyled rather than duplicated), with correct progressbar semantics. The top
 bar also fits down to 320px without overflowing.
+
+### 2026-09-26 — Phase 6: final pass
+
+- **Colour-literal sweep of `frontend/src`.** The only hex codes left are the `:root` token
+  definitions in `styles.css` and their runtime-fallback mirror in `lib/palette.js` (plus
+  `#ffffff` for the star highlight core). The only numeric `rgba()`s left are neutrals: the white
+  scanline texture, the dark topbar/modal/legend scrims, and transparent canvas gradient stops.
+  No named colours are used in styles.
+- **Token check:** every `var(--…)` used in JS or CSS is defined. Two tokens that ended up
+  unused (`--pink-line`, `--yellow-wash`) were removed.
+- **End to end:** `npm run build` ✔ and full `pytest` ✔ (52 passed). A headless sweep of every
+  route (/, /repertoire, /repertoire/:id, /constellation, /practice, /progression,
+  /performances, /observatory) and all four onboarding steps showed no JS exceptions. The only
+  console noise was 404s for endpoints the mock doesn't implement.
+
+**Summary**: The final sweep confirmed the four-token system holds across `frontend/src`, with
+only definitions and neutrals left. The build and all 52 tests pass. The consolidated summary is
+at the top of this file.
