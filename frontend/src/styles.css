@@ -637,9 +637,32 @@ p {
   transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 
-.option-card:hover {
+.option-card:hover:not(:disabled) {
   border-color: var(--orange-line);
   transform: translateY(-2px);
+}
+
+.option-card:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.option-card:active:not(:disabled) {
+  background: var(--black);
+  border-color: var(--orange);
+  transform: translateY(0) scale(0.99);
+}
+
+.option-card[aria-pressed="true"],
+.option-card.is-selected {
+  border-color: var(--orange);
+  background: var(--orange-wash);
+}
+
+.option-card:disabled {
+  border-style: dashed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .option-icon {
@@ -652,11 +675,61 @@ p {
   padding: 6px 0;
 }
 
-.tier-btn-active {
+.tier-btn.btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: var(--orange-line);
+  color: var(--orange);
+}
+
+.tier-btn.tier-btn-active,
+.tier-btn.tier-btn-active:hover:not(:disabled) {
   background: var(--orange);
   border-color: var(--orange);
   color: var(--black);
   font-weight: 600;
+}
+
+.tier-btn.tier-btn-active:hover:not(:disabled) {
+  box-shadow: var(--glow-soft);
+}
+
+.tier-btn.btn:active:not(:disabled),
+.tier-btn.tier-btn-active:active:not(:disabled) {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: var(--black);
+}
+
+.tier-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.tier-category:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.tier-notation {
+  flex: none;
+  color: var(--text-dim);
+  background: var(--bg-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+}
+
+.tier-notation .notation-svg {
+  display: block;
+  min-width: 0;
+  width: auto;
+  height: 88px;
 }
 
 .btn {
@@ -679,20 +752,55 @@ p {
     box-shadow var(--dur) var(--ease), transform 90ms var(--ease);
 }
 
-.btn:hover {
+/* Button states, all from the four accents plus neutrals:
+   hover = orange fill, focus-visible = yellow ring, pressed = yellow fill,
+   disabled = dashed and faint, busy (aria-busy) = moving orange stripes. */
+.btn:hover:not(:disabled) {
   background: var(--orange);
   color: var(--black);
   box-shadow: var(--glow-soft);
 }
 
-.btn:active {
-  transform: scale(0.98);
+.btn:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.btn:active:not(:disabled) {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: var(--black);
+  box-shadow: none;
+  transform: scale(0.97);
 }
 
 .btn:disabled {
-  opacity: 0.42;
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--line-bright);
+  color: var(--text-faint);
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.btn[aria-busy="true"] {
+  border-style: solid;
+  border-color: var(--orange-line);
+  color: var(--orange);
+  cursor: progress;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--orange-wash) 0 8px,
+    transparent 8px 16px
+  );
+  background-size: 200% 100%;
+  animation: busy-stripes 0.9s linear infinite;
+}
+
+@keyframes busy-stripes {
+  to {
+    background-position: -22.6px 0;
+  }
 }
 
 .btn-ghost {
@@ -701,11 +809,17 @@ p {
   color: var(--text-dim);
 }
 
-.btn-ghost:hover {
+.btn-ghost:hover:not(:disabled) {
   background: var(--bg-raised);
   color: var(--text);
   border-color: var(--line-bright);
   box-shadow: none;
+}
+
+.btn-ghost:active:not(:disabled) {
+  background: var(--black);
+  border-color: var(--orange-line);
+  color: var(--orange);
 }
 
 .btn-small {
@@ -720,10 +834,44 @@ p {
   color: var(--pink);
 }
 
-.btn-danger:hover {
+.btn-danger:hover:not(:disabled) {
   background: var(--pink);
   color: var(--black);
   box-shadow: none;
+}
+
+.btn-danger:active:not(:disabled) {
+  background: var(--black);
+  border-color: var(--pink);
+  color: var(--pink);
+}
+
+button.pill {
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease),
+    background var(--dur) var(--ease), transform 90ms var(--ease);
+}
+
+.pill-toggle:hover:not(:disabled) {
+  border-color: var(--orange-line);
+  color: var(--text);
+}
+
+.pill-toggle:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.pill-toggle:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.pill-toggle[aria-pressed="true"],
+.pill-toggle[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--black);
 }
 
 label {
@@ -747,12 +895,41 @@ textarea {
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
+input:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus) {
+  border-color: var(--line-bright);
+}
+
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--orange-line);
   box-shadow: 0 0 0 2px rgba(var(--orange-rgb), 0.13);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 2px var(--black), 0 0 0 4px var(--yellow);
+}
+
+select {
+  cursor: pointer;
+}
+
+select:active:not(:disabled) {
+  border-color: var(--yellow);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  border-style: dashed;
+  color: var(--text-faint);
+  cursor: not-allowed;
 }
 
 input[type="number"],

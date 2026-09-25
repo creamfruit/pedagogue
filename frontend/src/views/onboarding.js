@@ -1,5 +1,7 @@
 import { api } from "../api/client.js";
 import { el, empty, skeletonBlock } from "../lib/dom.js";
+import { renderNotation } from "../lib/notation.js";
+import { techniqueSnippet } from "../lib/techniqueSnippets.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
@@ -21,6 +23,92 @@ const TIER_LABEL = {
 };
 
 const STEPS = ["profile", "tier_quiz", "top_ten", "tastes"];
+const SEARCH_DEBOUNCE_MS = 280;
+
+// Saving is shown differently from "not ready yet": aria-busy drives the
+// striped busy treatment in styles.css, plain disabled is the dashed one.
+function setBusy(button, busy) {
+  if (busy) {
+    button.dataset.idleLabel = button.textContent;
+    button.textContent = "Saving…";
+    button.setAttribute("aria-busy", "true");
+    button.disabled = true;
+    return;
+  }
+  if (button.dataset.idleLabel) button.textContent = button.dataset.idleLabel;
+  button.removeAttribute("aria-busy");
+  button.disabled = false;
+}
+
+// Debounced search that Enter can short-circuit. Enter runs the search at once,
+// or picks the first result when results for the current text are already up.
+// Responses that arrive after a newer search started are dropped.
+function wireSearch(input, results, search) {
+  let debounce;
+  let sequence = 0;
+  let shownTerm = null;
+
+  async function run(term) {
+    clearTimeout(debounce);
+    const ticket = ++sequence;
+    if (term.length < 2) {
+      shownTerm = null;
+      results.replaceChildren();
+      return;
+    }
+    try {
+      const items = await search(term);
+      if (ticket !== sequence) return;
+      shownTerm = term;
+      results.replaceChildren(...items);
+    } catch (error) {
+      if (ticket !== sequence) return;
+      shownTerm = null;
+      results.replaceChildren(empty(error.detail || "Search failed."));
+    }
+  }
+
+  input.addEventListener("input", () => {
+    clearTimeout(debounce);
+    const term = input.value.trim();
+    if (term.length < 2) {
+      run(term);
+      return;
+    }
+    debounce = setTimeout(() => run(term), SEARCH_DEBOUNCE_MS);
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    const term = input.value.trim();
+    const first = results.querySelector(".list-item-link");
+    if (first && shownTerm === term) {
+      first.click();
+      return;
+    }
+    run(term);
+  });
+}
+
+function resultItem(onPick, ...children) {
+  return el(
+    "li",
+    {
+      class: "list-item list-item-link",
+      tabindex: "0",
+      role: "button",
+      onclick: onPick,
+      onkeydown: (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onPick();
+        }
+      },
+    },
+    ...children
+  );
+}
 
 function stepper(active) {
   return el(
@@ -109,7 +197,7 @@ function profileStep(summary, refresh) {
       onclick: async (event) => {
         event.preventDefault();
         if (!level.value) return notify.error("Pick a self-assessed level");
-        submit.disabled = true;
+        setBusy(submit, true);
         try {
           await api.updateProfile({
             self_level: level.value,
@@ -118,7 +206,7 @@ function profileStep(summary, refresh) {
           await refresh();
         } catch (error) {
           notify.error(error.detail || "Could not save your profile");
-          submit.disabled = false;
+          setBusy(submit, false);
         }
       },
     },
@@ -150,14 +238,14 @@ function tierQuizStep(allTechniques, refresh) {
       disabled: true,
       onclick: async (event) => {
         event.preventDefault();
-        submit.disabled = true;
+        setBusy(submit, true);
         try {
           const tiers = Array.from(assignments, ([technique_id, tier]) => ({ technique_id, tier }));
           await api.updateTierList(tiers);
           await refresh();
         } catch (error) {
           notify.error(error.detail || "Could not save your tier list");
-          submit.disabled = false;
+          setBusy(submit, false);
         }
       },
     },
@@ -173,7 +261,22 @@ function tierQuizStep(allTechniques, refresh) {
 
   const rows = [];
   groups.forEach((techniques, category) => {
-    rows.push(el("h3", {}, category.replace(/_/g, " ")));
+    const label = category.replace(/_/g, " ");
+    const snippet = techniqueSnippet(category);
+    rows.push(
+      el(
+        "div",
+        { class: "tier-category" },
+        el("h3", { style: "margin:0" }, label),
+        snippet
+          ? el(
+              "div",
+              { class: "tier-notation", title: `Illustrative ${label} pattern`, "aria-hidden": "true" },
+              renderNotation(snippet, { width: 300, staffGap: 30 })
+            )
+          : null
+      )
+    );
     techniques.forEach((technique) => {
       const buttons = TIERS.map((tier) =>
         el(
@@ -181,10 +284,16 @@ function tierQuizStep(allTechniques, refresh) {
           {
             type: "button",
             class: "btn btn-small btn-ghost tier-btn",
+            "aria-pressed": "false",
+            "aria-label": `${technique.name}: ${TIER_LABEL[tier]}`,
             onclick: () => {
               assignments.set(technique.id, tier);
-              buttons.forEach((button) => button.classList.remove("tier-btn-active"));
+              buttons.forEach((button) => {
+                button.classList.remove("tier-btn-active");
+                button.setAttribute("aria-pressed", "false");
+              });
               buttons[TIERS.indexOf(tier)].classList.add("tier-btn-active");
+              buttons[TIERS.indexOf(tier)].setAttribute("aria-pressed", "true");
               updateProgress();
             },
           },
@@ -206,6 +315,7 @@ function tierQuizStep(allTechniques, refresh) {
       );
     });
   });
+  updateProgress();
 
   return el(
     "div",
@@ -256,56 +366,37 @@ function topTenStep(refresh) {
       disabled: true,
       onclick: async (event) => {
         event.preventDefault();
-        submit.disabled = true;
+        setBusy(submit, true);
         try {
           const pieces = chosen.map((piece, index) => ({ rank: index + 1, piece_id: piece.id }));
           await api.updateTopTen(pieces);
           await refresh();
         } catch (error) {
           notify.error(error.detail || "Could not save your top ten");
-          submit.disabled = false;
+          setBusy(submit, false);
         }
       },
     },
     "Continue"
   );
 
-  let debounce;
-  search.addEventListener("input", () => {
-    clearTimeout(debounce);
-    const term = search.value.trim();
-    if (term.length < 2) {
-      results.replaceChildren();
-      return;
-    }
-    debounce = setTimeout(async () => {
-      try {
-        const pieces = await api.searchPieces(term, 10);
-        results.replaceChildren(
-          ...pieces
-            .filter((piece) => !chosen.some((item) => item.id === piece.id))
-            .map((piece) =>
-              el(
-                "li",
-                {
-                  class: "list-item",
-                  style: "cursor:pointer",
-                  onclick: () => {
-                    if (chosen.length >= 10) return notify.error("That is ten already");
-                    chosen.push(piece);
-                    renderChosen();
-                    results.replaceChildren();
-                    search.value = "";
-                  },
-                },
-                el("div", {}, piece.title, el("div", { class: "faint", style: "font-size:12px" }, piece.composer?.name || "unknown"))
-              )
-            )
-        );
-      } catch (error) {
-        results.replaceChildren(empty(error.detail || "Search failed."));
-      }
-    }, 280);
+  wireSearch(search, results, async (term) => {
+    const pieces = await api.searchPieces(term, 10);
+    return pieces
+      .filter((piece) => !chosen.some((item) => item.id === piece.id))
+      .map((piece) =>
+        resultItem(
+          () => {
+            if (chosen.length >= 10) return notify.error("That is ten already");
+            chosen.push(piece);
+            renderChosen();
+            results.replaceChildren();
+            search.value = "";
+            search.focus();
+          },
+          el("div", {}, piece.title, el("div", { class: "faint", style: "font-size:12px" }, piece.composer?.name || "unknown"))
+        )
+      );
   });
 
   renderChosen();
@@ -355,41 +446,19 @@ function tastesStep(summary, refresh) {
   }
   renderComposers();
 
-  let debounce;
-  composerSearch.addEventListener("input", () => {
-    clearTimeout(debounce);
-    const term = composerSearch.value.trim();
-    if (term.length < 2) {
-      composerResults.replaceChildren();
-      return;
-    }
-    debounce = setTimeout(async () => {
-      try {
-        const composers = await api.searchComposers(term);
-        composerResults.replaceChildren(
-          ...composers
-            .filter((composer) => !chosenComposers.some((item) => item.id === composer.id))
-            .map((composer) =>
-              el(
-                "li",
-                {
-                  class: "list-item",
-                  style: "cursor:pointer",
-                  onclick: () => {
-                    chosenComposers.push(composer);
-                    renderComposers();
-                    composerResults.replaceChildren();
-                    composerSearch.value = "";
-                  },
-                },
-                composer.name
-              )
-            )
-        );
-      } catch (error) {
-        composerResults.replaceChildren(empty(error.detail || "Search failed."));
-      }
-    }, 280);
+  wireSearch(composerSearch, composerResults, async (term) => {
+    const composers = await api.searchComposers(term);
+    return composers
+      .filter((composer) => !chosenComposers.some((item) => item.id === composer.id))
+      .map((composer) =>
+        resultItem(() => {
+          chosenComposers.push(composer);
+          renderComposers();
+          composerResults.replaceChildren();
+          composerSearch.value = "";
+          composerSearch.focus();
+        }, composer.name)
+      );
   });
 
   const finish = el(
@@ -399,7 +468,7 @@ function tastesStep(summary, refresh) {
       type: "submit",
       onclick: async (event) => {
         event.preventDefault();
-        finish.disabled = true;
+        setBusy(finish, true);
         try {
           await Promise.all([
             api.updateGenres(Array.from(chosenGenres)),
@@ -409,7 +478,7 @@ function tastesStep(summary, refresh) {
           await refresh();
         } catch (error) {
           notify.error(error.detail || "Could not save your tastes");
-          finish.disabled = false;
+          setBusy(finish, false);
         }
       },
     },
@@ -426,12 +495,13 @@ function tastesStep(summary, refresh) {
             "button",
             {
               type: "button",
-              class: `pill${chosenGenres.has(genre.id) ? " pill-accent" : ""}`,
-              style: "cursor:pointer",
+              class: `pill pill-toggle${chosenGenres.has(genre.id) ? " pill-accent" : ""}`,
+              "aria-pressed": chosenGenres.has(genre.id) ? "true" : "false",
               onclick: () => {
                 if (chosenGenres.has(genre.id)) chosenGenres.delete(genre.id);
                 else chosenGenres.add(genre.id);
-                chip.classList.toggle("pill-accent");
+                chip.classList.toggle("pill-accent", chosenGenres.has(genre.id));
+                chip.setAttribute("aria-pressed", chosenGenres.has(genre.id) ? "true" : "false");
               },
             },
             genre.name
