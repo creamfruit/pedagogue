@@ -433,6 +433,60 @@ at the top of this file.
 
 # Run 2 — Phases 7–12 (2026-09-26)
 
+## Read this first — run 2 summary
+
+**Status:** every phase is done, built and tested, and committed and pushed to `origin/ui-ux-overhaul`
+(no merge; `main` untouched). The backend suite is **68 passed** (52 → 68, 16 new) and `npm run build`
+is clean at every gate. Phases ran in the order **7, 8, 9, 11, 12, 10**; the reason is below.
+
+**This run was verified against a real backend**, which the previous one wasn't. Docker was up, so I used a
+separate scratch database, `piano_uitest`, on your Postgres container. Your `piano` DB was only ever
+*read*: a few `SELECT count(*)`s and a technique list.
+
+**Four things need your eyes:**
+1. **Phase 11's premise didn't hold.** `passageSightReading()` doesn't render real passage notes: no
+   passage stores any. It forges a pattern. The stem and stave bugs were in `renderNotation()` itself. I
+   fixed the renderer, made the forge technique- and key-aware, and label the result as a practice pattern
+   next to the *real* passage details. Details are under Phase 11.
+2. **Placeholder bar numbers** for the two passages you asked for: Pas de deux **1–8** and Mephisto **111–142**.
+   Please correct them in `seed_lore.PASSAGES`, then run `python -m app.seed` to load both pieces into your DB.
+3. **Phase 12: no slow path found.** No LLM runs when saving the top ten, and the save measured
+   ~55ms server-side and ~105ms click-to-next-step. I didn't move anything to the queue. A DevTools
+   Network screenshot from your machine would pin it down. See Phase 12.
+4. **Phase 10 is a real redesign.** It's documented decision by decision in **`DESIGN_NOTES.md`**, with three open
+   questions at the end.
+
+| Phase | Commit(s) | One line |
+|---|---|---|
+| 7 Palette | `a5fd409` | `--black` removed; `--starlight #e8ecf5` added (also the backdrop stars); selected = starlight |
+| 8 Meta-grid gap | `6bdf60c` | Not orphaned rows: the wrapped Difficulty cell stretched its grid row. It's now a full-width row |
+| 9 Submissions | `41ce9c4` | "Practice recordings" and "Notes & scores" are separate sections; checkbox layout fixed |
+| 11 Notation | `238e217` | "?" per row; real catalogue passage + honest pattern; renderer and forge fixed; 2 pieces seeded |
+| 12 Top-ten latency | `ac511eb` | Profiled; no LLM on that path; findings only |
+| 10 Declutter | `c3cdf67` `ef473e2` `426988b` `a32aae0` `a870010` `7de6404` | One commit per view; see `DESIGN_NOTES.md` |
+
+**Other fixes found along the way:**
+- The seed crashed on re-run once any assessment existed, and cascade-deleted drills. It now upserts.
+- New composers never reached an already-seeded DB.
+- The forge's key label didn't match its notes.
+- The polyrhythm bars were 2.5 beats long.
+- The synth couldn't play flats.
+- `TechniqueRead` lacked `mechanic`, which was last run's open item.
+- The heat-map preview's hottest dot wasn't starlight.
+
+**Known gaps left open:**
+- **Broken octaves** has no catalogue passage. It's logged and not fabricated.
+- The tap-tempo curve is never submitted.
+- `import_external()` blocks on the LLM. It's a separate flow from the top ten.
+- The favicon still uses the old cyan/violet, as noted last run.
+
+**Scratch environment:**
+- `piano_uitest` is still on the container. Drop it with
+  `docker exec piano-db psql -U piano -c "DROP DATABASE piano_uitest"`.
+- The test servers on :8001 and :5174 have been stopped.
+- The harness scripts live only in the session scratchpad.
+
+
 Branch check: `ui-ux-overhaul` was **not** merged into `main` (`origin/main` is still `5886966`), so
 this run continues on `ui-ux-overhaul` rather than branching `ui-ux-overhaul-2`.
 
@@ -747,3 +801,35 @@ slow, that's the place for the queue move you described. It's a separate flow fr
 asked about, so I left it alone.
 
 **Verification**: no code changed in this phase. The build and pytest 68/68 were re-run as the gate.
+
+### Phase 10 — Declutter (run last; see "Phase order" above)
+
+Full reasoning, before/after measurements and every layout decision are in **`DESIGN_NOTES.md`**.
+Headlines:
+- **Piece detail:** 3,792 → 2,636px.
+  - One status strip with inline editing, instead of a status tile *plus* a separate "Change status" panel.
+  - A practice column (plan, recordings, notes) beside the reference column.
+  - Reveals for history, extra metadata, technique mechanics and faults, the composer bio, load
+    measurements, sections beyond 3, plan steps beyond 3, and the upload forms. The recording form
+    auto-opens when a verification or graded take is still owed.
+- **Repertoire:** Search + Status up front; Genre, Composer and Difficulty behind "More filters",
+  which auto-opens with an active count; a "Clear filters" link; status as quiet text.
+- **Onboarding:** a real progress stepper; tier rows are one line, with the mechanic moved into the
+  "?" reveal; no nested scroll box; a sticky Continue.
+- **Observatory:** 2,305 → 1,946px. A wallet strip; each shop section is captioned with what's equipped
+  and how many you own; equipped = starlight (selected), not orange; achievements show progress plus
+  the next 3, with all 14 on demand.
+- **Constellation:** one instruction line instead of two partial ones; the header shows the chart
+  size; a new "How to read the chart" reveal explains the star and line encoding.
+- **Dashboard:** a stats strip, section titles, and quieter in-progress rows.
+- **Shared:** `.section-title` / `.section-caption`, `reveal()` and `sectionBlock()` in `lib/dom.js`
+  (built on Phase 11's `disclosure()`), a `--space-1..6` scale, and `.summary-bar`, `.flat-list` /
+  `.flat-row`.
+
+**Nothing was removed.** Every datum that left the default view is one labelled click away. This was
+verified by opening every reveal on the piece detail page (8/8 with content). The four-token colour rule is
+untouched. Practice, Progression and Performances were re-screenshotted to confirm they're unaffected, and the
+8-bar Practice forge renders with the new engraving.
+
+**Verification**: build ✔ and pytest 68/68 ✔ after each of the six view commits; 1280 and 390px screenshots of
+every reworked view against the scratch backend; no console errors.
