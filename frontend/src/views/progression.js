@@ -4,7 +4,7 @@ import { notify } from "../lib/toast.js";
 import { store } from "../lib/store.js";
 import { navigate } from "../router.js";
 
-export async function progressionView(outlet) {
+export async function progressionView(outlet, { embedded = false } = {}) {
   const search = el("input", { type: "search", placeholder: "Which piece do you want to reach?", style: "max-width:360px" });
   const resultHost = el("div", { class: "stack" });
   const recHost = el("section", { class: "panel" }, el("h3", {}, "Saved recommendations"), skeletonBlock(3));
@@ -256,11 +256,13 @@ export async function progressionView(outlet) {
   }
 
   outlet.append(
-    el("h1", {}, "Progression"),
-    el("p", { class: "muted" }, "Pick a piece you want to play and the engine works backwards from it."),
-    el("div", { class: "panel", style: "margin-bottom:16px" }, search, suggestions),
-    resultHost,
-    recHost
+    ...[
+      embedded ? null : el("h1", {}, "Progression"),
+      embedded ? null : el("p", { class: "muted" }, "Pick a piece you want to play and the engine works backwards from it."),
+      el("div", { class: "panel", style: "margin-bottom:16px" }, search, suggestions),
+      resultHost,
+      recHost,
+    ].filter(Boolean)
   );
 
   await renderRecommendations();

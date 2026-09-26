@@ -50,6 +50,36 @@ export function disclosure(trigger, { label, buttonClass = "disclosure-btn", reg
   return { button, region, toggle };
 }
 
+export function tabs(items, active, onSelect, { label, controls } = {}) {
+  const buttons = items.map((item) =>
+    el(
+      "button",
+      {
+        type: "button",
+        role: "tab",
+        class: "tab",
+        id: `tab-${item.id}`,
+        "aria-selected": item.id === active ? "true" : "false",
+        "aria-controls": controls,
+        tabindex: item.id === active ? "0" : "-1",
+        onclick: () => {
+          if (item.id !== active) onSelect(item.id);
+        },
+      },
+      item.label
+    )
+  );
+  const strip = el("div", { class: "tabs", role: "tablist", "aria-label": label }, ...buttons);
+  strip.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    const index = buttons.indexOf(document.activeElement);
+    if (index === -1) return;
+    const next = buttons[(index + (event.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
+    next.focus();
+  });
+  return strip;
+}
+
 export function reveal(label, fill, { open = false, onClose } = {}) {
   const control = disclosure(label, {
     buttonClass: "reveal-btn",

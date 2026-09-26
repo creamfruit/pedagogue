@@ -10,7 +10,7 @@ function verdictTone(verdict) {
   return "pill";
 }
 
-export async function performancesView(outlet) {
+export async function performancesView(outlet, { embedded = false } = {}) {
   const listHost = el("div", {}, skeletonBlock(3));
   const title = el("input", { type: "text", placeholder: "Year-end recital", style: "max-width:260px" });
   const date = el("input", { type: "date", style: "max-width:180px" });
@@ -110,6 +110,6 @@ export async function performancesView(outlet) {
     }
   }
 
-  outlet.append(el("h1", {}, "Performances"), createPanel, listHost);
+  outlet.append(...[embedded ? null : el("h1", {}, "Performances"), createPanel, listHost].filter(Boolean));
   await render();
 }

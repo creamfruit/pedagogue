@@ -9,8 +9,8 @@ import { dashboardView } from "./views/dashboard.js";
 import { entryDetailView, newEntryView, repertoireView } from "./views/repertoire.js";
 import { constellationView } from "./views/constellation.js";
 import { practiceView } from "./views/practice.js";
-import { progressionView } from "./views/progression.js";
-import { performancesView } from "./views/performances.js";
+import { progressView } from "./views/progress.js";
+import { settingsView } from "./views/settings.js";
 import { shopView } from "./views/shop.js";
 import { notFoundView } from "./views/notfound.js";
 
@@ -23,8 +23,10 @@ route("/repertoire/new", newEntryView);
 route("/repertoire/:id", entryDetailView);
 route("/constellation", constellationView);
 route("/practice", practiceView);
-route("/progression", progressionView);
-route("/performances", performancesView);
+route("/progress", progressView);
+route("/progression", progressView);
+route("/performances", progressView);
+route("/settings", settingsView);
 route("/observatory", shopView);
 route("/login", loginView, { public: true });
 route("/register", registerView, { public: true });
@@ -88,31 +90,50 @@ function setWallet() {
 
 function setChrome() {
   const authed = store.isAuthenticated;
-  document.getElementById("nav").style.display = authed ? "" : "none";
+  document.getElementById("nav").hidden = !authed;
+  document.getElementById("nav-toggle").hidden = !authed;
   setWallet();
-  const right = document.querySelector(".topbar-right");
-  const existing = document.getElementById("sign-out");
-  if (authed && !existing) {
-    const button = document.createElement("button");
-    button.id = "sign-out";
-    button.className = "btn btn-small btn-ghost";
-    button.textContent = "Sign out";
-    button.addEventListener("click", () => {
-      store.signOut();
-      navigate("/login");
-    });
-    right.insertBefore(button, right.firstChild);
-  } else if (!authed && existing) {
-    existing.remove();
+  const account = document.getElementById("account");
+  account.hidden = !authed;
+  if (authed) {
+    const name = store.user?.display_name || store.user?.email || "You";
+    document.getElementById("account-toggle").textContent = name.trim().charAt(0).toUpperCase();
+    document.getElementById("account-toggle").setAttribute("aria-label", `Account menu for ${name}`);
+    document.getElementById("account-name").textContent = name;
   }
+}
+
+function wireAccountMenu() {
+  const toggle = document.getElementById("account-toggle");
+  const menu = document.getElementById("account-menu");
+  const setOpen = (open) => {
+    menu.hidden = !open;
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) menu.querySelector("[role=menuitem]")?.focus();
+  };
+  toggle.addEventListener("click", () => setOpen(menu.hidden));
+  menu.addEventListener("click", (event) => {
+    if (event.target.closest("[role=menuitem]")) setOpen(false);
+  });
+  document.addEventListener("click", (event) => {
+    if (!menu.hidden && !event.target.closest("#account")) setOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !menu.hidden) {
+      setOpen(false);
+      toggle.focus();
+    }
+  });
+  document.getElementById("sign-out").addEventListener("click", () => {
+    store.signOut();
+    navigate("/login");
+  });
 }
 
 function wireNetworkStatus() {
   const pill = document.getElementById("net-status");
   const update = () => {
-    const online = navigator.onLine;
-    pill.textContent = online ? "online" : "offline";
-    pill.className = online ? "pill pill-ok" : "pill pill-warn";
+    pill.hidden = navigator.onLine;
   };
   window.addEventListener("online", () => {
     update();
@@ -167,6 +188,7 @@ async function registerServiceWorker() {
 async function boot() {
   wireNetworkStatus();
   wireMenu();
+  wireAccountMenu();
 
   onUnauthorized(() => {
     store.signOut();

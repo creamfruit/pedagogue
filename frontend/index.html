@@ -29,24 +29,30 @@
           <span class="brand-mark" aria-hidden="true"></span>
           <span class="brand-text">Piano<em>Pedagogue</em></span>
         </a>
+        <nav id="nav" class="nav" aria-label="Main">
+          <a href="/" data-link data-nav="/">Today</a>
+          <a href="/repertoire" data-link data-nav="/repertoire">Repertoire</a>
+          <a href="/constellation" data-link data-nav="/constellation">Constellation</a>
+          <a href="/practice" data-link data-nav="/practice">Practice</a>
+          <a href="/progress" data-link data-nav="/progress /progression /performances">Progress</a>
+          <a href="/observatory" data-link data-nav="/observatory">Observatory</a>
+        </nav>
         <div class="topbar-right">
           <a id="wallet" class="wallet" href="/observatory" data-link hidden></a>
-          <span id="net-status" class="pill pill-ok" title="Connection status">online</span>
-          <button id="nav-toggle" class="icon-button" aria-label="Menu" aria-expanded="false">
+          <span id="net-status" class="pill pill-warn" title="Connection status" hidden>offline</span>
+          <div id="account" class="account" hidden>
+            <button id="account-toggle" class="account-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu"></button>
+            <div id="account-menu" class="account-menu" role="menu" hidden>
+              <p id="account-name" class="account-name"></p>
+              <a href="/settings" data-link role="menuitem">Settings</a>
+              <button id="sign-out" type="button" role="menuitem">Sign out</button>
+            </div>
+          </div>
+          <button id="nav-toggle" class="icon-button" aria-label="Menu" aria-expanded="false" aria-controls="nav">
             <span></span><span></span><span></span>
           </button>
         </div>
       </header>
-
-      <nav id="nav" class="nav" aria-label="Main">
-        <a href="/" data-link data-nav="/">Dashboard</a>
-        <a href="/repertoire" data-link data-nav="/repertoire">Repertoire</a>
-        <a href="/constellation" data-link data-nav="/constellation">Constellation</a>
-        <a href="/practice" data-link data-nav="/practice">Practice</a>
-        <a href="/progression" data-link data-nav="/progression">Progression</a>
-        <a href="/performances" data-link data-nav="/performances">Performances</a>
-        <a href="/observatory" data-link data-nav="/observatory">Observatory</a>
-      </nav>
 
       <main id="view" class="view" tabindex="-1"></main>
 

@@ -55,9 +55,12 @@ export function match(pathname) {
 
 function markActive(pathname) {
   document.querySelectorAll("[data-nav]").forEach((link) => {
-    const target = link.dataset.nav;
-    const active = target === "/" ? pathname === "/" : pathname.startsWith(target);
+    const active = link.dataset.nav
+      .split(" ")
+      .some((target) => (target === "/" ? pathname === "/" : pathname.startsWith(target)));
     link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
   });
 }
 

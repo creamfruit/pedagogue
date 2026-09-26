@@ -223,3 +223,50 @@ It was already the sparsest view, so it gets consistency touches only:
    pushy, drop `openForm` in `submissionSections()`.
 3. **Achievements "up next"** shows the first three unearned in catalogue order. Ranking them by
    closeness to earning would need progress data the API doesn't return.
+
+
+---
+
+# Phase 16 — Full redesign (information architecture first)
+
+Phase 10 decluttered each page in place. Phase 16 changes *where things live*. I did it knowing what Phases 17–24
+will add (streaks, achievement progress, a growth chart, practice nudges, a standalone tier retake, a metronome and
+ambient rooms, leaderboards and a daily roulette, Practice DNA and a lineage view, sky achievements, meteor showers,
+export). So each of those gets a home in this structure instead of being bolted onto a page that has no room for it.
+
+## Decisions that apply everywhere
+
+**1. Progressive disclosure: `reveal()` is now the standard, and there are exactly three disclosure patterns.**
+- **`reveal()` (text button + chevron)** for *secondary detail* anywhere in the app: history, extra metadata,
+  per-item explanations, input forms you don't use every visit. The label always names what's inside.
+- **The "?" disclosure** (Phase 11's tier-list button) *only* for inline help attached to a control, where a
+  text button would crowd the row.
+- **Tabs** (`tabs()` in `lib/dom.js`, a real `role=tablist` with arrow-key movement) for *peer views* of the same
+  thing, where a person picks one lens at a time.
+- Anything else that hides content (accordions, modals for reading) is out. Modals stay only for short
+  confirmations and the existing practice picker.
+
+**2. Navigation: six destinations, named for what you do there.**
+
+| Before | After | Why |
+|---|---|---|
+| Dashboard | **Today** | The page answers "what should I do now?", and the name should say so |
+| Repertoire | Repertoire | — |
+| Constellation | Constellation | It's the product's identity; renaming it would cost recognition |
+| Practice | Practice | Becomes the home of the metronome and ambient rooms (Phase 19) |
+| Progression + Performances | **Progress** (tabs: Pathways · Performances, plus Growth in Phase 17) | Both answer "how am I getting better?". As separate top-level tabs they split one question in two, and Phase 17's chart and Phase 21's Practice DNA would have needed a third. `/progression` and `/performances` still work and open the right tab |
+| Observatory | Observatory | The sky shop, plus achievements |
+| *Sign out button in the header* | **Account menu → Settings, Sign out** | A destructive action shouldn't be the most prominent control in the header. Settings is new, and becomes the home of the tier retake, nudge interval, leaderboard opt-in and export (Phases 18, 20 and 24) |
+
+**3. One header bar.** The nav moved *into* the top bar, next to the brand, on screens wider than 980px, which
+saves the second 50px bar on every page.
+- Labels are sentence-case 13.5px, instead of 10.5px tracked caps.
+- The active page is shown in **starlight** with a glowing underline: *selected = starlight*, the Phase 7 rule,
+  applied to navigation too. The old orange box made "where you are" look like "something to click".
+- Below 980px the nav is a drawer under the header, as before.
+- The **"online" pill only appears when you're offline.** "Online" is the normal state and not worth a permanent
+  badge.
+- Gold hides below 420px (it's on the Observatory), making room for the account button.
+
+**4. Settings** (`/settings`) edits what onboarding collected once and never let you change: display name, level,
+years playing, hand span (with a hint explaining how to measure it), and profile visibility.
