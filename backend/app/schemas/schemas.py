@@ -182,6 +182,8 @@ class ExternalCandidate(BaseModel):
     epoch: Optional[str] = None
     birth_year: Optional[int] = None
     death_year: Optional[int] = None
+    source: str = "openopus"
+    sources: list[str] = Field(default_factory=list)
 
 
 class ExternalImportRequest(BaseModel):

@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
@@ -30,7 +31,9 @@ from app.schemas.schemas import (
     UserRead,
 )
 from app.services.catalog import LinkExplainer, PieceOverviewService, TechniqueExampleService
+from app.services.catalog_match import merge_candidates
 from app.services.external_catalog import OpenOpusClient
+from app.services.musicbrainz_catalog import MusicBrainzClient
 from app.services.notation import SightReadingForge, forge_key
 from app.services.onboarding import CatalogService, OnboardingService
 from app.workers.queue import get_queue
@@ -154,18 +157,23 @@ async def search_external_catalog(
     q: str = Query(min_length=2, max_length=100),
     limit: int = Query(default=15, ge=1, le=30),
 ) -> list[ExternalCandidate]:
-    try:
-        results = await OpenOpusClient().search(q, limit)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="could not reach the external catalog")
-    return [ExternalCandidate(**item) for item in results]
+    openopus, musicbrainz = await asyncio.gather(
+        OpenOpusClient().search(q, limit), MusicBrainzClient().search(q, limit), return_exceptions=True
+    )
+    groups = [group for group in (openopus, musicbrainz) if not isinstance(group, BaseException)]
+    if not groups:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="could not reach the external catalogs")
+    return [ExternalCandidate(**item) for item in merge_candidates(*groups, limit=limit)]
 
 
 @catalog_router.post("/external/import", response_model=PieceDetail, status_code=status.HTTP_201_CREATED)
 async def import_external_piece(
     payload: ExternalImportRequest, user: CurrentUser, session: SessionDep, background_tasks: BackgroundTasks
 ) -> PieceDetail:
-    piece = await CatalogService(session).import_external(payload, user)
+    try:
+        piece = await CatalogService(session).import_external(payload, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     if piece.metadata_generated_at is None:
         await session.commit()
         await get_queue(background_tasks).enqueue("generate_piece_metadata", piece.id)

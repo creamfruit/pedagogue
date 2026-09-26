@@ -313,8 +313,10 @@ function catalogSearchPanel(statusSelect) {
   return panel;
 }
 
+const SOURCE_LABELS = { openopus: "OpenOpus", musicbrainz: "MusicBrainz" };
+
 function externalSearchPanel(statusSelect) {
-  const search = el("input", { type: "search", placeholder: "Search a composer, e.g. Rachmaninoff" });
+  const search = el("input", { type: "search", placeholder: "Composer, work or both, e.g. Rachmaninoff prelude" });
   const results = el("ul", { class: "list" });
 
   let debounce;
@@ -342,7 +344,7 @@ function externalSearchPanel(statusSelect) {
                 class: "btn btn-small",
                 onclick: async () => {
                   importButton.disabled = true;
-                  importButton.textContent = "Generating metadata…";
+                  importButton.textContent = "Importing…";
                   try {
                     const piece = await api.importExternalPiece({
                       external_ref: candidate.external_ref,
@@ -350,7 +352,7 @@ function externalSearchPanel(statusSelect) {
                       composer_name: candidate.composer_name,
                     });
                     const entry = await api.createEntry({ piece_id: piece.id, status: statusSelect.value });
-                    notify.success(`${entry.piece.title} imported and added`);
+                    notify.success(`${entry.piece.title} added. Its techniques and notes are being written in the background.`);
                     navigate(`/repertoire/${entry.id}`);
                   } catch (error) {
                     notify.error(error.detail || "Could not import that piece");
@@ -368,7 +370,14 @@ function externalSearchPanel(statusSelect) {
                 "div",
                 {},
                 el("div", {}, candidate.title, candidate.subtitle ? el("span", { class: "faint" }, ` · ${candidate.subtitle}`) : null),
-                el("div", { class: "faint", style: "font-size:12.5px" }, `${candidate.composer_name}${candidate.epoch ? ` · ${candidate.epoch}` : ""}`)
+                el(
+                  "div",
+                  { class: "row", style: "gap:8px;margin-top:2px" },
+                  el("span", { class: "faint", style: "font-size:12.5px" }, [candidate.composer_name, candidate.epoch].filter(Boolean).join(" · ")),
+                  ...(candidate.sources?.length ? candidate.sources : [candidate.source]).map((source) =>
+                    el("span", { class: "source-tag mono" }, SOURCE_LABELS[source] || source)
+                  )
+                )
               ),
               importButton
             );
@@ -383,8 +392,12 @@ function externalSearchPanel(statusSelect) {
   const panel = el(
     "div",
     { class: "stack" },
-    el("p", { class: "faint", style: "margin:0;font-size:12.5px" }, "Pulls from the open OpenOpus classical database. Importing generates techniques, difficulty and pedagogical notes on the spot."),
-    el("div", { class: "field" }, el("label", {}, "Search by composer"), search),
+    el(
+      "p",
+      { class: "faint", style: "margin:0;font-size:12.5px" },
+      "Searches two open classical databases, OpenOpus and MusicBrainz, as one list. Importing adds the piece straight away; its techniques, difficulty and notes are written in the background, once per piece."
+    ),
+    el("div", { class: "field" }, el("label", {}, "Search the open catalogues"), search),
     results
   );
   panel.focusInput = () => search.focus();

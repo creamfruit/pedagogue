@@ -88,6 +88,7 @@ class OpenOpusClient:
                     "epoch": composer.get("epoch"),
                     "birth_year": self._year(composer.get("birth")),
                     "death_year": self._year(composer.get("death")),
+                    "source": "openopus",
                 }
             )
         return normalized

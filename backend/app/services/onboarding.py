@@ -32,11 +32,15 @@ from app.schemas.schemas import (
     TierAssignment,
     TopTenItem,
 )
+from app.services.catalog_match import composer_initial, composer_surname, same_work
 from app.services.difficulty import (
     compute_difficulty_score,
     compute_mechanical_load,
     tier_to_profile_values,
 )
+
+
+EXTERNAL_SOURCES = {"openopus", "musicbrainz"}
 
 
 class BaseService:
@@ -72,14 +76,36 @@ class CatalogService(BaseService):
         result = await self.session.execute(select(Technique).order_by(Technique.category, Technique.name))
         return result.scalars().all()
 
-    async def get_or_create_composer(self, name: str) -> Composer:
+    async def find_composer(self, name: str) -> Optional[Composer]:
         result = await self.session.execute(select(Composer).where(func.lower(Composer.name) == name.lower()))
-        composer = result.scalar_one_or_none()
+        composer = result.scalars().first()
+        if composer is not None:
+            return composer
+        surname, initial = composer_surname(name), composer_initial(name)
+        if not surname:
+            return None
+        candidates = (await self.session.execute(select(Composer).where(Composer.name.ilike(f"%{surname[:4]}%")))).scalars().all()
+        for candidate in candidates:
+            if composer_surname(candidate.name) == surname and composer_initial(candidate.name) == initial:
+                return candidate
+        return None
+
+    async def get_or_create_composer(self, name: str) -> Composer:
+        composer = await self.find_composer(name)
         if composer is None:
             composer = Composer(name=name)
             self.session.add(composer)
             await self.session.flush()
         return composer
+
+    async def find_same_work(self, title: str, composer: Optional[Composer]) -> Optional[Piece]:
+        if composer is None:
+            return None
+        stmt = select(Piece).where(Piece.composer_id == composer.id, Piece.parent_piece_id.is_(None))
+        for piece in (await self.session.execute(stmt)).scalars().all():
+            if same_work(piece.title, composer.name, title, composer.name):
+                return piece
+        return None
 
     async def create_user_piece(self, payload: PieceCreate, user: User) -> Piece:
         composer_id = payload.composer_id
@@ -129,24 +155,27 @@ class CatalogService(BaseService):
         return piece
 
     async def import_external(self, payload: ExternalImportRequest, user: User) -> Piece:
+        source = payload.external_ref.split(":", 1)[0]
+        if source not in EXTERNAL_SOURCES:
+            raise ValueError(f"unknown external source {source!r}")
         existing = await self.session.execute(
-            select(Piece).where(Piece.external_source == "openopus", Piece.external_ref == payload.external_ref)
+            select(Piece).where(Piece.external_source == source, Piece.external_ref == payload.external_ref)
         )
-        found = existing.scalar_one_or_none()
+        found = existing.scalars().first()
         if found is not None:
             return found
 
-        composer_id = None
-        if payload.composer_name:
-            composer = await self.get_or_create_composer(payload.composer_name)
-            composer_id = composer.id
+        composer = await self.get_or_create_composer(payload.composer_name) if payload.composer_name else None
+        same = await self.find_same_work(payload.title, composer)
+        if same is not None:
+            return same
 
         piece = Piece(
             title=payload.title,
-            composer_id=composer_id,
+            composer_id=composer.id if composer else None,
             genre_id=payload.genre_id,
             duration_sec=payload.duration_sec,
-            external_source="openopus",
+            external_source=source,
             external_ref=payload.external_ref,
         )
         self.session.add(piece)

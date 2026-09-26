@@ -922,3 +922,80 @@ synchronous paid call is the metadata generator on external import.
   counting calls.
 - The live HTTP check against the scratch backend is described above.
 - No API key was configured, so nothing here cost money.
+
+### Phase 14 — MusicBrainz as a second catalogue source
+
+**Interface.** `services/musicbrainz_catalog.py`'s `MusicBrainzClient.search(query, limit) -> list[dict]` mirrors
+`OpenOpusClient.search` and returns the same candidate dict shape (`external_ref` = `musicbrainz:<work MBID>`,
+`title`, `subtitle`, `composer_name`, `composer_external_ref`, `epoch`, `birth_year`, `death_year`), plus `source`.
+
+**Usage policy (both hard requirements):**
+- **User-Agent** on every request: `PianoPedagogue/0.1.0 ( https://github.com/creamfruit/pedagogue )`.
+  - **Decision:** the contact is your repo URL, *not* your email. MusicBrainz accepts either. Putting a personal
+    email in a header to a third party is something you should opt into, so it's configurable with
+    `MUSICBRAINZ_CONTACT` in `.env`.
+  - A test asserts the header is on every request.
+- **~1 request/second:** a process-wide `Throttle` (an `asyncio.Lock` plus a monotonic timestamp, 1.1s spacing)
+  serialises every MusicBrainz request; they're never fired concurrently.
+  - A `503` (MusicBrainz's rate-limit reply) gets one retry after 2s, then gives up quietly.
+  - Results are cached per normalised query for 15 minutes, so retyping a search doesn't spend the budget.
+  - **Limitation:** the throttle is per process. If you ever run several API workers, they'd each get 1/s.
+    Moving the timestamp into Redis would fix that; it's not needed for a single `fastapi dev` process.
+
+**Search strategy (2 requests, measured ~2–3s per fresh query):**
+1. **Artist index first** (`type:person`), because it searches aliases. Accept the top hit (score ≥85) only if
+   one of your words is in its name, sort-name or aliases, *and* it's a classical composer (below).
+2. **Then that composer's works** (`arid:<MBID>` plus your remaining words).
+3. If no composer matches, fall back to a work-name search.
+
+The work index alone missed Rachmaninoff entirely, because his MusicBrainz name is Cyrillic.
+
+**The classical/piano bar, applying OpenOpus's standard.**
+
+OpenOpus's validation is:
+- (a) the composer is in OpenOpus, which is classical by construction;
+- (b) the work is in the "Piano" genre, or, as a fallback, has a piano-form title (`PIANO_HINTS`).
+
+MusicBrainz has neither a classical flag nor instrumentation, so the equivalents are:
+- **Composer:** a MusicBrainz *composer* relationship (not performer/recording) to an artist whose
+  disambiguation says "composer" ("German composer", "Hungarian composer, pianist and conductor"), or whose
+  genres/tags are classical, baroque, romantic, impressionism or renaissance. Pop songwriters fail this. The
+  probe's top hit for "chopin ballade" was a pop *song* titled "Chopin Ballade".
+- **Work:** instrumental only (MusicBrainz language `zxx` or unset). It must have no lyricist or librettist,
+  and must not be a Song, Opera, Symphony, Quartet, Soundtrack or similar type. Titles naming another
+  instrument are excluded ("violon", "cello", "four hands", …), and so are orchestral or vocal forms, unless
+  it's a *piano* concerto.
+  - Separate movements of concertos and sonatas are dropped; the whole work is listed instead.
+  - Movements of suites and sets are kept ("Suite bergamasque: III. Clair de lune" is learnt on its own).
+- **Decision:** MusicBrainz works with no piano-form title are *kept* when they pass the other checks. Requiring a
+  title hint, as OpenOpus's fallback does, would have dropped *Clair de lune*.
+
+**One search, deduped by title + composer:**
+- `GET /catalog/external/search` now queries both sources concurrently, and returns 502 only if *both* fail.
+- Results are **interleaved** before truncating (OpenOpus's 30 Liszt works filled the whole limit otherwise),
+  and merged with `catalog_match.same_work()`.
+- `same_work()` compares composer surnames (so "Fryderyk" = "Frédéric" = "Frederic" Chopin). The two are the
+  same work if they share a catalogue number (op./S./BWV/K./D./L./Hob. …), which catches reordered titles like
+  "Sonata for Piano in B minor, S. 178" vs "Piano Sonata in B minor, S.178". Otherwise they are the same work
+  if their normalised titles match and no catalogue numbers conflict. Normalising ignores accents, dashes,
+  "no.", and quoted or bracketed subtitles.
+  - Conflicting numbers mean different works: Schubert's D. 664 and D. 959 are both "Sonata in A".
+- Merged rows carry `sources: [...]`. The UI shows OpenOpus / MusicBrainz tags, and its copy now names both
+  databases.
+
+**Import across sources:**
+- `import_external` derives the source from the `external_ref` prefix; an unknown prefix returns 422.
+- **Before creating a piece, it checks for the same work by that composer from any source, including the seeded
+  catalogue**, and returns it. Verified live: importing MusicBrainz's "Ballade no. 1 in G minor, op. 23"
+  returned the seeded Ballade No. 1, and "Mephisto Waltz no. 1, S. 514" returned the seeded piece.
+- **Composers match by surname + first initial**, so MusicBrainz's "Fryderyk Chopin" reuses your
+  "Frederic Chopin" instead of creating a duplicate composer (verified in the DB).
+- Because the same work resolves to one piece whichever source it came from, the Phase 13 "once per piece"
+  generation holds across sources too.
+
+**Verification**:
+- build ✔ and pytest **80 passed, 1 skipped** ✔. The new tests use `httpx.MockTransport` and never touch the
+  network: User-Agent, throttle spacing, filters, dedupe, 503 retry, cache, Cyrillic names, and merge.
+- A handful of live MusicBrainz queries were spaced ≥1.1s apart.
+- The import dedupe was checked against the scratch backend, and the merged panel was screenshotted
+  (8 OpenOpus + 7 MusicBrainz tags for "liszt").

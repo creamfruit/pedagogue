@@ -2300,3 +2300,12 @@ input[type="date"] {
 .chart-guide strong {
   color: var(--text);
 }
+
+.source-tag {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  color: var(--text-faint);
+}
