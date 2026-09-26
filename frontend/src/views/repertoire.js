@@ -48,18 +48,18 @@ export async function repertoireView(outlet, context) {
   const minDifficulty = context.query.min_difficulty || "";
   const maxDifficulty = context.query.max_difficulty || "";
 
-  const search = el("input", { type: "search", placeholder: "Search your pieces", value: query, style: "max-width:260px" });
+  const search = el("input", { type: "search", placeholder: "Search your pieces", value: query, "aria-label": "Search your pieces" });
   const select = el(
     "select",
-    { style: "max-width:180px" },
+    { "aria-label": "Status" },
     el("option", { value: "" }, "All statuses"),
     ...STATUSES.map((s) => el("option", { value: s, selected: s === statusFilter || null }, s.replace(/_/g, " ")))
   );
-  const genreSelect = el("select", { style: "max-width:170px" }, el("option", { value: "" }, "All genres"));
-  const minInput = el("input", { type: "number", min: "0", max: "100", placeholder: "Min diff.", value: minDifficulty, style: "max-width:110px" });
-  const maxInput = el("input", { type: "number", min: "0", max: "100", placeholder: "Max diff.", value: maxDifficulty, style: "max-width:110px" });
-  const composerSearch = el("input", { type: "search", placeholder: "Composer", value: composerName, style: "max-width:170px" });
-  const composerResults = el("ul", { class: "list", style: "position:absolute;z-index:5;max-width:260px" });
+  const genreSelect = el("select", { "aria-label": "Genre" }, el("option", { value: "" }, "All genres"));
+  const minInput = el("input", { type: "number", min: "0", max: "100", placeholder: "Min", value: minDifficulty, "aria-label": "Minimum difficulty" });
+  const maxInput = el("input", { type: "number", min: "0", max: "100", placeholder: "Max", value: maxDifficulty, "aria-label": "Maximum difficulty" });
+  const composerSearch = el("input", { type: "search", placeholder: "Composer", value: composerName, "aria-label": "Composer" });
+  const composerResults = el("ul", { class: "list composer-results" });
   let selectedComposerId = composerFilter || "";
 
   api
@@ -134,22 +134,45 @@ export async function repertoireView(outlet, context) {
     }, 280);
   });
 
+  const advancedActive = [genreFilter, composerFilter, minDifficulty, maxDifficulty].filter(Boolean).length;
+  const anyActive = advancedActive + [query, statusFilter].filter(Boolean).length;
+  const moreFilters = reveal(
+    advancedActive ? `More filters (${advancedActive} active)` : "More filters",
+    el(
+      "div",
+      { class: "filter-extra" },
+      el("div", { class: "field" }, el("label", {}, "Genre"), genreSelect),
+      el("div", { class: "field composer-field" }, el("label", {}, "Composer"), composerSearch, composerResults),
+      el(
+        "div",
+        { class: "field" },
+        el("label", {}, "Difficulty (0–100)"),
+        el("div", { class: "row", style: "flex-wrap:nowrap;gap:8px" }, minInput, el("span", { class: "faint" }, "to"), maxInput)
+      )
+    ),
+    { open: advancedActive > 0 }
+  );
+
   outlet.append(
     el(
       "div",
-      { class: "row", style: "justify-content:space-between;margin-bottom:18px" },
+      { class: "page-head" },
       el("h1", { style: "margin:0" }, "Repertoire"),
       el("a", { class: "btn", href: "/repertoire/new", "data-link": true }, "Add a piece")
     ),
     el(
       "div",
-      { class: "row", style: "margin-bottom:16px;position:relative" },
-      search,
-      select,
-      genreSelect,
-      el("div", { style: "position:relative" }, composerSearch, composerResults),
-      minInput,
-      maxInput
+      { class: "filter-bar" },
+      el("div", { class: "filter-main" }, search, select),
+      el(
+        "div",
+        { class: "row", style: "gap:18px" },
+        moreFilters.button,
+        anyActive
+          ? el("a", { class: "reveal-link", href: "/repertoire", "data-link": true }, "Clear filters")
+          : null
+      ),
+      moreFilters.region
     ),
     listHost
   );
@@ -170,7 +193,7 @@ export async function repertoireView(outlet, context) {
       return;
     }
     listHost.append(
-      el("p", { class: "faint mono", style: "font-size:12px" }, `${page.meta.total} piece(s)`),
+      el("p", { class: "faint mono", style: "font-size:12px" }, `${page.meta.total} piece${page.meta.total === 1 ? "" : "s"}`),
       el(
         "ul",
         { class: "list" },
@@ -197,12 +220,14 @@ export async function repertoireView(outlet, context) {
             ),
             el(
               "div",
-              { class: "row" },
+              { class: "row entry-meta" },
               entry.is_top_ten ? el("span", { class: "pill pill-accent" }, "top ten") : null,
               entry.needs_verification ? el("span", { class: "pill pill-warn" }, "unverified") : null,
               entry.decay_level >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen") : null,
-              el("span", { class: "pill" }, entry.status.replace(/_/g, " ")),
-              entry.piece.difficulty_score ? el("span", { class: "pill mono" }, entry.piece.difficulty_score) : null
+              el("span", { class: "entry-status" }, entry.status.replace(/_/g, " ")),
+              entry.piece.difficulty_score
+                ? el("span", { class: "entry-difficulty mono", title: "Catalogue difficulty (0–100)" }, entry.piece.difficulty_score)
+                : null
             )
           )
         )

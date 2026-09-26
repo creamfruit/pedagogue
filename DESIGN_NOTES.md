@@ -108,3 +108,21 @@ open it's 3,354px, still shorter than before, because the duplicated fields are 
 
 **Verified:** at 1280 and 390px, with a graded/verification piece (Op. 25/6) and an easy one
 (Für Elise), every reveal opens and shows its content (8/8 on the graded piece), and there are no console errors.
+
+### Repertoire list (`repertoireView`)
+
+- **Filters: two up front, four on demand.** Search and Status are the two filters used on nearly
+  every visit, so they stay in the bar (search gets twice the width of status). Genre, Composer and
+  the Min/Max difficulty range move behind **More filters**, with labels, because "Min diff." as a
+  bare placeholder didn't say what scale it used; the label now reads "Difficulty (0–100)".
+  - The reveal **opens by itself, and says "More filters (N active)"**, whenever one of those four is
+    set in the URL, so an active filter is never hidden.
+  - A quiet **Clear filters** link appears whenever any filter is active. Before, the only way to reset
+    was clearing six controls one by one.
+- **Rows carry less chrome.** The exceptional flags (top ten, unverified, frozen) stay as pills,
+  because they're what you scan for. The status, which every row has, is plain dim text, and the difficulty is a plain
+  number (with a tooltip naming the scale). That's down from up to five bordered boxes per row to
+  at most three, and the title reads first.
+- "9 piece(s)" → "9 pieces".
+- **Phones:** the filters stack, and each row's meta drops under the title instead of squeezing it.
+- All filter behaviour (URL query params, debounce, composer autocomplete) is unchanged.
