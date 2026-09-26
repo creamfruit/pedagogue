@@ -999,3 +999,45 @@ MusicBrainz has neither a classical flag nor instrumentation, so the equivalents
 - A handful of live MusicBrainz queries were spaced ≥1.1s apart.
 - The import dedupe was checked against the scratch backend, and the merged panel was screenshotted
   (8 OpenOpus + 7 MusicBrainz tags for "liszt").
+
+### Phase 15 — The three AI features on the Phase 13 foundation
+
+| Feature | State after the Phase 13 audit | Action |
+|---|---|---|
+| Description / history / fun fact on import | **Already correct after Phase 13**: queued, once per piece, stored | Confirmed, not rebuilt. Now also holds across OpenOpus and MusicBrainz (Phase 14 dedupe) |
+| Difficulty / technique-weight scoring on import | **Already correct after Phase 13**: the same job writes technique weights → mechanical load → difficulty score, from the same single call | Confirmed, not rebuilt |
+| Coach feedback per recording | **Didn't exist** | Built |
+
+**Coach feedback, once per recording.**
+- **Trigger:** when an *audio* submission finishes processing (`processing_status = done`), `process_submission`
+  runs the `generate_coach_feedback` job.
+- **Once per recording:** the same `ai_generations` claim, keyed `submission:<id>`. Re-processing a submission
+  via `/retry` hits the existing claim and makes no second call (verified live: one row after a retry).
+- **Where it's stored and shown:** the output is kept in the ledger and returned as `coach_feedback` on
+  `GET /repertoire/{entry}/submissions` and `GET /submissions/{id}`.
+- **Decision: honesty about the audio.** The audio analyzer still says "transcription and score alignment not yet
+  wired", so nothing in the data describes *how the take sounded*. So:
+  - The prompt tells Claude it cannot hear the recording and must not comment on sound, accuracy or
+    musicality.
+  - Claude gets only real data: the piece's hardest marked passages and their techniques, your tier for each
+    of the piece's techniques, the take's flags (full run-through / verification / duration), a tempo-shape
+    match *if* one exists, and your last three practice notes on this piece.
+  - The card says so in plain words: "Written from your technique tiers, this piece's marked passages and your
+    practice notes. The audio itself isn't analysed yet."
+- **Output shape:** structured output with a strict schema — a summary, 1–3 focus items (passage, why for
+  *you*, drill), and the next session.
+- **No API key:** a deterministic coach writes the same shape. It leads with the hardest passage that uses
+  your weakest-tier technique, reusing the passage's own practice cue as the drill.
+- **UI:**
+  - The recording card shows the coach-notes summary. The focus passages and next session sit behind a
+    reveal.
+  - It polls every 3s (10 times at most) while notes are being written.
+  - Recordings uploaded before this feature say "No coach notes were written for this take" rather than
+    spinning. They're *not* backfilled automatically, because backfilling would mean a paid call per old
+    recording.
+
+**Verification**:
+- build ✔ and pytest **85 passed, 1 skipped** ✔. New `tests/test_coach_feedback.py` covers tiers, weakest-passage
+  choice, the heuristic, cleaning and schema strictness.
+- Live against the scratch backend: submit a recording → notes appear, retry → still one ledger row, card
+  screenshotted.

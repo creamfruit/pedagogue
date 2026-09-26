@@ -7,7 +7,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from app.core.config import settings
 from app.core.database import session_scope
-from app.models.models import ProcessingStatus
+from app.models.models import ProcessingStatus, SubmissionType
 from app.services.analyzers import analyzer_for, load_submission
 
 logger = logging.getLogger("piano.worker")
@@ -26,7 +26,10 @@ async def process_submission(submission_id: uuid.UUID | str) -> Optional[str]:
         analyzer = analyzer_for(submission, session)
         analysis = await analyzer.run(submission)
         logger.info("submission %s -> %s", submission_id, submission.processing_status.value)
-        return analysis.summary
+        wants_feedback = submission.submission_type == SubmissionType.AUDIO and submission.processing_status == ProcessingStatus.DONE
+    if wants_feedback:
+        await run_job("generate_coach_feedback", submission_id)
+    return analysis.summary
 
 
 async def generate_piece_metadata(piece_id: int) -> Optional[str]:
@@ -35,9 +38,16 @@ async def generate_piece_metadata(piece_id: int) -> Optional[str]:
     return await run(int(piece_id))
 
 
+async def generate_coach_feedback(submission_id: uuid.UUID | str) -> Optional[str]:
+    from app.services.coach_feedback import generate_coach_feedback as run
+
+    return await run(submission_id)
+
+
 JOBS: dict[str, Callable[..., Awaitable[Any]]] = {
     "process_submission": process_submission,
     "generate_piece_metadata": generate_piece_metadata,
+    "generate_coach_feedback": generate_coach_feedback,
 }
 
 

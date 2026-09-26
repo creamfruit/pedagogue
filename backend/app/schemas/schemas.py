@@ -403,6 +403,7 @@ class SubmissionDetail(SubmissionRead):
     midi_key: Optional[str] = None
     tempo_curve: Optional[dict[str, Any]] = None
     interpretation: Optional[dict[str, Any]] = None
+    coach_feedback: Optional[dict[str, Any]] = None
 
 
 class TextSubmissionCreate(BaseModel):

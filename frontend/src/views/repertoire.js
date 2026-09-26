@@ -703,6 +703,82 @@ function submissionDate(submission) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+const COACH_POLL_MS = 3000;
+const COACH_POLL_LIMIT = 10;
+const COACH_STALE_MS = 2 * 60 * 1000;
+
+function coachNotesBody(feedback) {
+  const details = [
+    ...(feedback.focus || []).map((item) =>
+      el(
+        "div",
+        { class: "coach-focus" },
+        el("strong", { class: "coach-focus-passage" }, item.passage),
+        item.why ? el("p", { class: "coach-text" }, item.why) : null,
+        el("p", { class: "section-cue", style: "margin-top:6px;padding-top:6px" }, el("span", { class: "cue-tag" }, "Drill"), item.drill)
+      )
+    ),
+    feedback.next_session
+      ? el("p", { class: "coach-text" }, el("span", { class: "cue-tag" }, "Next session"), feedback.next_session)
+      : null,
+  ].filter(Boolean);
+  const more = details.length ? reveal(`${(feedback.focus || []).length} focus passage${(feedback.focus || []).length === 1 ? "" : "s"} and next session`, details) : null;
+  return [
+    el("p", { class: "coach-summary" }, feedback.summary),
+    more ? more.button : null,
+    more ? more.region : null,
+    el(
+      "p",
+      { class: "faint", style: "font-size:11px;margin:8px 0 0" },
+      "Written from your technique tiers, this piece's marked passages and your practice notes. The audio itself isn't analysed yet."
+    ),
+  ];
+}
+
+function coachNotes(submission) {
+  const host = el("div", { class: "coach-notes" }, el("div", { class: "stat-label" }, "Coach notes"));
+  const body = el("div");
+  host.append(body);
+  let polls = 0;
+
+  function draw(current) {
+    const feedback = current.coach_feedback;
+    if (current.processing_status !== "done") {
+      body.replaceChildren(el("p", { class: "faint coach-text" }, "Coach notes appear once the recording has been processed."));
+      return false;
+    }
+    const age = Date.now() - new Date(current.created_at).getTime();
+    if (!feedback && age > COACH_STALE_MS) {
+      body.replaceChildren(el("p", { class: "faint coach-text" }, "No coach notes were written for this take."));
+      return false;
+    }
+    if (!feedback || feedback.status === "running") {
+      body.replaceChildren(el("p", { class: "faint coach-text" }, "Your coach notes are being written…"));
+      return true;
+    }
+    if (feedback.status !== "done") {
+      body.replaceChildren(el("p", { class: "faint coach-text" }, "Coach notes couldn't be written for this take."));
+      return false;
+    }
+    body.replaceChildren(...coachNotesBody(feedback).filter(Boolean));
+    return false;
+  }
+
+  async function poll() {
+    if (!host.isConnected || polls >= COACH_POLL_LIMIT) return;
+    polls += 1;
+    try {
+      const current = await api.submission(submission.id);
+      if (draw(current)) setTimeout(poll, COACH_POLL_MS);
+    } catch {
+      setTimeout(poll, COACH_POLL_MS);
+    }
+  }
+
+  if (draw(submission)) setTimeout(poll, COACH_POLL_MS);
+  return host;
+}
+
 function submissionCard(submission) {
   const tone = { done: "pill-ok", failed: "pill-bad", processing: "pill-warn", queued: "pill" };
   const date = submissionDate(submission);
@@ -729,6 +805,7 @@ function submissionCard(submission) {
         submission.duration_sec ? el("span", { class: "faint mono", style: "font-size:11px" }, `${submission.duration_sec}s`) : null
       )
     );
+    rows.push(coachNotes(submission));
   }
   if (submission.body) {
     rows.push(el("p", { class: "faint", style: "font-size:12.5px;margin:6px 0 0" }, submission.body.slice(0, 220)));

@@ -23,6 +23,7 @@ from app.schemas.schemas import (
     SubmissionRead,
     TextSubmissionCreate,
 )
+from app.services.coach_feedback import feedback_for
 from app.services.repertoire import SubmissionService
 from app.workers.queue import get_queue
 
@@ -54,7 +55,8 @@ async def list_submissions(
         submissions = await SubmissionService(session).list_for_entry(user, entry_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    return [SubmissionDetail.model_validate(s) for s in submissions]
+    feedback = await feedback_for(session, submissions)
+    return [SubmissionDetail.model_validate(s).model_copy(update={"coach_feedback": feedback.get(s.id)}) for s in submissions]
 
 
 @router.post(
@@ -156,7 +158,8 @@ async def get_submission(
         submission = await SubmissionService(session).get(user, submission_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    return SubmissionDetail.model_validate(submission)
+    feedback = await feedback_for(session, [submission])
+    return SubmissionDetail.model_validate(submission).model_copy(update={"coach_feedback": feedback.get(submission.id)})
 
 
 @router.get("/submissions/{submission_id}/analyses", response_model=list[AnalysisDetail])
