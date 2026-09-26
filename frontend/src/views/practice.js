@@ -3,6 +3,7 @@ import { el, empty, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
 import { renderNotation } from "../lib/notation.js";
 import { playNotation } from "../lib/synth.js";
+import { ambientToggle, metronomePanel } from "./practiceTools.js";
 
 function sightReadingForge() {
   const host = el("section", { class: "panel" }, el("h3", {}, "Sight-reading forge"), skeletonBlock(2));
@@ -120,10 +121,24 @@ export async function practiceView(outlet) {
   const loadHost = el("section", { class: "panel" }, el("h3", {}, "This week"), skeletonBlock(2));
   const historyHost = el("section", { class: "panel" }, el("h3", {}, "Recent sessions"), skeletonBlock(3));
 
-  outlet.append(
-    el("h1", {}, "Practice"),
-    el("div", { class: "stack" }, sessionHost, sightReadingForge(), el("div", { class: "grid" }, loadHost, historyHost))
+  const page = el("div", { class: "practice-page" });
+  const metronome = metronomePanel();
+  const ambient = ambientToggle(page);
+  page.append(
+    el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Practice"), ambient.node),
+    el(
+      "div",
+      { class: "stack" },
+      el("div", { class: "practice-top" }, sessionHost, metronome.node),
+      sightReadingForge(),
+      el("div", { class: "grid" }, loadHost, historyHost)
+    )
   );
+  outlet.append(page);
+  const dispose = () => {
+    metronome.dispose();
+    ambient.dispose();
+  };
 
   async function renderSession() {
     sessionHost.replaceChildren(skeletonBlock(2));
@@ -291,4 +306,5 @@ export async function practiceView(outlet) {
   } catch (error) {
     historyHost.replaceChildren(el("h3", {}, "Recent sessions"), empty(error.detail || "Could not load sessions."));
   }
+  return dispose;
 }

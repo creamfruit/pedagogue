@@ -1185,3 +1185,41 @@ no drift. The downgrade drops the column but can't remove an enum value (Postgre
 - `alembic check`: no drift.
 - Live nudge for a never-practised user, and none for one who practised today.
 - Retake round trip in the browser.
+
+### Phase 19 — Metronome and ambient practice rooms
+
+**Metronome** (`lib/metronome.js` + a panel on Practice, beside the session card):
+- **Timing:** a Web Audio *look-ahead scheduler*. A 25ms timer schedules clicks up to 120ms ahead on the audio
+  clock, so the beat stays sample-accurate even when the main thread is busy; `setInterval` alone drifts.
+- **Shared audio:** `synth.js` gains a shared `audioContext()` and a `click()` voice (short square blip, higher
+  pitch for the downbeat), so the metronome uses the same audio infrastructure as notation playback.
+- **Controls:**
+  - a 30–240 bpm slider with −5/−1/+1/+5 buttons and a number box;
+  - **Tap** tempo (average of the last four intervals within 3s);
+  - Start/Stop, with the Stop state in starlight (selected/on);
+  - a **"Use a piece's target tempo…"** picker listing your learning or polishing pieces that have a target set.
+- **Visual tick:** one light per beat, driven by the *audio clock*, not timers, so it stays in sync with the
+  sound. The downbeat lights yellow, the other beats starlight.
+- **Behind a reveal:** beats per bar (2–12), downbeat accent on/off, and volume.
+- **Remembered:** the last tempo, in browser storage (a per-viewer convenience).
+
+**Ambient practice room** (the toggle in the Practice header):
+- **Off by default, and never remembered as on.** It only starts from the toggle click, which is always a user
+  gesture, as browsers require for audio. It stops, and the visual treatment is removed, when you leave the page.
+- **Sound** (`lib/ambient.js`): generated, not a file, so there's nothing to download or license.
+  - A soft A-major pad (detuned sine/triangle pairs through a low-pass filter whose cutoff drifts on a 20-second
+    LFO), plus a little filtered "air" noise.
+  - It fades in over 3s and out over 1.6s, and has its own volume slider.
+- **Visual:** scoped to the Practice page.
+  - Faint starlight dust drifts very slowly behind the page (120s loop), panels go translucent with near-invisible
+    borders, and orange buttons soften to outlines, so the page recedes and the music is the focus.
+  - The toggle's dot "breathes".
+  - With `prefers-reduced-motion`, both animations are off.
+
+**Verification**:
+- build ✔ and pytest ✔ (no backend change).
+- In headless Chrome: Start → the beat lights fire (4 lights for 4/4); four taps 500ms apart → 118 bpm, which is
+  ≈120 within browser timer jitter; the ambient toggle → `aria-pressed=true` and the calm treatment applied;
+  leaving the page disposes both. No console errors.
+- **Limit:** headless Chrome can't *hear*. Audio output wasn't verified by ear, only that the Web Audio graph
+  builds and runs without errors. Please give both a listen.

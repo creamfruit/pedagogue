@@ -10,6 +10,30 @@ function pitchToFrequency(pitch) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
+let sharedContext = null;
+
+export function audioContext() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!sharedContext || sharedContext.state === "closed") sharedContext = new AudioCtx();
+  if (sharedContext.state === "suspended") sharedContext.resume();
+  return sharedContext;
+}
+
+export function click(ctx, time, { accent = false, volume = 0.5 } = {}) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "square";
+  osc.frequency.value = accent ? 1760 : 1175;
+  const peak = (accent ? 0.28 : 0.18) * volume;
+  gain.gain.setValueAtTime(0.0001, time);
+  gain.gain.exponentialRampToValueAtTime(peak, time + 0.002);
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(time);
+  osc.stop(time + 0.06);
+}
+
 export function playNotation(notation, { onMeasure, onDone } = {}) {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) return { stop: () => {}, durationMs: 0 };

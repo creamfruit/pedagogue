@@ -389,3 +389,8 @@ were missing). Nothing told you what to do.
 - **Progress hub order:** Growth is the first tab. The landing view of "Progress" should show progress; Pathways (goal-seeking) and Performances (events) are second and third.
 - **Streak visual:** a ringed count in **yellow** when live, neutral at 0. Yellow already means reward (gold) in this app; a streak is a reward state, not an action (orange) or a selection (starlight).
 - **Growth chart:** see RUN_NOTES Phase 17 for the validated colour choice. One orange series, neutral weekly dots, starlight star glyphs for learnt pieces (shape, not hue, carries identity), a legend plus an end label, a crosshair tooltip, and a table view behind a reveal.
+
+## Phase 19 — Practice tools
+
+- The metronome sits **beside the session card** at the top of Practice (a two-column grid on wide screens). Timing tools belong next to the thing you are timing, not below the fold.
+- The ambient room is a **header toggle** (a pill with a status dot), not a panel. It changes the whole page rather than adding content. When on it uses starlight, per the "selected/on = starlight" rule; the downbeat light is yellow, the other beats starlight.
