@@ -477,3 +477,23 @@ written to. Drop the scratch DB with `docker exec piano-db psql -U piano -c "DRO
 
 **Verification**: build ✔, pytest 52/52 ✔, dashboard/repertoire/constellation/observatory/onboarding
 rendered against the scratch backend with no console errors.
+
+### Phase 8 — Piece Detail meta-grid gap
+
+- **The suspected cause wasn't there.** `pieceOverview()` had no orphaned `metaRow()` calls: the old
+  "For you" row was already deleted in Phase 3c and there's exactly one Difficulty row. `metaRow()`
+  returns `null` for empty values and `el()` drops nulls, so there were no blank DOM cells either.
+- **Actual cause (measured in headless Chrome):** the Difficulty cell used
+  `.meta-row:has(.difficulty-pair) { flex-wrap: wrap }`, so the paired badge wrapped under its label
+  and made that cell 77px tall versus 39px for the others. CSS grid stretches every item in a row to
+  the tallest one, so Composed/Marking/Genre/Mechanical load (the cells sharing Difficulty's row) each
+  grew a ~38px empty band under their label/value — that's the "empty row" under the badge before the
+  Character strip.
+- **Fix:** Difficulty is now a full-width row (`.meta-row-wide`: `grid-column: 1 / -1`, label and
+  badge side by side, no wrap), and the grid uses `grid-auto-flow: row dense` so the cell that used
+  to follow Difficulty backfills instead of leaving a hole. The `:has()` wrap rule was removed.
+  Measured after: every ordinary cell is 39px at 1280, 900 and 390px widths; the difficulty row is 54px
+  and no other cell shares it.
+- The Physical-load grid had no such issue (no tall cells).
+
+**Verification**: build ✔, pytest 52/52 ✔, grid geometry probed at three widths, no console errors.

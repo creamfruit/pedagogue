@@ -28,12 +28,12 @@ function isJunk(label, value) {
   return true;
 }
 
-function metaRow(label, value) {
+function metaRow(label, value, { wide = false } = {}) {
   if (value === null || value === undefined || value === "" || value === "unknown") return null;
   if (isJunk(label, value)) return null;
   return el(
     "div",
-    { class: "meta-row" },
+    { class: wide ? "meta-row meta-row-wide" : "meta-row" },
     el("span", { class: "meta-key" }, label),
     el("span", { class: "meta-value mono" }, value instanceof Node ? value : String(value))
   );
@@ -270,7 +270,8 @@ export function pieceOverview(overview, { heading = true } = {}) {
       metaRow("Syllabus grade", overview.syllabus_grade),
       metaRow(
         "Difficulty",
-        difficultyPair(overview.personalized_difficulty, overview.difficulty_score, { band: overview.difficulty_band })
+        difficultyPair(overview.personalized_difficulty, overview.difficulty_score, { band: overview.difficulty_band }),
+        { wide: true }
       ),
       metaRow("Mechanical load", overview.mechanical_load)
     )
