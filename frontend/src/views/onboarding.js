@@ -111,16 +111,19 @@ function resultItem(onPick, ...children) {
 }
 
 function stepper(active) {
+  const current = STEPS.indexOf(active);
   return el(
-    "div",
-    { class: "row", style: "margin-bottom:22px" },
-    ...STEPS.map((step, index) =>
-      el(
-        "span",
-        { class: `pill${step === active ? " pill-accent" : ""}` },
-        `${index + 1}. ${step.replace(/_/g, " ")}`
-      )
-    )
+    "ol",
+    { class: "stepper", "aria-label": "Setup progress" },
+    ...STEPS.map((step, index) => {
+      const state = index < current ? "done" : index === current ? "current" : "upcoming";
+      return el(
+        "li",
+        { class: `stepper-step stepper-${state}`, "aria-current": state === "current" ? "step" : null },
+        el("span", { class: "stepper-index mono" }, state === "done" ? "✓" : String(index + 1)),
+        el("span", { class: "stepper-label" }, step.replace(/_/g, " "))
+      );
+    })
   );
 }
 
@@ -383,12 +386,15 @@ function tierQuizStep(allTechniques, refresh) {
       );
       let playbackRegion = null;
       const example = disclosure("?", {
-        label: `Show an example of ${technique.name}`,
+        label: `How ${technique.name} is played, with an example`,
         buttonClass: "tier-help",
         regionClass: "tier-example",
         onFirstOpen: (region) => {
           playbackRegion = region;
-          fillTechniqueExample(region, technique, loadExamples);
+          const exampleHost = el("div");
+          if (technique.mechanic) region.append(el("p", { class: "tier-example-mechanic" }, technique.mechanic));
+          region.append(exampleHost);
+          fillTechniqueExample(exampleHost, technique, loadExamples);
         },
         onClose: () => {
           const playing = playbackRegion?.querySelector(".tier-example-head button");
@@ -405,8 +411,7 @@ function tierQuizStep(allTechniques, refresh) {
             el(
               "div",
               { class: "tier-name" },
-              el("div", { class: "row", style: "gap:8px;flex-wrap:nowrap" }, el("span", { style: "font-weight:500" }, technique.name), example.button),
-              technique.mechanic ? el("div", { class: "faint", style: "font-size:12px" }, technique.mechanic) : null
+              el("div", { class: "row", style: "gap:8px;flex-wrap:nowrap" }, el("span", { style: "font-weight:500" }, technique.name), example.button)
             ),
             el("div", { class: "row tier-buttons" }, ...buttons)
           ),
@@ -419,11 +424,20 @@ function tierQuizStep(allTechniques, refresh) {
 
   return el(
     "div",
-    { class: "panel panel-accent stack" },
-    el("p", { class: "muted", style: "margin:0" }, "Rank every technique against the tier list. This colors requirements on every piece and drives your sight-reading forge."),
-    el("div", { class: "row", style: "font-size:11px" }, ...TIERS.map((tier) => el("span", { class: "pill" }, TIER_LABEL[tier]))),
-    el("div", { class: "stack", style: "max-height:520px;overflow:auto" }, ...rows),
-    submit
+    { class: "panel panel-accent stack tier-quiz" },
+    el(
+      "div",
+      {},
+      el("p", { class: "muted", style: "margin:0 0 6px" }, "Rank every technique against the tier list. This colours requirements on every piece and drives your sight-reading forge."),
+      el(
+        "p",
+        { class: "tier-legend mono" },
+        TIERS.map((tier) => TIER_LABEL[tier]).join("   ·   ")
+      ),
+      el("p", { class: "faint", style: "margin:0;font-size:12.5px" }, "Tap ? beside a technique to see how it's played and hear an example.")
+    ),
+    el("div", { class: "stack tier-rows" }, ...rows),
+    el("div", { class: "sticky-actions" }, submit)
   );
 }
 

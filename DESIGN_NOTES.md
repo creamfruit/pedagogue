@@ -126,3 +126,24 @@ open it's 3,354px, still shorter than before, because the duplicated fields are 
 - "9 piece(s)" → "9 pieces".
 - **Phones:** the filters stack, and each row's meta drops under the title instead of squeezing it.
 - All filter behaviour (URL query params, debounce, composer autocomplete) is unchanged.
+
+### Onboarding (`onboardingView`, tier quiz)
+
+- **The stepper is a progress indicator, not four identical pills.** Each step is *done* (a starlight ✓),
+  *current* (an orange ring with the label in full text colour) or *upcoming* (faint), joined by
+  hairlines. It carries `aria-current="step"`. Before, only the current pill differed, so finished
+  steps didn't look finished.
+- **Tier quiz rows are one line each.** The 2-line mechanic paragraph was on all 17 rows, and it's
+  the reference text you read once, if at all. It now sits at the top of that row's **?** reveal, above
+  the Phase 11 example, so "how it's played" and "what it sounds like" are in the same place.
+  The button's accessible name says so: "How Trills is played, with an example". A caption under
+  the intro points at the "?".
+- **No nested scroll.** The quiz used to live in a `max-height: 520px; overflow: auto` box, so the page
+  scrolled *and* the box scrolled, and Continue was stuck at the box's bottom. Rows now flow in the
+  page, and **Continue sits in a sticky footer** (`.sticky-actions`) that stays at the bottom of the
+  viewport while you rank, still showing "Rank every technique (n/17)".
+- **Tier legend:** five boxed pills became one mono caption line
+  (`S · mastered · A · strong · …`). It's reference, not an interactive control, so it shouldn't
+  look like one.
+- Profile, Top ten and Tastes had little to cut and only pick up the new stepper. Their controls were
+  reworked in Phase 2.
