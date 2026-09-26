@@ -296,3 +296,18 @@ were missing). Nothing told you what to do.
   "Active 4".
 - Performance-ready pieces are in maintenance, so they surface under *Needs attention* when they drift, not in
   the in-progress list.
+
+## Repertoire list
+
+- **Grouped by status, in the order you work through a piece:** Learning → Polishing → Performance ready →
+  Wishlist → Retired. It was one flat list sorted by nothing in particular, with a status label on every row.
+  The group heading now carries the status once ("Polishing · 2"), so rows lose that label.
+- **Wishlist and Retired start collapsed** (a `reveal()`, per the Phase 16 standard). They're pieces you're
+  *not* working on.
+  - Because onboarding stores your top ten as *retired*, the collapsed heading names them ("Retired · 3 · 3 in
+    your top ten"), so your favourites don't look lost.
+  - Choosing a status in the filter always shows that group open.
+- **Active rows (learning and polishing) show what matters for practice:** when you last practised, and tempo
+  progress when a target is set. Flags (top ten, unverified, frozen) and the difficulty number stay on the right.
+- `lib/entries.js` now holds the shared helpers (status order and labels, "last practised", tempo bar), so Today
+  and Repertoire describe a piece identically.

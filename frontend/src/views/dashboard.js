@@ -1,30 +1,9 @@
 import { api } from "../api/client.js";
 import { el, empty, sectionBlock, skeletonBlock, toneForSeverity } from "../lib/dom.js";
+import { daysSince, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { store } from "../lib/store.js";
 
 const ACTIVE = new Set(["learning", "polishing"]);
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-export function daysSince(value) {
-  if (!value) return null;
-  const then = new Date(value).getTime();
-  if (Number.isNaN(then)) return null;
-  return Math.max(0, Math.floor((Date.now() - then) / DAY_MS));
-}
-
-export function lastPractisedLabel(value) {
-  const days = daysSince(value);
-  if (days === null) return "Not practised yet";
-  if (days === 0) return "Practised today";
-  if (days === 1) return "Practised yesterday";
-  return `Last practised ${days} days ago`;
-}
-
-export function tempoShare(entry) {
-  if (!entry.current_tempo_bpm || !entry.target_tempo_bpm) return null;
-  return Math.min(100, Math.round((entry.current_tempo_bpm / entry.target_tempo_bpm) * 100));
-}
-
 export function pickNextUp(entries) {
   const active = entries.filter((entry) => ACTIVE.has(entry.status));
   if (!active.length) return null;
@@ -36,17 +15,6 @@ export function pickNextUp(entries) {
     if (da !== db) return (db ?? 0) - (da ?? 0);
     return Number(a.piece.difficulty_score ?? 0) - Number(b.piece.difficulty_score ?? 0);
   })[0];
-}
-
-function tempoBar(entry) {
-  const share = tempoShare(entry);
-  if (share === null) return null;
-  return el(
-    "div",
-    { class: "tempo-progress", title: `${entry.current_tempo_bpm} of ${entry.target_tempo_bpm} bpm` },
-    el("div", { class: "bar" }, el("span", { style: `width:${share}%` })),
-    el("span", { class: "faint mono" }, `${share}% of tempo`)
-  );
 }
 
 function nextUpCard(entry) {

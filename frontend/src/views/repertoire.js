@@ -2,6 +2,7 @@ import { api, pollSubmission } from "../api/client.js";
 import { difficultyPair, pieceOverview } from "../components/overview.js";
 import { el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
+import { STATUS_LABEL, STATUS_ORDER, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
 
@@ -192,50 +193,71 @@ export async function repertoireView(outlet, context) {
       listHost.append(empty("No pieces match.", el("a", { class: "btn", href: "/repertoire/new", "data-link": true }, "Add one")));
       return;
     }
+    const groups = STATUS_ORDER.map((status) => ({ status, items: page.items.filter((entry) => entry.status === status) })).filter(
+      (group) => group.items.length
+    );
     listHost.append(
       el("p", { class: "faint mono", style: "font-size:12px" }, `${page.meta.total} piece${page.meta.total === 1 ? "" : "s"}`),
-      el(
-        "ul",
-        { class: "list" },
-        ...page.items.map((entry) =>
-          el(
-            "li",
-            {
-              class: "list-item list-item-link",
-              tabindex: "0",
-              role: "link",
-              onclick: () => navigate(`/repertoire/${entry.id}`),
-              onkeydown: (event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  navigate(`/repertoire/${entry.id}`);
-                }
-              },
-            },
-            el(
-              "div",
-              {},
-              el("div", { style: "font-weight:500" }, entry.piece.title),
-              el("div", { class: "faint", style: "font-size:12.5px" }, entry.piece.composer?.name || "unknown composer")
-            ),
-            el(
-              "div",
-              { class: "row entry-meta" },
-              entry.is_top_ten ? el("span", { class: "pill pill-accent" }, "top ten") : null,
-              entry.needs_verification ? el("span", { class: "pill pill-warn" }, "unverified") : null,
-              entry.decay_level >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen") : null,
-              el("span", { class: "entry-status" }, entry.status.replace(/_/g, " ")),
-              entry.piece.difficulty_score
-                ? el("span", { class: "entry-difficulty mono", title: "Catalogue difficulty (0–100)" }, entry.piece.difficulty_score)
-                : null
-            )
-          )
-        )
-      )
+      el("div", { class: "status-groups" }, ...groups.map((group) => statusGroup(group, { collapsed: !statusFilter && COLLAPSED_GROUPS.has(group.status) })))
     );
   } catch (error) {
     listHost.replaceChildren(empty(error.detail || "Could not load your repertoire."));
   }
+}
+
+const COLLAPSED_GROUPS = new Set(["wishlist", "retired"]);
+const ACTIVE_GROUPS = new Set(["learning", "polishing"]);
+
+function entryListItem(entry) {
+  const active = ACTIVE_GROUPS.has(entry.status);
+  return el(
+    "li",
+    {
+      class: "list-item list-item-link",
+      tabindex: "0",
+      role: "link",
+      onclick: () => navigate(`/repertoire/${entry.id}`),
+      onkeydown: (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(`/repertoire/${entry.id}`);
+        }
+      },
+    },
+    el(
+      "div",
+      { style: "min-width:0;flex:1" },
+      el("div", { style: "font-weight:500" }, entry.piece.title),
+      el(
+        "div",
+        { class: "faint", style: "font-size:12.5px" },
+        [entry.piece.composer?.name || "unknown composer", active ? lastPractisedLabel(entry.last_practiced_at) : null].filter(Boolean).join(" · ")
+      ),
+      active ? tempoBar(entry) : null
+    ),
+    el(
+      "div",
+      { class: "row entry-meta" },
+      entry.is_top_ten ? el("span", { class: "pill pill-accent" }, "top ten") : null,
+      entry.needs_verification ? el("span", { class: "pill pill-warn" }, "unverified") : null,
+      entry.decay_level >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen") : null,
+      entry.piece.difficulty_score
+        ? el("span", { class: "entry-difficulty mono", title: "Catalogue difficulty (0–100)" }, entry.piece.difficulty_score)
+        : null
+    )
+  );
+}
+
+function statusGroup(group, { collapsed }) {
+  const list = el("ul", { class: "list" }, ...group.items.map(entryListItem));
+  const topTen = group.items.filter((entry) => entry.is_top_ten).length;
+  const title = [STATUS_LABEL[group.status], group.items.length, topTen ? `${topTen} in your top ten` : null].filter(Boolean).join(" · ");
+  if (!collapsed) {
+    return el("section", { class: "status-group", "aria-label": STATUS_LABEL[group.status] }, el("h2", { class: "status-group-title" }, title), list);
+  }
+  const control = reveal(title, list);
+  control.button.classList.add("status-group-toggle");
+  return el("section", { class: "status-group", "aria-label": STATUS_LABEL[group.status] }, control.button, control.region);
 }
 
 function catalogSearchPanel(statusSelect) {
