@@ -1,5 +1,7 @@
 import { api } from "../api/client.js";
-import { el, empty, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
+import { el, empty, reveal, sectionBlock, skeletonBlock, tabs } from "../lib/dom.js";
+import { drawSkyPreview } from "../lib/skyPreview.js";
+import { navigate } from "../router.js";
 import { ERA_STYLE, eraGlyph } from "../lib/palette.js";
 import { store, subscribe } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
@@ -78,17 +80,57 @@ function preview(cosmetic) {
   );
 }
 
-export async function shopView(outlet) {
+const OBSERVATORY_TABS = [
+  { id: "shop", label: "Sky shop" },
+  { id: "achievements", label: "Achievements" },
+];
+
+export async function shopView(outlet, context = {}) {
+  const tab = context.query?.tab === "achievements" ? "achievements" : "shop";
   const walletHost = el("div", { style: "margin-bottom:var(--space-5)" }, skeletonBlock(2));
   const shopHost = el("div", { class: "stack", style: "gap:var(--space-5)" }, skeletonBlock(4));
-  const achievementHost = el("div", { style: "margin-top:var(--space-5)" }, skeletonBlock(3));
+  const achievementHost = el("div", {}, skeletonBlock(3));
+  const previewCanvas = el("canvas", { class: "sky-preview", "aria-hidden": "true" });
+  const previewLabel = el("p", { class: "faint", style: "margin:var(--space-2) 0 0;font-size:12.5px" }, "Your equipped sky.");
+  const previewPanel = sectionBlock(
+    "Your sky",
+    { caption: "Hover or focus a cosmetic to try it on before you buy.", className: "sky-preview-panel" },
+    previewCanvas,
+    previewLabel
+  );
+  let equipped = {};
+
+  function showPreview(item) {
+    const loadout = { ...equipped };
+    if (item) loadout[item.kind] = item.payload || {};
+    drawSkyPreview(previewCanvas, loadout);
+    previewLabel.textContent = item && !item.equipped ? `Previewing ${item.name}.` : "Your equipped sky.";
+  }
+
+  const strip = tabs(OBSERVATORY_TABS, tab, (id) => navigate(id === "shop" ? "/observatory" : `/observatory?tab=${id}`, { replace: true }), {
+    label: "Observatory sections",
+    controls: "observatory-panel",
+  });
+  const panel = el(
+    "div",
+    { id: "observatory-panel", role: "tabpanel" },
+    tab === "shop" ? el("div", { class: "shop-layout" }, shopHost, previewPanel) : achievementHost
+  );
 
   outlet.append(
-    el("h1", {}, "Observatory"),
-    el("p", { class: "muted" }, "Spend gold on how your sky looks. Earn it by learning pieces and passing graded runs."),
+    el(
+      "div",
+      { class: "page-head" },
+      el(
+        "div",
+        {},
+        el("h1", { style: "margin:0" }, "Observatory"),
+        el("p", { class: "muted", style: "margin:4px 0 0" }, "Spend gold on how your sky looks. Earn it by learning pieces and passing graded runs.")
+      )
+    ),
     walletHost,
-    shopHost,
-    achievementHost
+    strip,
+    panel
   );
 
   // The wallet comes from the same store.wallet the header reads, so the two can
@@ -154,6 +196,8 @@ export async function shopView(outlet) {
   async function renderShop() {
     try {
       const cosmetics = await api.shop();
+      equipped = Object.fromEntries(cosmetics.filter((item) => item.equipped).map((item) => [item.kind, item.payload || {}]));
+      requestAnimationFrame(() => showPreview(null));
       const grouped = new Map();
       cosmetics.forEach((item) => {
         if (!grouped.has(item.kind)) grouped.set(item.kind, []);
@@ -232,7 +276,12 @@ export async function shopView(outlet) {
       "div",
       {
         class: "panel shop-card",
+        tabindex: "-1",
         dataset: { equipped: String(item.equipped), locked: String(locked) },
+        onmouseenter: () => showPreview(item),
+        onmouseleave: () => showPreview(null),
+        onfocusin: () => showPreview(item),
+        onfocusout: () => showPreview(null),
       },
       preview(item),
       el(
@@ -286,6 +335,6 @@ export async function shopView(outlet) {
     }
   }
 
-  await Promise.all([renderWallet(), renderShop(), renderAchievements()]);
+  await Promise.all([renderWallet(), tab === "shop" ? renderShop() : renderAchievements()]);
   return unsubscribe;
 }

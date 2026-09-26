@@ -356,3 +356,30 @@ were missing). Nothing told you what to do.
   started blank, so editing one answer meant re-entering all seventeen.
 - `tierQuizStep` is now exported, with `initial` and `submitLabel` options. Phase 18's standalone retake reuses
   the same component rather than a copy.
+
+## Observatory
+
+- **Tabs: Sky shop | Achievements.** These are peer views, per the Phase 16 rule. The shop is for spending, and
+  achievements are for looking back. Phase 17's achievement progress and Phase 22's sky shapes live on the
+  Achievements tab, so they don't lengthen the shop.
+- **A live sky preview: "try it on before you buy".** Before, you bought a nebula or a glow from a 12px swatch,
+  and only saw the result after paying and opening the constellation.
+  - A small canvas (`lib/skyPreview.js`) draws a fixed sample sky with your *equipped* loadout: star colour
+    mode, glow, nebula, connector style.
+  - **Hovering or focusing any cosmetic card swaps that one cosmetic in** ("Previewing Rose filament.").
+    Leaving the card reverts it.
+  - From 1100px up it's sticky beside the grid; below that it sits above the grid.
+- The wallet strip, captioned sections and starlight "equipped" state from Phase 10 are unchanged.
+
+## Phase 16 in one table
+
+| Page | The structural change |
+|---|---|
+| Shell | One header bar, six destinations, an account menu, and a new Settings page |
+| Today | Leads with *Next up*, the least recently practised active piece, and why |
+| Repertoire | Grouped by status, with idle groups collapsed and practice data on active rows |
+| Piece detail | Two requirement banners become one checklist with a single action |
+| Constellation | The selection opens in a drawer over the sky |
+| Onboarding | A focused wizard with editable, pre-filled steps |
+| Progress | New hub: Pathways + Performances tabs, and Growth in Phase 17 |
+| Observatory | Shop/Achievements tabs plus a try-before-you-buy sky preview |

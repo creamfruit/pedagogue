@@ -1041,3 +1041,38 @@ MusicBrainz has neither a classical flag nor instrumentation, so the equivalents
   choice, the heuristic, cleaning and schema strictness.
 - Live against the scratch backend: submit a recording → notes appear, retry → still one ledger row, card
   screenshotted.
+
+### Phase 16 — Full redesign, page by page
+
+**Order decision:** I did Phase 16 *before* 17–24 as numbered, but designed the information architecture knowing
+what those phases add, so each gets a planned home (streak → Today's "This week" card; growth chart and Practice
+DNA → Progress › Growth; tier retake, nudges, leaderboard opt-in and export → Settings; metronome and ambient rooms →
+Practice; sky achievements and meteor showers → the constellation drawer and Observatory › Achievements).
+
+**Disclosure decision (you left it to me):** `reveal()` is now **the app's standard** for hiding secondary detail.
+The "?" button stays only for inline help attached to a control. Tabs are for peer views. Every other hiding
+mechanism is out. This is written up in `DESIGN_NOTES.md` under Phase 16.
+
+Commits, one per page:
+
+| Commit | Change |
+|---|---|
+| `f7bc9da` | Shell: one header bar, Today / Repertoire / Constellation / Practice / **Progress** / Observatory, account menu with **Settings** + Sign out; `/progression` and `/performances` still work |
+| `690a8c4` | Today: *Next up* card (least recently practised active piece), This week, In progress, Needs attention, stats last |
+| `2dac676` | Repertoire grouped by status; wishlist/retired collapsed (top ten named); tempo and last-practised on active rows |
+| `0f97b59` | Piece detail: one "Before this counts as learnt" checklist replaces two banners |
+| `51f00df` | Constellation: the selection opens in a drawer over the sky (a panel below it on phones) |
+| `51d8dc2` | Onboarding: nav hidden during setup, 760px wizard, finished steps editable and pre-filled |
+| (this commit) | Observatory: Sky shop / Achievements tabs plus a live try-before-you-buy sky preview |
+
+**Judgement calls:**
+- **Dashboard is renamed "Today".** Constellation keeps its name, since it's the product's identity.
+- **"Active" = learning + polishing everywhere,** matching the backend stat.
+- **Gold hides in the header below 420px** to make room for the account button. It's still on the Observatory.
+- **Palette unchanged:** yellow, orange, pink and starlight on the existing background scale. Navigation's active
+  state and the Observatory's equipped state both use starlight, per the "selected = starlight" rule.
+
+**Verification**: build ✔ and pytest 85 passed, 1 skipped ✔ after every page commit. Each page was screenshotted
+at 1280px, several at 390px, against the scratch backend, with interaction scripts: account menu and
+focus, requirement-checklist button, star-click drawer, stepper editing plus tier pre-fill, cosmetic hover preview.
+No console errors.
