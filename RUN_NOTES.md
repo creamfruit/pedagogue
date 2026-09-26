@@ -428,3 +428,52 @@ bar also fits down to 320px without overflowing.
 **Summary**: The final sweep confirmed the four-token system holds across `frontend/src`, with
 only definitions and neutrals left. The build and all 52 tests pass. The consolidated summary is
 at the top of this file.
+
+---
+
+# Run 2 — Phases 7–12 (2026-09-26)
+
+Branch check: `ui-ux-overhaul` was **not** merged into `main` (`origin/main` is still `5886966`), so
+this run continues on `ui-ux-overhaul` rather than branching `ui-ux-overhaul-2`.
+
+**Verification harness this run.** Docker was up this time (piano-db + piano-redis already running).
+To avoid touching your real `piano` database I created a separate database **`piano_uitest`** on the
+same Postgres container (`create_all` from the models + `python -m app.seed`), ran uvicorn against it
+on **:8001** with `ANTHROPIC_API_KEY` blanked, and Vite on **:5174** proxying to it. Headless Chrome
+(puppeteer-core, installed in the session scratchpad, not the repo) drives two throwaway users
+(`ui-done@example.com` onboarded, `ui-fresh@example.com` fresh). Your `piano` database was never
+written to. Drop the scratch DB with `docker exec piano-db psql -U piano -c "DROP DATABASE piano_uitest"`.
+
+### Phase 7 — Palette correction
+
+- `--black` is gone from `styles.css` `:root`, `lib/palette.js`, `constellation.js` and `shop.js`.
+  A frontend-wide grep for `black` / `020202` now finds only `apple-mobile-web-app-status-bar-style
+  = black-translucent` in `index.html`, which is an iOS keyword, not a colour, and was left alone.
+- **Decision — the starlight value.** You said to reuse the constellation backdrop-star colour.
+  `drawBackdrop()` actually painted with `colors.text` = `#ddd9d3`, a *warm* grey outside the
+  #eef2ff–#dfe4ec range, and no cool near-white existed anywhere in the codebase. Reusing `#ddd9d3`
+  would make starlight indistinguishable from body text. So I set **`--starlight: #e8ecf5`** (inside
+  your range) and switched `drawBackdrop()` to `colors.starlight`, so the token and the backdrop
+  stars are the same colour as you intended. The one-off `#ffffff` core highlight on top-ten/active
+  stars was folded into starlight too.
+- **Remapping — every former black usage:**
+  | Where | Was | Now |
+  |---|---|---|
+  | `.btn` primary rest | black fill, orange outline | 8% orange tint, orange outline + text, weight 600 |
+  | `.btn` hover | solid orange, black text | 20% orange tint, starlight text, glow |
+  | `.btn` pressed | solid yellow, black text | 24% yellow tint, yellow text |
+  | tier button selected | solid orange, black text | starlight outline + 8% starlight wash, starlight text, weight 700 |
+  | tier button pressed | solid yellow, black text | 18% yellow tint, yellow text |
+  | genre chip selected (`.pill-toggle[aria-pressed]`) | solid orange, black text | starlight outline + wash, weight 600 |
+  | `.btn-danger` rest / hover | black fill / solid pink with black text | transparent / 20% pink tint, starlight text |
+  | status `ok` (`--ok`, `--ok-fill`, `.pill-ok`, success toast) | white on black | starlight text on starlight wash, starlight border (dot marker unchanged) |
+  | `.pill-custom` / custom-piece star | black core, white outline | `--bg-sunk` core, starlight dashed outline |
+  | header level pill | solid orange, black text | orange wash + orange outline, orange text, weight 700 |
+  | difficulty pair "for you" half | black cell | orange-wash cell |
+  | ghost / option-card pressed, focus-ring gap, constellation well, XP track, nebula swatch | `--black` | `--bg-sunk` (background scale — structural, not accent) |
+  | heat-map cosmetic hottest tier | `white` | `starlight` |
+- Net effect: selected = **starlight**, action = **orange**, pressed = **yellow**, danger/bad = **pink**,
+  and no control anywhere is a solid accent block with near-black text on it.
+
+**Verification**: build ✔, pytest 52/52 ✔, dashboard/repertoire/constellation/observatory/onboarding
+rendered against the scratch backend with no console errors.

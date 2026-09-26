@@ -18,21 +18,25 @@
   --yellow: #ffd08a;
   --orange: #f0a13c;
   --pink: #e05a78;
-  --black: #020202;
+  --starlight: #e8ecf5;
 
   --yellow-rgb: 255, 208, 138;
   --orange-rgb: 240, 161, 60;
   --pink-rgb: 224, 90, 120;
+  --starlight-rgb: 232, 236, 245;
+
+  --starlight-line: rgba(var(--starlight-rgb), 0.55);
+  --starlight-wash: rgba(var(--starlight-rgb), 0.08);
 
   --orange-line: rgba(var(--orange-rgb), 0.5);
   --orange-wash: rgba(var(--orange-rgb), 0.1);
   --pink-wash: rgba(var(--pink-rgb), 0.1);
 
-  /* Status: bad is pink, warn is orange, ok is the black/white contrast
-     treatment. The pill classes also give each status its own marker shape
-     so it never depends on colour alone. */
-  --ok: var(--text);
-  --ok-fill: var(--black);
+  /* Status: bad is pink, warn is orange, ok is starlight. The pill classes
+     also give each status its own marker shape so it never depends on colour
+     alone. */
+  --ok: var(--starlight);
+  --ok-fill: var(--starlight-wash);
   --warn: var(--orange);
   --bad: var(--pink);
 
@@ -522,7 +526,7 @@ p {
 .pill-ok {
   color: var(--ok);
   background: var(--ok-fill);
-  border-color: var(--text-dim);
+  border-color: var(--starlight-line);
 }
 
 .pill-ok::before {
@@ -550,9 +554,9 @@ p {
 }
 
 .pill-custom {
-  color: var(--text);
-  background: var(--black);
-  border: 1px dashed var(--text-dim);
+  color: var(--starlight);
+  background: transparent;
+  border: 1px dashed var(--starlight-line);
 }
 
 .pill-frozen {
@@ -646,7 +650,7 @@ p {
 }
 
 .option-card:active:not(:disabled) {
-  background: var(--black);
+  background: var(--bg-sunk);
   border-color: var(--orange);
   transform: translateY(0) scale(0.99);
 }
@@ -681,10 +685,10 @@ p {
 
 .tier-btn.tier-btn-active,
 .tier-btn.tier-btn-active:hover:not(:disabled) {
-  background: var(--orange);
-  border-color: var(--orange);
-  color: var(--black);
-  font-weight: 600;
+  background: var(--starlight-wash);
+  border-color: var(--starlight);
+  color: var(--starlight);
+  font-weight: 700;
 }
 
 .tier-btn.tier-btn-active:hover:not(:disabled) {
@@ -693,9 +697,9 @@ p {
 
 .tier-btn.btn:active:not(:disabled),
 .tier-btn.tier-btn-active:active:not(:disabled) {
-  background: var(--yellow);
+  background: rgba(var(--yellow-rgb), 0.18);
   border-color: var(--yellow);
-  color: var(--black);
+  color: var(--yellow);
 }
 
 .tier-category {
@@ -739,11 +743,11 @@ p {
   min-height: 40px;
   border-radius: var(--radius);
   border: 1px solid var(--orange);
-  background: var(--black);
+  background: rgba(var(--orange-rgb), 0.08);
   color: var(--orange);
   font-family: var(--font);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
@@ -751,11 +755,12 @@ p {
 }
 
 /* Button states, all from the four accents plus neutrals:
-   hover = orange fill, focus-visible = yellow ring, pressed = yellow fill,
-   disabled = dashed and faint, busy (aria-busy) = moving orange stripes. */
+   hover = brighter orange tint with starlight text, focus-visible = yellow
+   ring, pressed = yellow tint, disabled = dashed and faint, busy (aria-busy)
+   = moving orange stripes. */
 .btn:hover:not(:disabled) {
-  background: var(--orange);
-  color: var(--black);
+  background: rgba(var(--orange-rgb), 0.2);
+  color: var(--starlight);
   box-shadow: var(--glow-soft);
 }
 
@@ -765,9 +770,9 @@ p {
 }
 
 .btn:active:not(:disabled) {
-  background: var(--yellow);
+  background: rgba(var(--yellow-rgb), 0.24);
   border-color: var(--yellow);
-  color: var(--black);
+  color: var(--yellow);
   box-shadow: none;
   transform: scale(0.97);
 }
@@ -815,7 +820,7 @@ p {
 }
 
 .btn-ghost:active:not(:disabled) {
-  background: var(--black);
+  background: var(--bg-sunk);
   border-color: var(--orange-line);
   color: var(--orange);
 }
@@ -828,18 +833,18 @@ p {
 
 .btn-danger {
   border-color: var(--pink);
-  background: var(--black);
+  background: transparent;
   color: var(--pink);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: var(--pink);
-  color: var(--black);
+  background: rgba(var(--pink-rgb), 0.2);
+  color: var(--starlight);
   box-shadow: none;
 }
 
 .btn-danger:active:not(:disabled) {
-  background: var(--black);
+  background: var(--bg-sunk);
   border-color: var(--pink);
   color: var(--pink);
 }
@@ -867,9 +872,10 @@ button.pill {
 
 .pill-toggle[aria-pressed="true"],
 .pill-toggle[aria-pressed="true"]:hover:not(:disabled) {
-  background: var(--orange);
-  border-color: var(--orange);
-  color: var(--black);
+  background: var(--starlight-wash);
+  border-color: var(--starlight);
+  color: var(--starlight);
+  font-weight: 600;
 }
 
 label {
@@ -911,7 +917,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   border-color: var(--orange);
-  box-shadow: 0 0 0 2px var(--black), 0 0 0 4px var(--yellow);
+  box-shadow: 0 0 0 2px var(--bg-sunk), 0 0 0 4px var(--yellow);
 }
 
 select {
@@ -1077,7 +1083,7 @@ input[type="date"] {
   border-radius: var(--radius);
   overflow: hidden;
   min-height: 420px;
-  background-color: var(--black);
+  background-color: var(--bg-sunk);
 }
 
 .constellation-wrap canvas {
@@ -1249,11 +1255,12 @@ input[type="date"] {
 }
 
 .wallet-level {
-  padding: 3px 7px;
+  padding: 2px 7px;
   border-radius: 2px;
-  background: var(--orange);
-  color: var(--black);
-  font-weight: 600;
+  border: 1px solid var(--orange-line);
+  background: var(--orange-wash);
+  color: var(--orange);
+  font-weight: 700;
 }
 
 .wallet-xp {
@@ -1267,7 +1274,7 @@ input[type="date"] {
   width: 92px;
   height: 7px;
   border-radius: 2px;
-  background: var(--black);
+  background: var(--bg-sunk);
   border: 1px solid var(--line-bright);
   overflow: hidden;
 }
@@ -1724,7 +1731,7 @@ input[type="date"] {
 }
 
 .difficulty-for-you {
-  background: var(--black);
+  background: var(--orange-wash);
   border-right: 1px solid var(--orange-line);
   color: var(--orange);
 }

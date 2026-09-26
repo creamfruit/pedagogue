@@ -162,11 +162,9 @@ export async function constellationView(outlet) {
     }
   }
 
-  // Custom pieces are a black core with a white outline regardless of the star
-  // cosmetic: the only hollow-looking lit star on the chart.
   function starLook(node) {
     const difficulty = node.difficulty ?? 50;
-    if (node.is_custom) return { color: colors.black, halo: colors.text, outline: colors.text, spiked: false };
+    if (node.is_custom) return { color: colors.bgSunk, halo: colors.starlight, outline: colors.starlight, spiked: false };
     if (starStyle.mode === "fixed" && starStyle.color) return { color: starStyle.color, spiked: false };
     if (starStyle.mode === "difficulty") return { color: colors[difficultyTone(difficulty)], spiked: false };
     const era = ERA_STYLE[node.era];
@@ -354,7 +352,7 @@ export async function constellationView(outlet) {
     ctx.translate(transform.x * PARALLAX, transform.y * PARALLAX);
     const zoom = 1 + (transform.k - 1) * PARALLAX;
     ctx.scale(zoom, zoom);
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = colors.starlight;
     backdrop.forEach((star) => {
       const twinkle = reduceMotion ? 1 : 0.7 + 0.3 * Math.sin(clock * star.speed + star.phase);
       ctx.globalAlpha = star.base * twinkle;
@@ -435,7 +433,7 @@ export async function constellationView(outlet) {
       ctx.globalAlpha = fade;
       ctx.beginPath();
       ctx.arc(node.x, node.y, core * (glowStyle.core ?? 0.42), 0, Math.PI * 2);
-      ctx.fillStyle = colors.white;
+      ctx.fillStyle = colors.starlight;
       ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -459,9 +457,9 @@ export async function constellationView(outlet) {
     ctx.globalAlpha = fade;
     ctx.beginPath();
     ctx.arc(node.x, node.y, core, 0, Math.PI * 2);
-    ctx.fillStyle = colors.black;
+    ctx.fillStyle = colors.bgSunk;
     ctx.fill();
-    ctx.strokeStyle = node.outline || colors.text;
+    ctx.strokeStyle = node.outline || colors.starlight;
     ctx.lineWidth = Math.max(1.2, core * 0.28) / transform.k;
     ctx.stroke();
     ctx.restore();

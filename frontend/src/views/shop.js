@@ -62,7 +62,7 @@ function preview(cosmetic) {
       : "none";
     return el("div", {
       class: "swatch-row",
-      style: `background-color:var(--black);background-image:${background};border-radius:var(--radius);border:1px solid var(--line)`,
+      style: `background-color:var(--bg-sunk);background-image:${background};border-radius:var(--radius);border:1px solid var(--line)`,
     });
   }
   const dash = payload.dash

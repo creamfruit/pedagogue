@@ -7,7 +7,8 @@ const FALLBACK = {
   yellow: "#ffd08a",
   orange: "#f0a13c",
   pink: "#e05a78",
-  black: "#020202",
+  starlight: "#e8ecf5",
+  bgSunk: "#050506",
   text: "#ddd9d3",
   textDim: "#9a958d",
   textFaint: "#63605a",
@@ -18,7 +19,8 @@ const TOKENS = {
   yellow: "--yellow",
   orange: "--orange",
   pink: "--pink",
-  black: "--black",
+  starlight: "--starlight",
+  bgSunk: "--bg-sunk",
   text: "--text",
   textDim: "--text-dim",
   textFaint: "--text-faint",
@@ -33,7 +35,6 @@ export function palette() {
   cached = Object.fromEntries(
     Object.entries(TOKENS).map(([key, token]) => [key, style.getPropertyValue(token).trim() || FALLBACK[key]])
   );
-  cached.white = "#ffffff";
   return cached;
 }
 
@@ -60,9 +61,9 @@ export function eraGlyph(era) {
 }
 
 // Heat ramp for the "difficulty" star cosmetic: pink for the easiest pieces,
-// then orange, yellow, and white-hot for the hardest.
+// then orange, yellow, and starlight for the hardest.
 export function difficultyTone(difficulty) {
-  if (difficulty >= 90) return "white";
+  if (difficulty >= 90) return "starlight";
   if (difficulty >= 75) return "yellow";
   if (difficulty >= 55) return "orange";
   return "pink";
