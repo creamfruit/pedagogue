@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { el, empty, skeletonBlock } from "../lib/dom.js";
+import { el, empty, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { ERA_STYLE, eraGlyph } from "../lib/palette.js";
 import { store, subscribe } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
@@ -22,7 +22,7 @@ function preview(cosmetic) {
     // Fixed colours are the cosmetic's own purchased data, not app accents.
     const colors =
       payload.mode === "difficulty"
-        ? ["var(--pink)", "var(--orange)", "var(--yellow)", "var(--text)"]
+        ? ["var(--pink)", "var(--orange)", "var(--yellow)", "var(--starlight)"]
         : [payload.color || "var(--orange)"];
     return el(
       "div",
@@ -79,9 +79,9 @@ function preview(cosmetic) {
 }
 
 export async function shopView(outlet) {
-  const walletHost = el("div", { class: "grid", style: "margin-bottom:18px" }, skeletonBlock(2));
-  const shopHost = el("div", { class: "stack" }, skeletonBlock(4));
-  const achievementHost = el("section", { class: "panel", style: "margin-top:18px" }, skeletonBlock(3));
+  const walletHost = el("div", { style: "margin-bottom:var(--space-5)" }, skeletonBlock(2));
+  const shopHost = el("div", { class: "stack", style: "gap:var(--space-5)" }, skeletonBlock(4));
+  const achievementHost = el("div", { style: "margin-top:var(--space-5)" }, skeletonBlock(3));
 
   outlet.append(
     el("h1", {}, "Observatory"),
@@ -107,29 +107,33 @@ export async function shopView(outlet) {
     drawnWallet = signature;
     walletHost.replaceChildren(
       el(
-        "div",
-        { class: "panel", style: "display:flex;align-items:center;gap:16px" },
-        el("div", { class: "stat-ring" }, el("div", { class: "stat" }, wallet.level)),
+        "section",
+        { class: "panel summary-bar", "aria-label": "Your wallet" },
         el(
           "div",
-          {},
-          el("div", { class: "stat-label" }, "Level"),
-          el("div", { class: "bar", style: "width:150px;margin:6px 0 4px" }, el("span", { style: `width:${wallet.level_progress * 100}%` })),
-          el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.xp_for_next_level} xp to level ${wallet.level + 1}`)
+          { class: "summary-cell", style: "display:flex;align-items:center;gap:16px" },
+          el("div", { class: "stat-ring" }, el("div", { class: "stat" }, wallet.level)),
+          el(
+            "div",
+            {},
+            el("div", { class: "stat-label" }, "Level"),
+            el("div", { class: "bar", style: "width:150px;margin:6px 0 4px" }, el("span", { style: `width:${wallet.level_progress * 100}%` })),
+            el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.xp_for_next_level} xp to level ${wallet.level + 1}`)
+          )
+        ),
+        el(
+          "div",
+          { class: "summary-cell" },
+          el("div", { class: "stat-label" }, "Gold"),
+          el("div", { class: "stat", style: "color:var(--yellow)" }, wallet.gold.toLocaleString()),
+          el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.lifetime_gold.toLocaleString()} earned in total`)
+        ),
+        el(
+          "div",
+          { class: "summary-cell" },
+          el("div", { class: "stat-label" }, "Total XP"),
+          el("div", { class: "stat" }, wallet.xp.toLocaleString())
         )
-      ),
-      el(
-        "div",
-        { class: "panel" },
-        el("div", { class: "stat-label" }, "Gold"),
-        el("div", { class: "stat", style: "color:var(--yellow)" }, wallet.gold.toLocaleString()),
-        el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.lifetime_gold.toLocaleString()} earned in total`)
-      ),
-      el(
-        "div",
-        { class: "panel" },
-        el("div", { class: "stat-label" }, "Total XP"),
-        el("div", { class: "stat" }, wallet.xp.toLocaleString())
       )
     );
   }
@@ -157,18 +161,22 @@ export async function shopView(outlet) {
       });
 
       shopHost.replaceChildren(
-        ...KIND_ORDER.filter((kind) => grouped.has(kind)).map((kind) =>
-          el(
+        ...KIND_ORDER.filter((kind) => grouped.has(kind)).map((kind) => {
+          const items = grouped.get(kind);
+          const equipped = items.find((item) => item.equipped);
+          const owned = items.filter((item) => item.owned).length;
+          return el(
             "section",
-            {},
-            el("h3", {}, KIND_LABELS[kind] || kind),
+            { class: "shop-section" },
+            el("h2", { class: "section-title" }, KIND_LABELS[kind] || kind),
             el(
-              "div",
-              { class: "shop-grid" },
-              ...grouped.get(kind).map((item) => card(item))
-            )
-          )
-        )
+              "p",
+              { class: "section-caption" },
+              [equipped ? `Equipped: ${equipped.name}` : null, `${owned} of ${items.length} owned`].filter(Boolean).join(" · ")
+            ),
+            el("div", { class: "shop-grid" }, ...items.map((item) => card(item)))
+          );
+        })
       );
     } catch (error) {
       shopHost.replaceChildren(empty(error.detail || "Could not load the shop."));
@@ -178,7 +186,7 @@ export async function shopView(outlet) {
   function card(item) {
     const locked = !item.unlocked;
     const action = item.equipped
-      ? el("span", { class: "pill pill-accent" }, "equipped")
+      ? el("span", { class: "pill pill-selected" }, "equipped")
       : item.owned
         ? el(
             "button",
@@ -227,44 +235,54 @@ export async function shopView(outlet) {
         dataset: { equipped: String(item.equipped), locked: String(locked) },
       },
       preview(item),
-      el("div", { style: "font-weight:500" }, item.name),
-      el("div", { class: "faint", style: "font-size:12.5px;flex:1" }, item.description || ""),
-      el("div", { class: "row", style: "justify-content:space-between" }, action, item.price_gold === 0 ? el("span", { class: "pill" }, "free") : null)
+      el(
+        "div",
+        { class: "shop-card-text" },
+        el("div", { style: "font-weight:500" }, item.name),
+        el("div", { class: "faint", style: "font-size:12.5px" }, item.description || "")
+      ),
+      el(
+        "div",
+        { class: "row", style: "justify-content:space-between;margin-top:auto" },
+        action,
+        item.price_gold === 0 ? el("span", { class: "faint mono", style: "font-size:11px" }, "free") : null
+      )
+    );
+  }
+
+  function achievementCard(row) {
+    return el(
+      "div",
+      { class: "achievement", dataset: { earned: String(row.earned) } },
+      el("span", { class: "achievement-mark" }),
+      el(
+        "div",
+        {},
+        el("div", { style: "font-weight:500" }, row.name),
+        el("div", { class: "faint", style: "font-size:12.5px" }, row.description),
+        el("div", { class: "faint mono", style: "font-size:11px;margin-top:5px" }, `+${row.xp_reward} xp · +${row.gold_reward} gold`)
+      )
     );
   }
 
   async function renderAchievements() {
-    achievementHost.replaceChildren(el("h3", {}, "Achievements"));
     try {
       const rows = await api.achievements();
       const earned = rows.filter((row) => row.earned).length;
-      achievementHost.append(
-        el("p", { class: "faint mono", style: "font-size:11.5px" }, `${earned} of ${rows.length} unlocked`),
-        el(
-          "div",
-          { class: "shop-grid" },
-          ...rows.map((row) =>
-            el(
-              "div",
-              { class: "achievement", dataset: { earned: String(row.earned) } },
-              el("span", { class: "achievement-mark" }),
-              el(
-                "div",
-                {},
-                el("div", { style: "font-weight:500" }, row.name),
-                el("div", { class: "faint", style: "font-size:12.5px" }, row.description),
-                el(
-                  "div",
-                  { class: "faint mono", style: "font-size:11px;margin-top:5px" },
-                  `+${row.xp_reward} xp · +${row.gold_reward} gold`
-                )
-              )
-            )
-          )
+      const next = rows.filter((row) => !row.earned).slice(0, 3);
+      const all = reveal(`All ${rows.length} achievements`, () => el("div", { class: "shop-grid" }, ...rows.map(achievementCard)));
+      achievementHost.replaceChildren(
+        sectionBlock(
+          "Achievements",
+          { caption: `${earned} of ${rows.length} unlocked${next.length ? " · up next:" : ""}` },
+          el("div", { class: "bar", style: "margin:-6px 0 var(--space-4)" }, el("span", { style: `width:${rows.length ? (earned / rows.length) * 100 : 0}%` })),
+          next.length ? el("div", { class: "shop-grid" }, ...next.map(achievementCard)) : null,
+          all.button,
+          all.region
         )
       );
     } catch (error) {
-      achievementHost.append(empty(error.detail || "Could not load achievements."));
+      achievementHost.replaceChildren(empty(error.detail || "Could not load achievements."));
     }
   }
 

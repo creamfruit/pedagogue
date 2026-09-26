@@ -147,3 +147,27 @@ open it's 3,354px, still shorter than before, because the duplicated fields are 
   look like one.
 - Profile, Top ten and Tastes had little to cut and only pick up the new stepper. Their controls were
   reworked in Phase 2.
+
+### Observatory (`shopView`)
+
+**Measured:** 2,305px → 1,946px at 1280.
+
+- **The wallet is one summary strip** (the same `.summary-bar` as piece detail) instead of three separate panels.
+  Level ring, gold and total XP read left to right as one fact: where you stand.
+- **Each cosmetic group is a titled section** with a caption that answers the two questions you
+  arrive with: *what's on now* and *how much of this is mine* ("Equipped: Soft bloom · 1 of 4 owned").
+  Before, you had to scan every card for the one that said EQUIPPED.
+- **The shop grids stay open.** Browsing them is the page's job, so hiding them would be disclosure for
+  its own sake. The cards got tighter (14px padding, a 210px minimum column, so five per row at 1280
+  instead of four), and the "free" tag went from a bordered pill to faint mono text, because it's a
+  price note, not a control.
+- **Equipped = selected = starlight.** Phase 7 made starlight the "selected" colour, but equipped cards were
+  still an orange frame with an orange pill, the same treatment as the orange *Buy* buttons next to
+  them. Equipped cards now get a starlight outline and a faint lift, with a starlight "equipped" pill
+  (new `.pill-selected`), so the orange that's left means "you can act here".
+- **Achievements:** a progress bar, the count, and the **next three to earn** stay visible, since
+  those are the actionable part. All 14 are behind **All 14 achievements**. The earned ones are
+  still there, just not taking up a 4×4 grid on every visit.
+- **Fixed on the way (Phase 7 miss):** the heat-map cosmetic preview still drew its hottest dot with
+  `var(--text)` after Phase 7 moved that end of the ramp to starlight. It now uses `var(--starlight)`, so it matches the
+  constellation.

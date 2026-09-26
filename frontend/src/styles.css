@@ -1528,19 +1528,38 @@ input[type="date"] {
 
 .shop-grid {
   display: grid;
-  gap: var(--gap);
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
 }
 
 .shop-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  padding: 14px;
+  min-height: 150px;
+}
+
+.shop-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .shop-card[data-equipped="true"] {
-  border-color: var(--orange);
-  box-shadow: var(--glow-soft);
+  border-color: var(--starlight-line);
+  background: linear-gradient(var(--starlight-wash), var(--starlight-wash)), var(--bg-panel);
+}
+
+.shop-card[data-equipped="true"]::before,
+.shop-card[data-equipped="true"]::after {
+  border-color: var(--starlight);
+}
+
+.pill-selected {
+  color: var(--starlight);
+  border-color: var(--starlight-line);
+  background: var(--starlight-wash);
 }
 
 .shop-card[data-locked="true"] {
