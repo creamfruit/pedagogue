@@ -130,6 +130,12 @@ class ProcessingStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class GenerationStatus(str, enum.Enum):
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
 class FlaggedBy(str, enum.Enum):
     AI = "ai"
     USER = "user"
@@ -1450,3 +1456,20 @@ class UserCosmetic(Base):
     equipped: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     cosmetic: Mapped[Cosmetic] = relationship()
+
+
+class AIGeneration(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "ai_generations"
+    __table_args__ = (UniqueConstraint("purpose", "subject_key", name="uq_ai_generations_subject"),)
+
+    purpose: Mapped[str] = mapped_column(String(40))
+    subject_key: Mapped[str] = mapped_column(String(120))
+    status: Mapped[GenerationStatus] = mapped_column(
+        pg_enum(GenerationStatus, "generation_status"), default=GenerationStatus.RUNNING
+    )
+    model: Mapped[Optional[str]] = mapped_column(String(60))
+    output: Mapped[Optional[dict[str, Any]]]
+    error: Mapped[Optional[str]] = mapped_column(Text)
+    input_tokens: Mapped[Optional[int]] = mapped_column(Integer)
+    output_tokens: Mapped[Optional[int]] = mapped_column(Integer)
+    completed_at: Mapped[Optional[datetime]]

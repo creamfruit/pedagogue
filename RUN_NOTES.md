@@ -833,3 +833,92 @@ untouched. Practice, Progression and Performances were re-screenshotted to confi
 
 **Verification**: build ✔ and pytest 68/68 ✔ after each of the six view commits; 1280 and 390px screenshots of
 every reworked view against the scratch backend; no console errors.
+
+
+---
+
+# Run 3 — Phases 13–26 (2026-09-26)
+
+Branch check: `ui-ux-overhaul` is still **not** merged into `main` (`origin/main` = `5886966`), so this run
+continues on `ui-ux-overhaul` rather than creating `feature-roadmap`.
+
+### Phase 13 — AI foundation
+
+#### State before any change (audit, as requested)
+
+| Service | Calls the Anthropic API? | What it actually is | Runs on a request path? | Once per subject? |
+|---|---|---|---|---|
+| `services/metadata_generator.py` | **Yes**, the only one. `anthropic.AsyncAnthropic().messages.create(model="claude-sonnet-4-5")`, a retired model ID, with free-text JSON parsed by `json.loads` (no structured outputs), and any exception silently falling back to a seeded-random heuristic | Per-piece scene / history / fun fact / syllabus grade / mood, plus **technique weights and "hard bars"**, which feed the difficulty score | **Yes.** `CatalogService.import_external()` awaits it inside `POST /catalog/external/import`, so the HTTP request blocks on the LLM | **Partly.** A second import of the *same* OpenOpus `external_ref` returns the existing piece without regenerating. `Piece.metadata_generated_at` and `metadata_generation_model` columns exist. But there's no claim or lock: two concurrent imports of the same work both pay, and nothing records spend |
+| `services/difficulty.py` | **No** | Pure deterministic maths: `compute_mechanical_load`, `compute_difficulty_score`, bands, tier→profile, personalisation, mastery | n/a, microseconds | n/a |
+| `services/coach.py` | **No** | Deterministic: `DrillForge`, `PlanBuilder`, `SightReadingGenerator` (the notation forge), `PolyrhythmTrainer`. **There is no per-submission "coach feedback" at all**; that's new work for Phase 15 | n/a | n/a |
+| `services/interpretation.py` | **No** | Deterministic tempo-curve comparison against a synthetic reference curve | n/a | n/a |
+| `workers/queue.py` | n/a | `InlineQueue`, `BackgroundQueue` (FastAPI `BackgroundTasks`, in-process after the response; this is what submissions use), and `RedisQueue` (arq), which is unused. **Latent bug:** `RedisQueue` enqueues the job name `"process_submission"`, but the only function arq registers is `arq_process_submission`, so any Redis-queued job would fail to resolve. The queue only knows one job type (submissions) | — | — |
+
+So "extend the same fix to coach.py and difficulty.py" is a no-op: neither makes a paid call. The one real
+synchronous paid call is the metadata generator on external import.
+
+#### What I added
+
+- **`ai_generations` table**: the idempotency key *and* the spend ledger for every paid call (model, migration
+  `c13a1f0e2b77`, chained on your current head `a77858f33c61`; `alembic check` on a freshly migrated DB reports no
+  drift). There's one row per `(purpose, subject_key)`, enforced by a unique constraint, e.g.
+  `("piece_metadata", "piece:32")`. It stores the model, the full structured output, the error, input/output tokens
+  and timestamps.
+  - **Claiming is an atomic `INSERT … ON CONFLICT DO NOTHING RETURNING id`.** Only the job that wins the
+    insert may make the paid call. Everyone else either re-applies the stored output (no call) or does nothing.
+  - This is the `seed_catalog_detail()` idea (match the subject, update in place, never duplicate) made
+    race-safe with a database constraint, because concurrent jobs, unlike the seed script, really can collide.
+  - Because the full output is kept, re-deriving a piece's fields later never needs a second paid call.
+- **`services/ai.py`**: the one place the app talks to Claude.
+  - **Structured outputs** (`output_config.format: json_schema`) replace "please return JSON" and `json.loads` on
+    free text. The schema pins technique names to an `enum` of the catalogue's techniques, so a hallucinated
+    technique can't come back.
+  - **`stop_reason == "refusal"` is handled** before reading content, and server-side refusal fallbacks are on
+    (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`).
+  - The token usage returned by the API is recorded in the ledger.
+- **Model decision (logged, not asked).** The old code pinned `claude-sonnet-4-5`, a retired ID. The default is
+  now **`claude-opus-5`**, set by `ANTHROPIC_MODEL`, with **`ANTHROPIC_EFFORT=medium`** as the default because
+  this is short structured extraction. I didn't downgrade the model for cost on my own. If you want it
+  cheaper, `ANTHROPIC_MODEL=claude-sonnet-5` (roughly 60% cheaper) or `claude-haiku-4-5` (80% cheaper) is a
+  one-line `.env` change. Every call is now once per piece and recorded, so spend is bounded by how many pieces
+  you import.
+- **`services/piece_metadata.py`**: the queued job `generate_piece_metadata(piece_id)`.
+  - It returns immediately if `Piece.metadata_generated_at` is set. Otherwise it claims, calls Claude (or the
+    heuristic when no key is configured), and applies the result.
+  - Applying under a `SELECT … FOR UPDATE` row lock re-checks "already generated". This fixed a real race the
+    concurrency test caught: a losing job re-applying the winner's stored output while the winner was writing
+    the same rows.
+  - What it writes: technique weights → mechanical load → **difficulty score**, "Hard bar" passages, prose fields,
+    and `metadata_generated_at` / `metadata_generation_model`.
+- **`import_external()` no longer blocks on the LLM.** It creates the piece (title, composer, duration, source)
+  and returns in ~0.1s (measured). The route commits, then enqueues `generate_piece_metadata`. A re-import of the
+  same `external_ref` returns the existing piece, and at most re-enqueues a job that no-ops (measured: still one
+  `ai_generations` row).
+- **The queue is a named-job registry** (`workers/queue.py`: `JOBS`, `run_job`, `get_queue()`), selected by
+  `JOB_QUEUE=background|redis|inline` (default `background` = FastAPI background tasks, as before).
+  - **Fixed the Redis name mismatch:** arq functions are now generated from the registry with matching names.
+  - Job failures are logged instead of vanishing.
+  - Submissions use the same registry.
+- **Seed fix:** the Phase 11 seed upsert deleted *any* catalogue passage not listed in `PASSAGES`. That would
+  have wiped AI-generated "Hard bar" passages on imported pieces on every re-seed. The cleanup now only touches
+  seeded pieces.
+- `requirements.txt`: `anthropic>=1.8,<2`, since `fallbacks` / `output_config` need it; 1.8.0 was already installed.
+
+#### Policy decisions to review
+- **A failed paid call is not retried automatically.** The ledger row goes to `failed` with the error. The piece
+  still gets heuristic technique weights and a difficulty score (so it's usable), but no prose, and it's marked
+  generated. Re-running would risk paying twice for a call that may have been billed. A manual "regenerate"
+  action would delete that piece's ledger row and clear `metadata_generated_at`; I didn't build that UI.
+- **A crash mid-call leaves the row `running` forever**, and the piece never gets AI prose. A stale-claim reaper
+  (e.g. treat `running` older than 15 minutes as failed) would fix it, but it trades against possibly paying
+  twice. It's logged here rather than built.
+- **Custom pieces you type in yourself** (`create_user_piece`) still don't call Claude. You supply their
+  techniques. Only external imports generate.
+
+**Verification**:
+- build ✔ and pytest **72 passed, 1 skipped** ✔.
+- The skipped one is an opt-in DB test (`PIANO_TEST_DATABASE_URL`). Run against a scratch DB **six times**, it
+  proves three concurrent jobs plus a fourth later one make **exactly one** paid call, with the fake client
+  counting calls.
+- The live HTTP check against the scratch backend is described above.
+- No API key was configured, so nothing here cost money.

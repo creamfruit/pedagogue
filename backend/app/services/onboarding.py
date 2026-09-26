@@ -37,7 +37,6 @@ from app.services.difficulty import (
     compute_mechanical_load,
     tier_to_profile_values,
 )
-from app.services.metadata_generator import MetadataGenerator
 
 
 class BaseService:
@@ -142,58 +141,15 @@ class CatalogService(BaseService):
             composer = await self.get_or_create_composer(payload.composer_name)
             composer_id = composer.id
 
-        techniques = await self.list_techniques()
-        generator = MetadataGenerator(techniques)
-        genre = await self.session.get(Genre, payload.genre_id) if payload.genre_id else None
-        generated = await generator.generate(
-            payload.title, payload.composer_name, genre.name if genre else None, payload.duration_sec, None
-        )
-
-        mechanical_load = compute_mechanical_load(
-            [
-                (next(t.name for t in techniques if t.id == item["technique_id"]), item["weight"])
-                for item in generated["techniques"]
-            ],
-            {t.name: float(t.load_factor) for t in techniques},
-        )
-        difficulty_score = compute_difficulty_score(
-            mechanical_load, payload.duration_sec, len(generated["techniques"])
-        )
-
         piece = Piece(
             title=payload.title,
             composer_id=composer_id,
             genre_id=payload.genre_id,
             duration_sec=payload.duration_sec,
-            difficulty_score=difficulty_score,
-            mechanical_load=mechanical_load,
             external_source="openopus",
             external_ref=payload.external_ref,
-            historical_note=generated["historical_note"],
-            fun_fact=generated["fun_fact"],
-            syllabus_grade=generated["syllabus_grade"],
-            mood=generated["mood"],
-            scene=generated["scene"],
-            metadata_generated_at=datetime.now(timezone.utc),
-            metadata_generation_model=generated["model"],
         )
         self.session.add(piece)
-        await self.session.flush()
-
-        for item in generated["techniques"]:
-            self.session.add(
-                PieceTechnique(piece_id=piece.id, technique_id=item["technique_id"], weight=item["weight"])
-            )
-        for bar in generated["hard_bars"]:
-            self.session.add(
-                Passage(
-                    piece_id=piece.id,
-                    start_measure=bar,
-                    end_measure=bar,
-                    label="Hard bar",
-                    source=PassageSource.CATALOG,
-                )
-            )
         await self.session.flush()
         return piece
 

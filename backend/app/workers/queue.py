@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import uuid
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Awaitable, Callable, Optional
 
+from app.core.config import settings
 from app.core.database import session_scope
 from app.models.models import ProcessingStatus
 from app.services.analyzers import analyzer_for, load_submission
@@ -12,7 +13,8 @@ from app.services.analyzers import analyzer_for, load_submission
 logger = logging.getLogger("piano.worker")
 
 
-async def process_submission(submission_id: uuid.UUID) -> Optional[str]:
+async def process_submission(submission_id: uuid.UUID | str) -> Optional[str]:
+    submission_id = uuid.UUID(str(submission_id))
     async with session_scope() as session:
         submission = await load_submission(session, submission_id)
         if submission is None:
@@ -27,28 +29,46 @@ async def process_submission(submission_id: uuid.UUID) -> Optional[str]:
         return analysis.summary
 
 
+async def generate_piece_metadata(piece_id: int) -> Optional[str]:
+    from app.services.piece_metadata import generate_piece_metadata as run
+
+    return await run(int(piece_id))
+
+
+JOBS: dict[str, Callable[..., Awaitable[Any]]] = {
+    "process_submission": process_submission,
+    "generate_piece_metadata": generate_piece_metadata,
+}
+
+
+async def run_job(name: str, *args: Any) -> Any:
+    try:
+        return await JOBS[name](*args)
+    except Exception:
+        logger.exception("job %s%r failed", name, args)
+        return None
+
+
 class JobQueue(ABC):
     @abstractmethod
-    async def enqueue(self, submission_id: uuid.UUID) -> None: ...
+    async def enqueue(self, name: str, *args: Any) -> None: ...
 
 
 class InlineQueue(JobQueue):
-    async def enqueue(self, submission_id: uuid.UUID) -> None:
-        await process_submission(submission_id)
+    async def enqueue(self, name: str, *args: Any) -> None:
+        await run_job(name, *args)
 
 
 class BackgroundQueue(JobQueue):
     def __init__(self, background_tasks) -> None:
         self.background_tasks = background_tasks
 
-    async def enqueue(self, submission_id: uuid.UUID) -> None:
-        self.background_tasks.add_task(process_submission, submission_id)
+    async def enqueue(self, name: str, *args: Any) -> None:
+        self.background_tasks.add_task(run_job, name, *args)
 
 
 class RedisQueue(JobQueue):
     def __init__(self, redis_url: Optional[str] = None) -> None:
-        from app.core.config import settings
-
         self.redis_url = redis_url or settings.redis_url
         self._pool = None
 
@@ -60,16 +80,35 @@ class RedisQueue(JobQueue):
             self._pool = await create_pool(RedisSettings.from_dsn(self.redis_url))
         return self._pool
 
-    async def enqueue(self, submission_id: uuid.UUID) -> None:
+    async def enqueue(self, name: str, *args: Any) -> None:
         pool = await self.pool()
-        await pool.enqueue_job("process_submission", str(submission_id))
+        await pool.enqueue_job(name, *[str(arg) for arg in args])
 
 
-async def arq_process_submission(ctx, submission_id: str) -> Optional[str]:
-    return await process_submission(uuid.UUID(submission_id))
+_redis_queue: Optional[RedisQueue] = None
+
+
+def get_queue(background_tasks=None) -> JobQueue:
+    global _redis_queue
+    if settings.job_queue == "redis":
+        if _redis_queue is None:
+            _redis_queue = RedisQueue()
+        return _redis_queue
+    if settings.job_queue == "inline" or background_tasks is None:
+        return InlineQueue()
+    return BackgroundQueue(background_tasks)
+
+
+def _arq_job(name: str):
+    async def job(ctx, *args):
+        return await run_job(name, *args)
+
+    job.__name__ = name
+    job.__qualname__ = name
+    return job
 
 
 class WorkerSettings:
-    functions = [arq_process_submission]
+    functions = [_arq_job(name) for name in JOBS]
     max_jobs = 4
     job_timeout = 900

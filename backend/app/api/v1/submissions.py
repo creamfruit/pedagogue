@@ -24,7 +24,7 @@ from app.schemas.schemas import (
     TextSubmissionCreate,
 )
 from app.services.repertoire import SubmissionService
-from app.workers.queue import BackgroundQueue
+from app.workers.queue import get_queue
 
 router = APIRouter(tags=["submissions"])
 
@@ -43,7 +43,7 @@ def accepted(submission, background_tasks: BackgroundTasks) -> SubmissionAccepte
 
 async def enqueue(session, submission_id: uuid.UUID, background_tasks: BackgroundTasks) -> None:
     await session.commit()
-    await BackgroundQueue(background_tasks).enqueue(submission_id)
+    await get_queue(background_tasks).enqueue("process_submission", submission_id)
 
 
 @router.get("/repertoire/{entry_id}/submissions", response_model=list[SubmissionDetail])

@@ -45,6 +45,9 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6379/0"
     anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-opus-5"
+    anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    job_queue: Literal["background", "redis", "inline"] = "background"
     embedding_dim: int = 64
 
     max_upload_mb: int = 50

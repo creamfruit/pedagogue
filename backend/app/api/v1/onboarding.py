@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -33,6 +33,7 @@ from app.services.catalog import LinkExplainer, PieceOverviewService, TechniqueE
 from app.services.external_catalog import OpenOpusClient
 from app.services.notation import SightReadingForge, forge_key
 from app.services.onboarding import CatalogService, OnboardingService
+from app.workers.queue import get_queue
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 catalog_router = APIRouter(prefix="/catalog", tags=["catalog"])
@@ -162,9 +163,12 @@ async def search_external_catalog(
 
 @catalog_router.post("/external/import", response_model=PieceDetail, status_code=status.HTTP_201_CREATED)
 async def import_external_piece(
-    payload: ExternalImportRequest, user: CurrentUser, session: SessionDep
+    payload: ExternalImportRequest, user: CurrentUser, session: SessionDep, background_tasks: BackgroundTasks
 ) -> PieceDetail:
     piece = await CatalogService(session).import_external(payload, user)
+    if piece.metadata_generated_at is None:
+        await session.commit()
+        await get_queue(background_tasks).enqueue("generate_piece_metadata", piece.id)
     stmt = (
         select(Piece)
         .options(selectinload(Piece.composer), selectinload(Piece.genre))

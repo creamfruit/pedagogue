@@ -81,7 +81,7 @@ def test_metadata_normalize_drops_placeholder_fields():
     from app.services.metadata_generator import MetadataGenerator
 
     generator = MetadataGenerator([])
-    normalized = generator._normalize(
+    normalized = generator.normalize(
         {"mood": "null", "scene": None, "fun_fact": "nullnullnull", "historical_note": "Real note.", "syllabus_grade": 8}
     )
     assert normalized["mood"] is None

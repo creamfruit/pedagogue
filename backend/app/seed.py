@@ -352,8 +352,9 @@ async def seed_catalog_detail() -> None:
                 kept.add(passage.id)
                 sections += 1
 
+        seeded_piece_ids = {pieces[title].id for title in PASSAGES if title in pieces}
         for passage in stored.values():
-            if passage.id not in kept and not passage.assessments:
+            if passage.piece_id in seeded_piece_ids and passage.id not in kept and not passage.assessments:
                 await session.delete(passage)
         await session.flush()
 
