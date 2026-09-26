@@ -94,10 +94,10 @@ export function reveal(label, fill, { open = false, onClose } = {}) {
   return control;
 }
 
-export function sectionBlock(title, { caption, action, className = "" } = {}, ...children) {
+export function sectionBlock(title, { caption, action, className = "", id } = {}, ...children) {
   return el(
     "section",
-    { class: `panel detail-section ${className}`.trim() },
+    { class: `panel detail-section ${className}`.trim(), id },
     el(
       "div",
       { class: "section-head" },

@@ -311,3 +311,18 @@ were missing). Nothing told you what to do.
   progress when a target is set. Flags (top ten, unverified, frozen) and the difficulty number stay on the right.
 - `lib/entries.js` now holds the shared helpers (status order and labels, "last practised", tempo bar), so Today
   and Repertoire describe a piece identically.
+
+## Piece detail
+
+- **Two requirement banners → one checklist: "Before this counts as learnt".** The graded-run banner and the
+  verification banner were separate orange boxes with separate paragraphs, but they answer one question.
+  - Each requirement is a row with an empty ring (to do) or a starlight ✓ (done), a one-line title
+    ("Score 80+ on a graded full run-through"), and a detail line (your best score so far; the hollow-star
+    consequence).
+  - A counter pill reads "0 of 2 done", and one **Add a recording** button opens the recording form in the
+    practice column, scrolls to it and focuses the file input.
+  - When everything's done, the box turns starlight and reads "Requirements met", so there's a visible payoff.
+- The **drifting/frozen notice stays separate.** It's about maintaining a learnt piece, not finishing one, and
+  it has its own action.
+- The summary strip, two-column layout and reveals from Phase 10 stay. They tested well, and moving them again
+  would be change for its own sake.

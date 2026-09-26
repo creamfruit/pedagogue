@@ -2625,3 +2625,62 @@ input[type="date"] {
 .status-group .reveal-region {
   margin-top: var(--space-3);
 }
+
+.requirements {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--orange-line);
+  background: var(--orange-wash);
+  border-radius: var(--radius);
+}
+
+.requirements-done {
+  border-color: var(--starlight-line);
+  background: var(--starlight-wash);
+}
+
+.requirement-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.requirement {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.requirement-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.5px solid var(--orange-line);
+  font-size: 11px;
+  color: var(--starlight);
+}
+
+.requirement-done .requirement-mark {
+  border-color: var(--starlight);
+  background: var(--starlight-wash);
+}
+
+.requirement-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.requirement-done .requirement-title {
+  color: var(--text-dim);
+}
+
+.requirement-detail {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}

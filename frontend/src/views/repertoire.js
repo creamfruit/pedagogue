@@ -605,22 +605,61 @@ function tapTempoWidget() {
   };
 }
 
-function verificationBanner(entry) {
-  if (!entry.needs_verification) return null;
+function openRecordingForm() {
+  const toggle = document.querySelector("#practice-recordings .reveal-btn");
+  if (!toggle) return;
+  if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+  toggle.scrollIntoView({ behavior: "smooth", block: "center" });
+  document.querySelector("#practice-recordings input[type=file]")?.focus({ preventScroll: true });
+}
+
+function requirementsChecklist(entry, gate) {
+  const items = [];
+  if (gate && gate.requires_grading) {
+    const best = gate.best_score != null ? ` Your best so far is ${gate.best_score}.` : " No graded run yet.";
+    items.push({
+      done: gate.unlocked,
+      title: gate.unlocked ? `Graded run cleared (${gate.best_score})` : `Score ${gate.pass_score}+ on a graded full run-through`,
+      detail: gate.unlocked
+        ? "You can mark this piece learnt."
+        : `Pieces at difficulty ${gate.threshold} or above count as learnt only after a graded run.${best}`,
+    });
+  }
+  if (entry.needs_verification || (entry.is_verified && entry.piece.difficulty_score >= 70)) {
+    items.push({
+      done: !entry.needs_verification,
+      title: entry.needs_verification ? "Submit a verification take" : "Verification take submitted",
+      detail: entry.needs_verification
+        ? "Until then this piece is a hollow, dashed star in your constellation."
+        : "Your star is lit in the constellation.",
+    });
+  }
+  if (!items.length) return null;
+  const remaining = items.filter((item) => !item.done).length;
   return el(
-    "div",
-    { class: "locked-banner" },
+    "section",
+    { class: `requirements ${remaining ? "requirements-open" : "requirements-done"}`, "aria-label": "Before this counts as learnt" },
     el(
       "div",
       { class: "row", style: "justify-content:space-between" },
-      el("strong", { style: "font-weight:500" }, "Verification required"),
-      el("span", { class: "pill pill-warn" }, "hollow star")
+      el("strong", { style: "font-weight:500" }, remaining ? "Before this counts as learnt" : "Requirements met"),
+      el("span", { class: `pill ${remaining ? "pill-warn" : "pill-ok"}` }, `${items.length - remaining} of ${items.length} done`)
     ),
     el(
-      "p",
-      { class: "muted", style: "margin:8px 0 0;font-size:13.5px" },
-      "This piece is difficulty 70 or above. It shows as a hollow, dotted star in your constellation until you submit a verification take in Practice recordings."
-    )
+      "ul",
+      { class: "requirement-list" },
+      ...items.map((item) =>
+        el(
+          "li",
+          { class: `requirement ${item.done ? "requirement-done" : ""}` },
+          el("span", { class: "requirement-mark", "aria-hidden": "true" }, item.done ? "✓" : ""),
+          el("div", {}, el("div", { class: "requirement-title" }, item.title), el("div", { class: "requirement-detail" }, item.detail))
+        )
+      )
+    ),
+    remaining
+      ? el("button", { type: "button", class: "btn btn-small", style: "margin-top:var(--space-3)", onclick: openRecordingForm }, "Add a recording")
+      : null
   );
 }
 
@@ -931,6 +970,7 @@ function recordingPanel(entry, recordings, onChange, { openForm = false } = {}) 
     {
       caption: "Audio takes, scored for tempo and interpretation. Verification takes and graded run-throughs go here.",
       className: "submission-panel submission-panel-recording",
+      id: "practice-recordings",
     },
     submissionList(recordings, "No recordings yet."),
     form.button,
@@ -1038,35 +1078,6 @@ export async function entryDetailView(outlet, context) {
       )
     );
 
-    const banner =
-      gate && gate.requires_grading && !gate.unlocked
-        ? el(
-            "div",
-            { class: "locked-banner" },
-            el("div", { class: "row", style: "justify-content:space-between" },
-              el("strong", { style: "font-weight:500" }, "Graded piece"),
-              el("span", { class: "pill pill-warn" }, `needs ${gate.pass_score}`)
-            ),
-            el(
-              "p",
-              { class: "muted", style: "margin:8px 0 0;font-size:13.5px" },
-              `Anything at difficulty ${gate.threshold} or above can only be marked learnt by recording a full run-through and scoring ${gate.pass_score} or higher. ` +
-                (gate.best_score != null
-                  ? `Your best so far is ${gate.best_score}.`
-                  : "You have not submitted a graded run yet.")
-            )
-          )
-        : gate && gate.requires_grading
-          ? el(
-              "div",
-              { class: "locked-banner" },
-              el("div", { class: "row", style: "justify-content:space-between" },
-                el("strong", { style: "font-weight:500" }, "Graded and cleared"),
-                el("span", { class: "pill pill-ok" }, `${gate.best_score}`)
-              )
-            )
-          : null;
-
     const statusSave = el(
       "button",
       {
@@ -1099,7 +1110,7 @@ export async function entryDetailView(outlet, context) {
       overview?.key_signature,
     ].filter(Boolean).join(" · ");
 
-    const notices = [banner, verificationBanner(entry), decayBanner(entry, render)].filter(Boolean);
+    const notices = [requirementsChecklist(entry, gate), decayBanner(entry, render)].filter(Boolean);
     const needsTake = Boolean(entry.needs_verification || (gate && gate.requires_grading && !gate.unlocked));
 
     const summary = el(
