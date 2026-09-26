@@ -1,6 +1,6 @@
 import { api } from "../api/client.js";
 import { linkSummaryPanel } from "../components/overview.js";
-import { el, empty, skeletonBlock } from "../lib/dom.js";
+import { el, empty, reveal, skeletonBlock } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { forceCenter, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import {
@@ -49,25 +49,44 @@ const TRAIL_SPEED = 2.4;
 export async function constellationView(outlet) {
   const legendHost = el("div", { class: "legend" });
   const canvas = el("canvas");
-  const detail = el(
-    "div",
-    { class: "panel", style: "margin-top:16px" },
-    el("p", { class: "faint", style: "margin:0" }, "Tap a star to read the piece, or tap a connector to read why the two are linked. Drag a star to send it drifting.")
-  );
+  const detail = el("div", { class: "panel", style: "margin-top:16px" });
+
+  function chartGuide() {
+    const item = (term, meaning) => el("li", {}, el("strong", { style: "font-weight:500" }, term), " — ", meaning);
+    const guide = reveal(
+      "How to read the chart",
+      el(
+        "ul",
+        { class: "chart-guide" },
+        item("Lines", "join pieces that share a composer (solid orange), a technique (dashed yellow) or an era or genre (dotted pink). Tap a type in the legend to hide it."),
+        item("Colour", "is the star's era: eras that follow each other share a hue, and the later one carries a cross of spikes. An equipped star colour from the Observatory replaces this."),
+        item("Size", "is difficulty. Harder pieces are bigger stars, and heavier to throw."),
+        item("Bright core", "marks a top-ten piece or the star you're holding."),
+        item("Hollow, dashed star", "needs a verification take before it lights up."),
+        item("Faded star", "is drifting from lack of practice; a fine dashed ring around it means it has frozen."),
+        item("Dark core with a pale outline", "is a custom piece you added yourself.")
+      )
+    );
+    return [guide.button, guide.region];
+  }
+
+  function showIntro() {
+    detail.replaceChildren(
+      el(
+        "p",
+        { class: "faint", style: "margin:0" },
+        "Tap a star to read the piece, or a connector to read why two pieces are linked. Drag a star to send it drifting; drag the sky to pan, and scroll or pinch to zoom."
+      ),
+      ...chartGuide()
+    );
+  }
+  showIntro();
   const wrap = el("div", { class: "constellation-wrap" }, legendHost, canvas);
   const loading = el("div", {}, skeletonBlock(4));
 
+  const headline = el("p", { class: "faint mono", style: "margin:0;font-size:12px" });
   outlet.append(
-    el(
-      "div",
-      { class: "row", style: "justify-content:space-between;margin-bottom:16px" },
-      el("h1", { style: "margin:0" }, "Constellation"),
-      el(
-        "span",
-        { class: "faint mono", style: "font-size:12px" },
-        "drag the sky to pan · scroll to zoom · tap a connector to read it"
-      )
-    ),
+    el("div", { class: "page-head", style: "align-items:baseline" }, el("h1", { style: "margin:0" }, "Constellation"), headline),
     loading
   );
 
@@ -86,6 +105,7 @@ export async function constellationView(outlet) {
   }
 
   loading.remove();
+  headline.textContent = `${graph.nodes.length} star${graph.nodes.length === 1 ? "" : "s"} · ${graph.links.length} connection${graph.links.length === 1 ? "" : "s"}`;
   outlet.append(wrap, detail);
 
   if (!graph.nodes.length) {

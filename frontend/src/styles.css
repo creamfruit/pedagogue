@@ -2281,3 +2281,18 @@ input[type="date"] {
 .sticky-actions .btn {
   width: 100%;
 }
+
+.chart-guide {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 80ch;
+}
+
+.chart-guide strong {
+  color: var(--text);
+}

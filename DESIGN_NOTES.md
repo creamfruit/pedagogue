@@ -171,3 +171,18 @@ open it's 3,354px, still shorter than before, because the duplicated fields are 
 - **Fixed on the way (Phase 7 miss):** the heat-map cosmetic preview still drew its hottest dot with
   `var(--text)` after Phase 7 moved that end of the ramp to starlight. It now uses `var(--starlight)`, so it matches the
   constellation.
+
+### Constellation (`constellationView`)
+
+- **Instructions in one place.** The same gestures were in two places: a mono hint line in the header
+  ("drag the sky to pan · scroll to zoom · tap a connector to read it") and the info panel under the
+  chart ("Tap a star… tap a connector… drag a star…"). Neither listed all five. The info panel's
+  resting text now names all five once, and the header hint is gone.
+- **The header states the chart's size** instead ("9 stars · 35 connections"), which is new at-a-glance
+  information in the same spot and weight the hint used to occupy.
+- **A "How to read the chart" reveal** in the info panel explains the encoding Phase 1 built, which was
+  never explained anywhere in the UI: line type = colour + dash, era = hue + spikes, size = difficulty,
+  bright core = top ten or held, hollow dashed = needs verification, faded / dashed ring = drifting /
+  frozen, dark core with a pale outline = custom. It's closed by default, since you need it once. It's
+  the only place in this pass where I *added* information, and it's hidden until asked for.
+- The canvas, legend toggles, era key and physics are untouched.
