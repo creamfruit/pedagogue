@@ -559,7 +559,7 @@ function verificationBanner(entry) {
     el(
       "p",
       { class: "muted", style: "margin:8px 0 0;font-size:13.5px" },
-      "This piece is difficulty 70 or above. It shows as a hollow, dotted star in your constellation until you record a verification take in the submissions panel below."
+      "This piece is difficulty 70 or above. It shows as a hollow, dotted star in your constellation until you submit a verification take under Practice recordings below."
     )
   );
 }
@@ -654,13 +654,28 @@ function planPanel(entryId, plan, onBuild, onAdvance) {
   );
 }
 
+const SUBMISSION_LABELS = { audio: "Recording", text: "Practice notes", pdf: "Scanned score" };
+
+function submissionDate(submission) {
+  if (!submission.created_at) return null;
+  const date = new Date(submission.created_at);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 function submissionCard(submission) {
   const tone = { done: "pill-ok", failed: "pill-bad", processing: "pill-warn", queued: "pill" };
+  const date = submissionDate(submission);
   const rows = [
     el(
       "div",
       { class: "row", style: "justify-content:space-between" },
-      el("strong", { style: "text-transform:capitalize" }, submission.submission_type),
+      el(
+        "span",
+        { class: "row", style: "gap:10px" },
+        el("strong", {}, SUBMISSION_LABELS[submission.submission_type] || submission.submission_type),
+        date ? el("span", { class: "faint mono", style: "font-size:11px" }, date) : null
+      ),
       el("span", { class: `pill ${tone[submission.processing_status] || ""}` }, submission.processing_status)
     ),
   ];
@@ -717,13 +732,78 @@ function submissionCard(submission) {
   return el("li", { class: "list-item", style: "flex-direction:column;align-items:stretch" }, ...rows);
 }
 
-function submissionsPanel(entry, submissions, onChange) {
-  const list = el(
-    "ul",
-    { class: "list" },
-    ...(submissions.length ? submissions.map(submissionCard) : [empty("No submissions yet.")])
+function submissionList(items, emptyText) {
+  return el("ul", { class: "list" }, ...(items.length ? items.map(submissionCard) : [empty(emptyText)]));
+}
+
+function submissionPanelHead(id, title, caption) {
+  return el(
+    "div",
+    { class: "submission-head" },
+    el("h3", { id }, title),
+    el("p", { class: "faint", style: "font-size:12.5px;margin:-4px 0 12px" }, caption)
+  );
+}
+
+function recordingPanel(entry, recordings, onChange) {
+  const audioInput = el("input", { type: "file", accept: "audio/*" });
+  const fullRun = el("input", { type: "checkbox" });
+  const asVerification = el("input", { type: "checkbox", checked: entry.needs_verification || null, disabled: entry.needs_verification || null });
+  const tap = tapTempoWidget();
+  const audioSubmit = el(
+    "button",
+    {
+      class: "btn btn-small",
+      onclick: async () => {
+        const file = audioInput.files[0];
+        if (!file) return notify.error("Choose a recording first");
+        audioSubmit.disabled = true;
+        try {
+          const submission = await api.submitAudio(entry.id, file, {
+            isFullRunThrough: fullRun.checked,
+            isVerification: asVerification.checked,
+          });
+          notify.success("Recording submitted, analysis queued");
+          audioInput.value = "";
+          await pollSubmission(submission.submission.id).catch(() => null);
+          await onChange();
+        } catch (error) {
+          notify.error(error.detail || "Could not submit that recording");
+        } finally {
+          audioSubmit.disabled = false;
+        }
+      },
+    },
+    "Submit recording"
   );
 
+  return el(
+    "section",
+    { class: "panel submission-panel submission-panel-recording", "aria-labelledby": "recording-heading" },
+    submissionPanelHead(
+      "recording-heading",
+      "Practice recordings",
+      "Audio takes, scored for tempo and interpretation. Verification takes and graded run-throughs go here."
+    ),
+    submissionList(recordings, "No recordings yet."),
+    el(
+      "div",
+      { class: "submission-form" },
+      el("label", {}, "Recording file"),
+      el("div", { class: "row", style: "margin-bottom:8px" }, audioInput),
+      el(
+        "div",
+        { class: "row", style: "margin-bottom:8px" },
+        el("label", { class: "check-label" }, fullRun, "Full run-through"),
+        el("label", { class: "check-label" }, asVerification, "Verification take")
+      ),
+      tap.node,
+      el("div", { style: "margin-top:12px" }, audioSubmit)
+    )
+  );
+}
+
+function writtenSubmissionPanel(entry, written, onChange) {
   const textBody = el("textarea", { rows: "3", placeholder: "Notes from this practice session…" });
   const textSubmit = el(
     "button",
@@ -768,65 +848,35 @@ function submissionsPanel(entry, submissions, onChange) {
         }
       },
     },
-    "Submit score"
-  );
-
-  const audioInput = el("input", { type: "file", accept: "audio/*" });
-  const fullRun = el("input", { type: "checkbox" });
-  const asVerification = el("input", { type: "checkbox", checked: entry.needs_verification || null, disabled: entry.needs_verification || null });
-  const tap = tapTempoWidget();
-  const audioSubmit = el(
-    "button",
-    {
-      class: "btn btn-small",
-      onclick: async () => {
-        const file = audioInput.files[0];
-        if (!file) return notify.error("Choose a recording first");
-        audioSubmit.disabled = true;
-        try {
-          const submission = await api.submitAudio(entry.id, file, {
-            isFullRunThrough: fullRun.checked,
-            isVerification: asVerification.checked,
-          });
-          notify.success("Recording submitted, analysis queued");
-          audioInput.value = "";
-          await pollSubmission(submission.submission.id).catch(() => null);
-          await onChange();
-        } catch (error) {
-          notify.error(error.detail || "Could not submit that recording");
-        } finally {
-          audioSubmit.disabled = false;
-        }
-      },
-    },
-    "Submit recording"
+    "Upload score"
   );
 
   return el(
     "section",
-    { class: "panel", style: "margin-top:16px" },
-    el("h3", {}, "Submissions"),
-    list,
+    { class: "panel submission-panel", "aria-labelledby": "written-heading" },
+    submissionPanelHead(
+      "written-heading",
+      "Notes & scores",
+      "Written practice notes and scanned sheet music, read for bar numbers and techniques."
+    ),
+    submissionList(written, "No notes or scores yet."),
     el(
       "div",
-      { class: "stack", style: "margin-top:14px;border-top:1px solid var(--line);padding-top:14px" },
-      el("div", { class: "field" }, el("label", {}, "Practice notes"), textBody, textSubmit),
-      el("div", { class: "field" }, el("label", {}, "Scanned score (PDF)"), el("div", { class: "row" }, pdfInput, pdfSubmit)),
-      el(
-        "div",
-        { class: "field" },
-        el("label", {}, "Recording"),
-        el("div", { class: "row", style: "margin-bottom:8px" }, audioInput),
-        el(
-          "div",
-          { class: "row", style: "margin-bottom:8px" },
-          el("label", { style: "display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0" }, fullRun, "Full run-through"),
-          el("label", { style: "display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:13px;margin:0" }, asVerification, "Verification take")
-        ),
-        tap.node,
-        audioSubmit
-      )
+      { class: "submission-form" },
+      el("div", { class: "field" }, el("label", {}, "Practice notes"), textBody, el("div", { style: "margin-top:8px" }, textSubmit)),
+      el("div", { class: "field", style: "margin-bottom:0" }, el("label", {}, "Scanned score (PDF)"), el("div", { class: "row" }, pdfInput, pdfSubmit))
     )
+  );
+}
+
+function submissionSections(entry, submissions, onChange) {
+  const recordings = submissions.filter((submission) => submission.submission_type === "audio");
+  const written = submissions.filter((submission) => submission.submission_type !== "audio");
+  return el(
+    "div",
+    { class: "submission-split" },
+    recordingPanel(entry, recordings, onChange),
+    writtenSubmissionPanel(entry, written, onChange)
   );
 }
 
@@ -963,7 +1013,7 @@ export async function entryDetailView(outlet, context) {
           }
         }
       ),
-      submissionsPanel(entry, submissions, render),
+      submissionSections(entry, submissions, render),
       overview ? pieceOverview(overview, { heading: false }) : null,
     ];
     host.replaceChildren(...sections.filter(Boolean));

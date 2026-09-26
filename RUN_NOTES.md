@@ -497,3 +497,29 @@ rendered against the scratch backend with no console errors.
 - The Physical-load grid had no such issue (no tall cells).
 
 **Verification**: build ✔, pytest 52/52 ✔, grid geometry probed at three widths, no console errors.
+
+### Phase 9 — Recordings vs. other submissions
+
+- `submissionsPanel()` in `repertoire.js` was a single "Submissions" panel with one mixed history list
+  and three stacked forms (notes, PDF, recording). It is replaced by `submissionSections()`, which
+  renders two separately-labelled `<section>`s side by side (stacked under ~760px):
+  - **Practice recordings** (`recordingPanel`): audio history only, plus the recording form (file,
+    Full run-through, Verification take, tap-tempo, **Submit recording**). It has an orange top rule so
+    it reads as the primary flow — it's the one that clears the grading gate and verification.
+  - **Notes & scores** (`writtenSubmissionPanel`): text + PDF history, plus **Submit notes** and
+    **Upload score** (renamed from "Submit score" so no two buttons on the page share a verb+noun
+    pattern with the recording button). This mirrors `services/analyzers.py`: `TextAnalyzer` +
+    `ScoreAnalyzer` vs. `AudioAnalyzer`.
+- History cards now say "Recording" / "Practice notes" / "Scanned score" plus the date, instead of
+  the raw `audio`/`text`/`pdf` enum.
+- The verification banner copy now points at "Practice recordings below" instead of "the submissions
+  panel".
+- **Fixed along the way:** checkboxes inherited `input { width: 100% }`, so "Full run-through" /
+  "Verification take" were squeezed into a 3-line column. Checkboxes/radios now size to 16px with
+  `accent-color: var(--orange)`, and the labels use a new `.check-label` class.
+- **Noticed, not fixed:** `tapTempoWidget().curve()` is never read — the tap-tempo curve isn't sent
+  with the recording (`api.submitAudio` has no parameter for it). That was already the case before
+  this run; wiring it needs a backend field, so I left it.
+
+**Verification**: build ✔, pytest 52/52 ✔, rendered with a real text + audio submission against the
+scratch backend at 1280 and 390px, no console errors.

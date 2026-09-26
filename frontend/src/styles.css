@@ -899,6 +899,28 @@ textarea {
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  flex: none;
+  accent-color: var(--orange);
+}
+
+.check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
 input:hover:not(:disabled):not(:focus),
 select:hover:not(:disabled):not(:focus),
 textarea:hover:not(:disabled):not(:focus) {
@@ -1775,4 +1797,22 @@ input[type="date"] {
   align-items: center;
   justify-content: flex-start;
   gap: 18px;
+}
+
+.submission-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: var(--gap);
+  margin-top: 16px;
+  align-items: start;
+}
+
+.submission-panel-recording {
+  border-top: 2px solid var(--orange-line);
+}
+
+.submission-form {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
 }
