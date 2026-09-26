@@ -7,9 +7,12 @@ from app.schemas.schemas import (
     LedgerEntryRead,
     LoadoutRead,
     ProfileSummary,
+    StreakRead,
     WalletRead,
 )
 from app.services.economy import AchievementEngine, CosmeticService, EconomyService
+from app.services.growth import GrowthService
+from app.services.streaks import StreakService
 
 router = APIRouter(tags=["economy"])
 
@@ -80,4 +83,15 @@ async def profile_summary(user: CurrentUser, session: SessionDep) -> ProfileSumm
         loadout=LoadoutRead(**await cosmetics.loadout(user)),
         achievements_earned=sum(1 for row in rows if row["earned"]),
         achievements_total=len(rows),
+        streak=StreakRead(**(await StreakService(session).stats(user)).as_dict()),
     )
+
+
+@router.get("/progress/difficulty-history")
+async def difficulty_history(user: CurrentUser, session: SessionDep, weeks: int = Query(default=26, ge=4, le=104)) -> dict:
+    return await GrowthService(session).difficulty_history(user, weeks)
+
+
+@router.get("/progress/streak", response_model=StreakRead)
+async def streak(user: CurrentUser, session: SessionDep) -> StreakRead:
+    return StreakRead(**(await StreakService(session).stats(user)).as_dict())

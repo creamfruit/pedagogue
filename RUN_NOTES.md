@@ -1076,3 +1076,75 @@ Commits, one per page:
 at 1280px, several at 390px, against the scratch backend, with interaction scripts: account menu and
 focus, requirement-checklist button, star-click drawer, stepper editing plus tier pre-fill, cosmetic hover preview.
 No console errors.
+
+### Phase 17 — Streaks, achievement progress, difficulty over time
+
+**Where the logic lived:** there's no `achievements.py`. `earned_codes` / `qualifies` are in
+`services/economy.py` (`AchievementEngine`). `qualifies()` was a dict of 14 boolean expressions, so it could say
+*whether* but never *how close*.
+
+**Achievement progress:**
+- `qualifies()` is now driven by `ACHIEVEMENT_RULES`: code → (metric, target, sentence template). The same rule
+  answers "earned?" and "how far along?", so the two can never disagree.
+- `AchievementEngine.progress()` returns `{current, target, fraction, label}`, e.g. "3 of 5 pieces learnt",
+  "best graded run 72, needs 80", "longest streak 8 of 30 days".
+- **Tiers:** `ACHIEVEMENT_SERIES` groups codes into ladders (repertoire 1→1 learnt→5→20, grading 80→90→98,
+  difficulty 80→95, streak 3→7→30, level 5→10, …). `GET /achievements` now returns `series`, `tier` and
+  `progress`.
+- **Where achievements render:** only the Observatory (Achievements tab). Locked cards show a progress bar plus
+  label, and earned cards show the date.
+  - "Up next" is now **the next tier in each series, sorted by how close you are**. This answers Phase 10's open
+    question #3 ("up next" was catalogue order).
+- **New achievements** (seeded by code, so `python -m app.seed` adds them to your DB):
+  - *Five cleared* (graded runs ≥80 on five different pieces; your "3 of 5 graded pieces cleared" example);
+  - *Three in a row*, *A full week* and *Moon cycle* (3/7/30-day streaks).
+  - The new metrics are `graded_cleared` and `longest_streak`.
+
+**Daily streaks** (`services/streaks.py`):
+- **Derived, not stored.** The streak is recomputed from practice sessions each time, so there's no counter to
+  drift, and backfilled or edited sessions just work.
+- **A day counts** once its closed sessions log **≥5 minutes** (items' minutes, the same number XP is paid on).
+  This stops open-then-close gaming. Days are **your local calendar days**.
+  - New `users.timezone` column (IANA name, default UTC). The app syncs it from the browser on load, and it's
+    validated server-side with `zoneinfo`. `tzdata` is pinned in `requirements.txt`, because Windows has no
+    system time zone database.
+- **Reset:** miss a day and `current` goes to 0. A streak stays alive through *today* until today is over, so
+  opening the app in the morning doesn't show a broken streak.
+- **XP bonus:** closing the first session that makes a day count awards **10 XP × streak length, capped at 70**
+  (day 7+). It's a new ledger reason `streak_bonus`, idempotent per local day (verified live: a second session
+  the same day paid nothing).
+- **Shown:** on Today's "This week" card (compact), and on Progress › Growth (full). Both include the
+  "+N xp if you practise M more minutes today" nudge. `ProfileSummary.streak` carries it app-wide.
+
+**Difficulty over time** (Progress › **Growth**, now the first tab):
+- **Data decision:** repertoire entries have no creation timestamp (`started_on` is optional), so "repertoire
+  average by date" can't be reconstructed honestly. The series uses what *is* dated:
+  - each week's **minute-weighted average difficulty of the pieces you practised** (session items → piece);
+  - a **4-week rolling average**;
+  - **pieces learnt**, from `piece_learned` ledger entries, plotted at their difficulty.
+  - The endpoint is `GET /progress/difficulty-history?weeks=26`.
+- **Chart, per the dataviz method:**
+  - one y-axis; the headline number is the latest rolling average, with change over the period;
+  - a legend plus a direct end label;
+  - hairline grid; the 2px rolling line; ≥8px weekly dots with a 2px surface ring; star glyphs for learnt pieces;
+  - a hover crosshair and tooltip; a "Show as a table" reveal.
+- **Colour, validated with the skill's script rather than eyeballed:**
+  - Orange vs yellow as two series *fails* the normal-vision floor (ΔE 12.2 < 15), and full orange sits above
+    the dark lightness band.
+  - Pink is this app's "bad" status colour.
+  - So the one coloured series is **orange at 80% opacity (`#c38433`, passes every check)**. Weekly dots are a
+    neutral de-emphasis, and learnt pieces are identified by **shape** (✦, starlight) plus legend, not hue.
+  - This stays within the four-accent rule.
+
+**Migration** `d17b3c9a4e10` (`users.timezone`, `ALTER TYPE ledger_reason ADD VALUE 'streak_bonus'`). `alembic check`:
+no drift. The downgrade drops the column but can't remove an enum value (Postgres has no `DROP VALUE`).
+
+**Verification**:
+- build ✔ and pytest **94 passed, 1 skipped** ✔. The 9 new tests cover streak runs, resets, the 5-minute floor,
+  the bonus cap, local-day boundaries across time zones, weekly weighting and rolling, rule coverage for every
+  seeded achievement, and progress labels.
+- Live on the scratch backend, with 120 days of backfilled test practice:
+  - streak 5 → close a session → 6, with a 60 XP bonus; a second session gives no second bonus;
+  - the growth series and chart tooltip;
+  - achievement labels;
+  - timezone sync.

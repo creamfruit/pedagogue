@@ -1,5 +1,5 @@
 import "./styles.css";
-import { onUnauthorized } from "./api/client.js";
+import { api, onUnauthorized } from "./api/client.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
 import { navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
@@ -131,6 +131,21 @@ function wireAccountMenu() {
   });
 }
 
+async function syncTimezone() {
+  let zone = null;
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return;
+  }
+  if (!zone || store.user?.timezone === zone) return;
+  try {
+    store.setUser(await api.updateProfile({ timezone: zone }));
+  } catch {
+    /* keep the stored zone */
+  }
+}
+
 function wireNetworkStatus() {
   const pill = document.getElementById("net-status");
   const update = () => {
@@ -214,6 +229,7 @@ async function boot() {
   if (store.isAuthenticated) {
     store.refreshOnboarding();
     store.refreshProfile();
+    syncTimezone();
   }
   registerServiceWorker();
 }

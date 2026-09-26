@@ -300,30 +300,66 @@ export async function shopView(outlet, context = {}) {
   }
 
   function achievementCard(row) {
+    const progress = row.progress;
     return el(
       "div",
       { class: "achievement", dataset: { earned: String(row.earned) } },
       el("span", { class: "achievement-mark" }),
       el(
         "div",
-        {},
+        { style: "flex:1;min-width:0" },
         el("div", { style: "font-weight:500" }, row.name),
         el("div", { class: "faint", style: "font-size:12.5px" }, row.description),
-        el("div", { class: "faint mono", style: "font-size:11px;margin-top:5px" }, `+${row.xp_reward} xp · +${row.gold_reward} gold`)
+        !row.earned && progress
+          ? el(
+              "div",
+              { class: "achievement-progress" },
+              el(
+                "div",
+                {
+                  class: "bar",
+                  role: "progressbar",
+                  "aria-valuemin": "0",
+                  "aria-valuemax": "100",
+                  "aria-valuenow": String(Math.round(progress.fraction * 100)),
+                  "aria-label": `${row.name}: ${progress.label}`,
+                },
+                el("span", { style: `width:${progress.fraction * 100}%` })
+              ),
+              el("span", { class: "faint mono" }, progress.label)
+            )
+          : null,
+        el(
+          "div",
+          { class: "faint mono", style: "font-size:11px;margin-top:5px" },
+          row.earned && row.earned_at
+            ? `earned ${new Date(row.earned_at).toLocaleDateString()} · +${row.xp_reward} xp · +${row.gold_reward} gold`
+            : `+${row.xp_reward} xp · +${row.gold_reward} gold`
+        )
       )
     );
+  }
+
+  function nextTiers(rows) {
+    const bySeries = new Map();
+    rows.forEach((row) => {
+      if (row.earned || !row.series) return;
+      const current = bySeries.get(row.series);
+      if (!current || (row.tier ?? 0) < (current.tier ?? 0)) bySeries.set(row.series, row);
+    });
+    return [...bySeries.values()].sort((a, b) => (b.progress?.fraction ?? 0) - (a.progress?.fraction ?? 0));
   }
 
   async function renderAchievements() {
     try {
       const rows = await api.achievements();
       const earned = rows.filter((row) => row.earned).length;
-      const next = rows.filter((row) => !row.earned).slice(0, 3);
+      const next = nextTiers(rows).slice(0, 4);
       const all = reveal(`All ${rows.length} achievements`, () => el("div", { class: "shop-grid" }, ...rows.map(achievementCard)));
       achievementHost.replaceChildren(
         sectionBlock(
           "Achievements",
-          { caption: `${earned} of ${rows.length} unlocked${next.length ? " · up next:" : ""}` },
+          { caption: `${earned} of ${rows.length} unlocked${next.length ? " · the next tier in each series, closest first" : ""}` },
           el("div", { class: "bar", style: "margin:-6px 0 var(--space-4)" }, el("span", { style: `width:${rows.length ? (earned / rows.length) * 100 : 0}%` })),
           next.length ? el("div", { class: "shop-grid" }, ...next.map(achievementCard)) : null,
           all.button,

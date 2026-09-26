@@ -70,6 +70,7 @@ class UserRead(ORMModel):
     self_level: Optional[SelfLevel]
     hand_span_cm: Optional[Decimal]
     profile_visibility: ProfileVisibility
+    timezone: str = "UTC"
     tier_quiz_completed_at: Optional[datetime] = None
     created_at: datetime
 
@@ -81,6 +82,20 @@ class ProfileUpdate(BaseModel):
     self_level: Optional[SelfLevel] = None
     hand_span_cm: Optional[Decimal] = Field(default=None, ge=10, le=35)
     profile_visibility: Optional[ProfileVisibility] = None
+    timezone: Optional[str] = Field(default=None, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def known_timezone(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError("unknown time zone")
+        return value
 
 
 class EraRead(ORMModel):
@@ -776,6 +791,13 @@ class LedgerEntryRead(ORMModel):
     created_at: datetime
 
 
+class AchievementProgress(BaseModel):
+    current: float
+    target: float
+    fraction: float
+    label: str
+
+
 class AchievementRead(BaseModel):
     id: int
     code: str
@@ -785,6 +807,19 @@ class AchievementRead(BaseModel):
     gold_reward: int
     earned: bool
     earned_at: Optional[datetime] = None
+    series: Optional[str] = None
+    tier: Optional[int] = None
+    progress: Optional[AchievementProgress] = None
+
+
+class StreakRead(BaseModel):
+    current: int
+    longest: int
+    today_done: bool
+    minutes_today: int
+    min_minutes: int
+    next_bonus_xp: int
+    last_day: Optional[str] = None
 
 
 class CosmeticRead(BaseModel):
@@ -814,6 +849,7 @@ class ProfileSummary(BaseModel):
     loadout: LoadoutRead
     achievements_earned: int
     achievements_total: int
+    streak: Optional[StreakRead] = None
 
 
 class PathwayStep(BaseModel):

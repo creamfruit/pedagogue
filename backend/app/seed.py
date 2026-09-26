@@ -181,6 +181,10 @@ ACHIEVEMENTS = [
     ("level_five", "Rising", "Reach level five.", 0, 400, 12),
     ("level_ten", "Seasoned", "Reach level ten.", 0, 1200, 13),
     ("first_fortune", "First fortune", "Earn 1000 gold in total.", 200, 0, 14),
+    ("five_graded", "Five cleared", "Clear graded run-throughs of five different pieces.", 800, 900, 15),
+    ("streak_three", "Three in a row", "Practise at least five minutes on three days in a row.", 60, 40, 16),
+    ("streak_week", "A full week", "Practise at least five minutes every day for a week.", 220, 160, 17),
+    ("streak_month", "Moon cycle", "Practise at least five minutes every day for thirty days.", 900, 700, 18),
 ]
 
 COSMETICS = [

@@ -242,6 +242,8 @@ export const api = {
   wallet: () => request("/wallet"),
   ledger: (limit = 40) => request("/wallet/ledger", { params: { limit } }),
   achievements: () => request("/achievements"),
+  streak: () => request("/progress/streak"),
+  difficultyHistory: (weeks = 26) => request("/progress/difficulty-history", { params: { weeks } }),
   shop: () => request("/shop"),
   buyCosmetic: (id) => request(`/shop/${id}/buy`, { method: "POST" }),
   equipCosmetic: (id) => request(`/shop/${id}/equip`, { method: "POST" }),

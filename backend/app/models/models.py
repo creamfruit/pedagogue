@@ -175,6 +175,7 @@ class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     years_playing: Mapped[Optional[int]] = mapped_column(SmallInteger)
     self_level: Mapped[Optional[SelfLevel]] = mapped_column(pg_enum(SelfLevel, "self_level"))
     hand_span_cm: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
     profile_visibility: Mapped[ProfileVisibility] = mapped_column(
         pg_enum(ProfileVisibility, "profile_visibility"),
         default=ProfileVisibility.FRIENDS,
@@ -1335,6 +1336,7 @@ class LedgerReason(str, enum.Enum):
     ACHIEVEMENT = "achievement"
     PURCHASE = "purchase"
     ADJUSTMENT = "adjustment"
+    STREAK_BONUS = "streak_bonus"
 
 
 class CosmeticKind(str, enum.Enum):

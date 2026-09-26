@@ -383,3 +383,9 @@ were missing). Nothing told you what to do.
 | Onboarding | A focused wizard with editable, pre-filled steps |
 | Progress | New hub: Pathways + Performances tabs, and Growth in Phase 17 |
 | Observatory | Shop/Achievements tabs plus a try-before-you-buy sky preview |
+
+## Phase 17 additions
+
+- **Progress hub order:** Growth is the first tab. The landing view of "Progress" should show progress; Pathways (goal-seeking) and Performances (events) are second and third.
+- **Streak visual:** a ringed count in **yellow** when live, neutral at 0. Yellow already means reward (gold) in this app; a streak is a reward state, not an action (orange) or a selection (starlight).
+- **Growth chart:** see RUN_NOTES Phase 17 for the validated colour choice. One orange series, neutral weekly dots, starlight star glyphs for learnt pieces (shape, not hue, carries identity), a legend plus an end label, a crosshair tooltip, and a table view behind a reveal.

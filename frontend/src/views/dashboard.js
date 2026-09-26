@@ -2,6 +2,7 @@ import { api } from "../api/client.js";
 import { el, empty, sectionBlock, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { daysSince, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { store } from "../lib/store.js";
+import { streakSummary } from "./growth.js";
 
 const ACTIVE = new Set(["learning", "polishing"]);
 export function pickNextUp(entries) {
@@ -45,11 +46,13 @@ function nextUpCard(entry) {
 }
 
 function weekCard(load) {
-  if (!load) return sectionBlock("This week", {}, empty("No load data yet. Log a practice session."));
+  const streak = streakSummary(store.streak, { compact: true });
+  if (!load) return sectionBlock("This week", {}, streak, empty("No load data yet. Log a practice session."));
   const pct = load.threshold ? Math.min((load.load_total / load.threshold) * 100, 100) : 0;
   return sectionBlock(
     "This week",
     { caption: `${load.minutes_this_week} minutes logged`, action: el("span", { class: `pill ${toneForSeverity(load.severity)}` }, load.severity) },
+    streak,
     el("div", { class: "stat-label" }, "Load guard"),
     el(
       "div",
@@ -140,6 +143,7 @@ export async function dashboardView(outlet) {
     api.repertoireStats(),
     api.load(),
     api.repertoire({ limit: 100 }),
+    store.refreshProfile(),
   ]);
   const entries = entriesResult.status === "fulfilled" ? entriesResult.value.items : [];
   const active = entries.filter((entry) => ACTIVE.has(entry.status));

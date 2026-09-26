@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional, Sequence
 
@@ -27,6 +28,7 @@ from app.models.models import (
     Wallet,
 )
 from app.services.onboarding import BaseService
+from app.services.streaks import StreakService
 
 LEARNED_STATUSES = {RepertoireStatus.PERFORMANCE_READY, RepertoireStatus.RETIRED}
 
@@ -39,6 +41,58 @@ GRADED_GOLD_BASE = 130
 GRADED_GOLD_PER_POINT = 14
 GRADED_XP_BASE = 180
 PATHWAY_XP_PER_STEP = 25
+
+
+@dataclass(frozen=True)
+class AchievementRule:
+    metric: str
+    target: float
+    template: str
+    percent: bool = False
+
+    def describe(self, current: float) -> str:
+        scale = 100 if self.percent else 1
+        return self.template.format(
+            current=f"{round(min(current, self.target) * scale):g}" if "{current}" in self.template else "",
+            best=f"{round(current * scale):g}",
+            target=f"{round(self.target * scale):g}",
+        )
+
+
+ACHIEVEMENT_RULES: dict[str, AchievementRule] = {
+    "first_piece": AchievementRule("repertoire", 1, "{current} of {target} pieces added"),
+    "first_learned": AchievementRule("learned", 1, "{current} of {target} pieces learnt"),
+    "five_learned": AchievementRule("learned", 5, "{current} of {target} pieces learnt"),
+    "twenty_learned": AchievementRule("learned", 20, "{current} of {target} pieces learnt"),
+    "first_submission": AchievementRule("submissions", 1, "{current} of {target} submissions"),
+    "first_pass": AchievementRule("best_grade", 80, "best graded run {best}, needs {target}"),
+    "grade_ninety": AchievementRule("best_grade", 90, "best graded run {best}, needs {target}"),
+    "flawless": AchievementRule("best_grade", 98, "best graded run {best}, needs {target}"),
+    "five_graded": AchievementRule("graded_cleared", 5, "{current} of {target} pieces cleared at 80+"),
+    "grade_eight_club": AchievementRule("hardest_learned", 80, "hardest piece learnt {best}, needs {target}"),
+    "virtuoso": AchievementRule("hardest_learned", 95, "hardest piece learnt {best}, needs {target}"),
+    "polyrhythm_steady": AchievementRule("best_polyrhythm", 0.9, "best polyrhythm {best}%, needs {target}%", percent=True),
+    "level_five": AchievementRule("level", 5, "level {best} of {target}"),
+    "level_ten": AchievementRule("level", 10, "level {best} of {target}"),
+    "first_fortune": AchievementRule("lifetime_gold", 1000, "{current} of {target} gold earned"),
+    "streak_three": AchievementRule("longest_streak", 3, "longest streak {best} of {target} days"),
+    "streak_week": AchievementRule("longest_streak", 7, "longest streak {best} of {target} days"),
+    "streak_month": AchievementRule("longest_streak", 30, "longest streak {best} of {target} days"),
+}
+
+ACHIEVEMENT_SERIES: dict[str, list[str]] = {
+    "repertoire": ["first_piece", "first_learned", "five_learned", "twenty_learned"],
+    "grading": ["first_pass", "grade_ninety", "flawless"],
+    "cleared": ["five_graded"],
+    "difficulty": ["grade_eight_club", "virtuoso"],
+    "streak": ["streak_three", "streak_week", "streak_month"],
+    "level": ["level_five", "level_ten"],
+    "submissions": ["first_submission"],
+    "polyrhythm": ["polyrhythm_steady"],
+    "gold": ["first_fortune"],
+}
+
+SERIES_OF = {code: (series, index + 1) for series, codes in ACHIEVEMENT_SERIES.items() for index, code in enumerate(codes)}
 
 
 def learning_reward(difficulty: Optional[Decimal]) -> tuple[int, int]:
@@ -220,8 +274,16 @@ class AchievementEngine(BaseService):
         polyrhythm = await self.session.execute(
             select(func.max(PolyrhythmAttempt.accuracy_score)).where(PolyrhythmAttempt.user_id == user.id)
         )
+        cleared = await self.session.execute(
+            select(func.count(func.distinct(ReadinessScore.repertoire_entry_id)))
+            .join(RepertoireEntry, RepertoireEntry.id == ReadinessScore.repertoire_entry_id)
+            .where(RepertoireEntry.user_id == user.id, ReadinessScore.overall_score >= GRADED_PASS_SCORE)
+        )
+        streak = await StreakService(self.session).stats(user)
         wallet = await self.economy.wallet(user)
         return {
+            "graded_cleared": int(cleared.scalar_one() or 0),
+            "longest_streak": streak.longest,
             "learned": learned,
             "repertoire": total,
             "submissions": int(submissions.scalar_one()),
@@ -234,23 +296,17 @@ class AchievementEngine(BaseService):
 
     @staticmethod
     def qualifies(code: str, metrics: dict) -> bool:
-        rules = {
-            "first_piece": metrics["repertoire"] >= 1,
-            "first_learned": metrics["learned"] >= 1,
-            "five_learned": metrics["learned"] >= 5,
-            "twenty_learned": metrics["learned"] >= 20,
-            "first_submission": metrics["submissions"] >= 1,
-            "first_pass": metrics["best_grade"] >= 80,
-            "grade_ninety": metrics["best_grade"] >= 90,
-            "flawless": metrics["best_grade"] >= 98,
-            "grade_eight_club": metrics["hardest_learned"] >= 80,
-            "virtuoso": metrics["hardest_learned"] >= 95,
-            "polyrhythm_steady": metrics["best_polyrhythm"] >= 0.9,
-            "level_five": metrics["level"] >= 5,
-            "level_ten": metrics["level"] >= 10,
-            "first_fortune": metrics["lifetime_gold"] >= 1000,
-        }
-        return rules.get(code, False)
+        rule = ACHIEVEMENT_RULES.get(code)
+        return rule is not None and metrics.get(rule.metric, 0) >= rule.target
+
+    @staticmethod
+    def progress(code: str, metrics: dict) -> Optional[dict]:
+        rule = ACHIEVEMENT_RULES.get(code)
+        if rule is None:
+            return None
+        current = float(metrics.get(rule.metric, 0))
+        fraction = 1.0 if rule.target <= 0 else max(0.0, min(current / rule.target, 1.0))
+        return {"current": current, "target": float(rule.target), "fraction": round(fraction, 3), "label": rule.describe(current)}
 
     async def evaluate(self, user: User) -> list[Achievement]:
         metrics = await self.metrics(user)
@@ -282,8 +338,12 @@ class AchievementEngine(BaseService):
             select(UserAchievement).where(UserAchievement.user_id == user.id)
         )
         earned_map = {row.achievement_id: row.earned_at for row in earned.scalars().all()}
+        metrics = await self.metrics(user)
         return [
             {
+                "series": SERIES_OF.get(achievement.code, (None, None))[0],
+                "tier": SERIES_OF.get(achievement.code, (None, None))[1],
+                "progress": self.progress(achievement.code, metrics),
                 "id": achievement.id,
                 "code": achievement.code,
                 "name": achievement.name,

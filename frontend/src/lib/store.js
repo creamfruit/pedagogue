@@ -5,6 +5,7 @@ const state = {
   onboarding: null,
   wallet: null,
   loadout: null,
+  streak: null,
   ready: false,
 };
 
@@ -24,9 +25,11 @@ async function loadProfile() {
     const summary = await api.profileSummary();
     state.wallet = summary.wallet;
     state.loadout = summary.loadout;
+    state.streak = summary.streak || null;
   } catch {
     state.wallet = null;
     state.loadout = null;
+    state.streak = null;
   }
 }
 
@@ -50,6 +53,9 @@ export const store = {
   },
   get loadout() {
     return state.loadout;
+  },
+  get streak() {
+    return state.streak;
   },
   get ready() {
     return state.ready;

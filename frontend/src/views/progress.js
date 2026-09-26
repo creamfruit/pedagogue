@@ -1,9 +1,16 @@
 import { el, tabs } from "../lib/dom.js";
 import { navigate } from "../router.js";
+import { growthView } from "./growth.js";
 import { performancesView } from "./performances.js";
 import { progressionView } from "./progression.js";
 
 const TABS = [
+  {
+    id: "growth",
+    label: "Growth",
+    caption: "Your practice streak and how the difficulty of what you play is changing.",
+    render: (host) => growthView(host),
+  },
   {
     id: "pathways",
     label: "Pathways",

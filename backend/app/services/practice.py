@@ -26,6 +26,7 @@ from app.models.models import (
 )
 from app.services.economy import AchievementEngine, EconomyService
 from app.services.onboarding import BaseService
+from app.services.streaks import StreakService
 
 BASELINE_FLOOR = Decimal("120.00")
 CAUTION_RATIO = 1.20
@@ -183,6 +184,7 @@ class PracticeSessionService(BaseService):
         practice.close(perceived_tension)
         await self.session.flush()
         await self.economy.reward_practice(user, practice.logged_minutes, practice.id)
+        await StreakService(self.session).award_bonus(user, practice)
         await self.achievements.evaluate(user)
         return await self.get(user, practice.id)
 
