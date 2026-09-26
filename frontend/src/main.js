@@ -90,8 +90,9 @@ function setWallet() {
 
 function setChrome() {
   const authed = store.isAuthenticated;
-  document.getElementById("nav").hidden = !authed;
-  document.getElementById("nav-toggle").hidden = !authed;
+  const settingUp = authed && store.onboarding && !store.onboarding.complete;
+  document.getElementById("nav").hidden = !authed || settingUp;
+  document.getElementById("nav-toggle").hidden = !authed || settingUp;
   setWallet();
   const account = document.getElementById("account");
   account.hidden = !authed;

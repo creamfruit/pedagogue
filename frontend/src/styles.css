@@ -2747,3 +2747,32 @@ input[type="date"] {
     backdrop-filter: none;
   }
 }
+
+.onboarding {
+  max-width: 760px;
+}
+
+.stepper-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.stepper-edit:hover .stepper-label {
+  color: var(--starlight);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.stepper-edit:focus-visible {
+  outline: 2px solid var(--yellow);
+}

@@ -341,3 +341,18 @@ were missing). Nothing told you what to do.
 - This is also the slot for later phases. The drawer is where an earned achievement shape (Phase 22) and a meteor
   shower's details (Phase 23) will open, and the lineage view (Phase 21) will be a **tab**, per the "peer views are
   tabs" rule.
+
+## Onboarding
+
+- **A focused wizard.**
+  - The main nav is hidden until setup is complete. Every link bounced back to onboarding anyway, so showing
+    them promised places you couldn't go yet.
+  - Content is capped at a 760px reading width, instead of 1,180px-wide selects and inputs.
+- **Finished steps stay editable.** Completed steps in the stepper are buttons ("✓ Profile"). Selecting one
+  reopens that step, and saving returns you to wherever the server says you are. There was previously no way
+  back without redoing everything.
+- **Steps pre-fill what you've already saved.** Returning to the tier quiz restores your existing tiers,
+  mapped back from the stored proficiency scores. The top ten restores your saved pieces. Before, both
+  started blank, so editing one answer meant re-entering all seventeen.
+- `tierQuizStep` is now exported, with `initial` and `submitLabel` options. Phase 18's standalone retake reuses
+  the same component rather than a copy.

@@ -110,33 +110,66 @@ function resultItem(onPick, ...children) {
   );
 }
 
-function stepper(active) {
-  const current = STEPS.indexOf(active);
+function completedSteps(status) {
+  return new Set(
+    [
+      status.profile_complete ? "profile" : null,
+      status.tier_quiz_complete ? "tier_quiz" : null,
+      status.top_ten_logged > 0 ? "top_ten" : null,
+      status.genres_chosen > 0 || status.composers_chosen > 0 ? "tastes" : null,
+    ].filter(Boolean)
+  );
+}
+
+function stepper(active, done, onSelect) {
   return el(
     "ol",
     { class: "stepper", "aria-label": "Setup progress" },
     ...STEPS.map((step, index) => {
-      const state = index < current ? "done" : index === current ? "current" : "upcoming";
+      const state = step === active ? "current" : done.has(step) ? "done" : "upcoming";
+      const content = [
+        el("span", { class: "stepper-index mono" }, state === "done" ? "✓" : String(index + 1)),
+        el("span", { class: "stepper-label" }, step.replace(/_/g, " ")),
+      ];
       return el(
         "li",
         { class: `stepper-step stepper-${state}`, "aria-current": state === "current" ? "step" : null },
-        el("span", { class: "stepper-index mono" }, state === "done" ? "✓" : String(index + 1)),
-        el("span", { class: "stepper-label" }, step.replace(/_/g, " "))
+        state === "done"
+          ? el("button", { type: "button", class: "stepper-edit", title: `Change your ${step.replace(/_/g, " ")}`, onclick: () => onSelect(step) }, ...content)
+          : content
       );
     })
+  );
+}
+
+export function tierFromScore(score) {
+  if (score === null || score === undefined) return null;
+  const value = Number(score);
+  const tiers = [["S", 9.0], ["A", 7.2], ["B", 5.5], ["C", 3.5], ["D", 1.5]];
+  return tiers.reduce((best, tier) => (Math.abs(tier[1] - value) < Math.abs(best[1] - value) ? tier : best))[0];
+}
+
+export function savedTiers(profiles) {
+  return new Map(
+    (profiles || [])
+      .map((profile) => [profile.technique_id, tierFromScore(profile.proficiency_score)])
+      .filter(([, tier]) => tier)
   );
 }
 
 export async function onboardingView(outlet) {
   const loading = el("div", {}, skeletonBlock(5));
   outlet.append(loading);
-  
+
   async function load() {
     const [summary, allTechniques] = await Promise.all([api.onboardingSummary(), api.techniques()]);
     return { summary, allTechniques };
   }
-  
+
+  let override = null;
+
   async function refresh() {
+    override = null;
     try {
       const { summary, allTechniques } = await load();
       await draw(summary, allTechniques);
@@ -144,29 +177,37 @@ export async function onboardingView(outlet) {
       outlet.replaceChildren(empty(error.detail || "Could not load onboarding."));
     }
   }
-  
+
   async function draw(summary, allTechniques) {
-    const step = summary.status.next_step;
+    const step = override || summary.status.next_step;
     if (step === "done") {
       await store.refreshOnboarding();
       navigate("/");
       return;
     }
-    
+    const select = (next) => {
+      override = next;
+      draw(summary, allTechniques);
+    };
+
     outlet.replaceChildren(
-      el("h1", {}, "Set up your studio"),
-      el("p", { class: "muted" }, "A few quick steps so the constellation and difficulty math can personalize to you."),
-      stepper(step),
-      step === "profile"
-        ? profileStep(summary, refresh)
-        : step === "tier_quiz"
-          ? tierQuizStep(allTechniques, refresh)
-          : step === "top_ten"
-            ? topTenStep(refresh)
-            : tastesStep(summary, refresh)
+      el(
+        "div",
+        { class: "onboarding" },
+        el("h1", {}, "Set up your studio"),
+        el("p", { class: "muted" }, "A few quick steps so the constellation and difficulty math can personalise to you. Finished steps stay editable: select one to change it."),
+        stepper(step, completedSteps(summary.status), select),
+        step === "profile"
+          ? profileStep(summary, refresh)
+          : step === "tier_quiz"
+            ? tierQuizStep(allTechniques, refresh, { initial: savedTiers(summary.techniques) })
+            : step === "top_ten"
+              ? topTenStep(refresh, { initial: (summary.top_ten || []).map((entry) => entry.piece) })
+              : tastesStep(summary, refresh)
+      )
     );
   }
-  
+
   try {
     const { summary, allTechniques } = await load();
     loading.remove();
@@ -320,9 +361,9 @@ async function fillTechniqueExample(region, technique, loadExamples) {
   }
 }
 
-function tierQuizStep(allTechniques, refresh) {
+export function tierQuizStep(allTechniques, refresh, { initial = new Map(), submitLabel = "Continue" } = {}) {
   const loadExamples = techniqueExampleSource();
-  const assignments = new Map();
+  const assignments = new Map([...initial].filter(([id]) => allTechniques.some((technique) => technique.id === id)));
   const groups = new Map();
   allTechniques.forEach((technique) => {
     if (!groups.has(technique.category)) groups.set(technique.category, []);
@@ -355,7 +396,7 @@ function tierQuizStep(allTechniques, refresh) {
     submit.disabled = assignments.size < allTechniques.length;
     submit.textContent = submit.disabled
       ? `Rank every technique (${assignments.size}/${allTechniques.length})`
-      : "Continue";
+      : submitLabel;
   }
 
   const rows = [];
@@ -384,6 +425,11 @@ function tierQuizStep(allTechniques, refresh) {
           tier
         )
       );
+      const saved = assignments.get(technique.id);
+      if (saved) {
+        buttons[TIERS.indexOf(saved)].classList.add("tier-btn-active");
+        buttons[TIERS.indexOf(saved)].setAttribute("aria-pressed", "true");
+      }
       let playbackRegion = null;
       const example = disclosure("?", {
         label: `How ${technique.name} is played, with an example`,
@@ -441,10 +487,10 @@ function tierQuizStep(allTechniques, refresh) {
   );
 }
 
-function topTenStep(refresh) {
+function topTenStep(refresh, { initial = [] } = {}) {
   const search = el("input", { type: "search", placeholder: "Search the catalog, e.g. Chopin etude" });
   const results = el("ul", { class: "list" });
-  const chosen = [];
+  const chosen = initial.filter(Boolean).slice(0, 10);
   const chosenList = el("ul", { class: "list" });
 
   function renderChosen() {
