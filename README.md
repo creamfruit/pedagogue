@@ -113,14 +113,16 @@ alembic upgrade head
 python -m app.seed
 ```
 
-Loads 6 eras, 9 genres, 17 techniques, 10 composers, and 23 pieces with technique
+Loads 6 eras, 11 genres, 17 techniques, 11 composers, and 25 pieces with technique
 weights, plus the prerequisite graph, 14 achievements and 19 shop cosmetics. It then fills
-in the catalog detail: scene, history and a fact for all 27 pieces and movements, 65 marked
+in the catalog detail: scene, history and a fact for all 29 pieces and movements, 67 marked
 sections with bar numbers and practice cues, mechanics and common faults for every
 technique, biographies for every composer, and 8 curated link notes.
 
-Running it twice is safe. The catalog exits early if it is already present, while the
-achievements and cosmetics are matched on their `code` and updated in place, so if you
+Running it twice is safe. The base catalog exits early if it is already present, but new
+catalog pieces, composers and genres are added, and marked sections are updated in place
+(matched on piece and label, so recorded assessments and drills keep their passage).
+Achievements and cosmetics are matched on their `code` and updated in place, so if you
 seeded before the economy existed, re-run this command to pick them up. Without it the
 Observatory will be empty.
 

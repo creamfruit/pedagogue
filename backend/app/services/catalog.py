@@ -15,6 +15,7 @@ from app.models.models import (
     PassageTechnique,
     Piece,
     PieceLinkNote,
+    PassageSource,
     PieceTechnique,
     Technique,
 )
@@ -30,6 +31,53 @@ PIECE_LOADERS = (
     selectinload(Piece.movements),
     selectinload(Piece.parent_piece),
 )
+
+
+def pick_technique_examples(links: list[PassageTechnique]) -> dict[int, PassageTechnique]:
+    best: dict[int, PassageTechnique] = {}
+    for link in links:
+        current = best.get(link.technique_id)
+        rank = (float(link.weight), float(link.passage.difficulty_score or 0), -link.passage_id)
+        if current is None or rank > (
+            float(current.weight),
+            float(current.passage.difficulty_score or 0),
+            -current.passage_id,
+        ):
+            best[link.technique_id] = link
+    return best
+
+
+class TechniqueExampleService(BaseService):
+    async def examples(self) -> list[dict]:
+        stmt = (
+            select(PassageTechnique)
+            .join(Passage, Passage.id == PassageTechnique.passage_id)
+            .join(Piece, Piece.id == Passage.piece_id)
+            .where(Passage.source == PassageSource.CATALOG, Piece.is_user_created.is_(False))
+            .options(
+                selectinload(PassageTechnique.technique),
+                selectinload(PassageTechnique.passage).selectinload(Passage.piece).selectinload(Piece.composer),
+            )
+        )
+        links = list((await self.session.execute(stmt)).scalars().all())
+        chosen = pick_technique_examples(links)
+        return [
+            {
+                "technique_id": link.technique_id,
+                "technique_name": link.technique.name,
+                "passage_id": link.passage_id,
+                "piece_id": link.passage.piece_id,
+                "piece_title": link.passage.piece.title,
+                "composer": link.passage.piece.composer.name if link.passage.piece.composer else None,
+                "label": link.passage.label,
+                "measure_span": link.passage.measure_span,
+                "description": link.passage.description,
+                "practice_cue": link.passage.practice_cue,
+                "weight": link.weight,
+                "difficulty_score": link.passage.difficulty_score,
+            }
+            for link in sorted(chosen.values(), key=lambda link: link.technique_id)
+        ]
 
 
 class PieceOverviewService(BaseService):

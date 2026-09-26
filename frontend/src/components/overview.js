@@ -144,7 +144,7 @@ function sectionCard(section, index) {
           el("span", { class: "faint mono", style: "font-size:11px" }, `representative pattern · ${notation.key} · ${notation.tempo_bpm} bpm`),
           playButton
         ),
-        el("div", { class: "notation-host" }, renderNotation(notation, { width: 560 }))
+        el("div", { class: "notation-host" }, renderNotation(notation))
       );
     } catch (error) {
       stage.replaceChildren(el("p", { class: "faint", style: "font-size:12px" }, error.detail || "Could not forge a pattern for this passage."));

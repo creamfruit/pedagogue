@@ -112,6 +112,22 @@ class TechniqueRead(ORMModel):
     parent_technique_id: Optional[int]
     load_factor: Decimal
     description: Optional[str]
+    mechanic: Optional[str] = None
+
+
+class TechniqueExample(BaseModel):
+    technique_id: int
+    technique_name: str
+    passage_id: int
+    piece_id: int
+    piece_title: str
+    composer: Optional[str]
+    label: Optional[str]
+    measure_span: str
+    description: Optional[str]
+    practice_cue: Optional[str]
+    weight: Decimal
+    difficulty_score: Optional[Decimal]
 
 
 class PieceRead(ORMModel):

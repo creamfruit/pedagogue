@@ -159,9 +159,11 @@ export const api = {
   linkSummary: (sourceId, targetId, linkType) =>
     request(`/catalog/links/${sourceId}/${targetId}`, { params: { link_type: linkType } }),
   searchComposers: (q) => request("/catalog/composers", { params: { q } }),
-  passageSightReading: (passageId) => request(`/catalog/passages/${passageId}/sight-reading`),
+  passageSightReading: (passageId, techniqueId) =>
+    request(`/catalog/passages/${passageId}/sight-reading`, { params: techniqueId ? { technique_id: techniqueId } : undefined }),
   genres: () => request("/catalog/genres"),
   techniques: () => request("/catalog/techniques"),
+  techniqueExamples: () => request("/catalog/techniques/examples"),
 
   repertoire: (params) => request("/repertoire", { params }),
   repertoireStats: () => request("/repertoire/stats"),

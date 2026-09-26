@@ -1,7 +1,7 @@
 import { api } from "../api/client.js";
-import { el, empty, skeletonBlock } from "../lib/dom.js";
+import { disclosure, el, empty, skeletonBlock } from "../lib/dom.js";
 import { renderNotation } from "../lib/notation.js";
-import { techniqueSnippet } from "../lib/techniqueSnippets.js";
+import { playNotation } from "../lib/synth.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
@@ -222,7 +222,103 @@ function profileStep(summary, refresh) {
   );
 }
 
+const EXAMPLE_EVENT_BUDGET = 16;
+
+function excerptOf(notation) {
+  const measures = [];
+  let events = 0;
+  for (const measure of notation.measures) {
+    if (measures.length && events + measure.notes.length > EXAMPLE_EVENT_BUDGET) break;
+    measures.push(measure);
+    events += measure.notes.length;
+    if (measures.length === 2) break;
+  }
+  return { ...notation, measures };
+}
+
+function techniqueExampleSource() {
+  let pending = null;
+  return () => {
+    if (!pending) {
+      pending = api
+        .techniqueExamples()
+        .then((list) => new Map(list.map((example) => [example.technique_id, example])))
+        .catch((error) => {
+          pending = null;
+          throw error;
+        });
+    }
+    return pending;
+  };
+}
+
+async function fillTechniqueExample(region, technique, loadExamples) {
+  region.replaceChildren(el("p", { class: "faint tier-example-note" }, "Finding a passage that uses this technique…"));
+  try {
+    const example = (await loadExamples()).get(technique.id);
+    if (!example) {
+      region.replaceChildren(
+        el("p", { class: "faint tier-example-note" }, "No marked passage in the catalogue uses this technique yet.")
+      );
+      return;
+    }
+    const notation = await api.passageSightReading(example.passage_id, technique.id);
+    const excerpt = excerptOf(notation);
+    let playback = null;
+    const play = el(
+      "button",
+      {
+        type: "button",
+        class: "btn btn-small btn-ghost",
+        onclick: () => {
+          if (playback) {
+            playback.stop();
+            playback = null;
+            play.textContent = "Play";
+            return;
+          }
+          play.textContent = "Stop";
+          playback = playNotation(excerpt, {
+            onDone: () => {
+              playback = null;
+              play.textContent = "Play";
+            },
+          });
+        },
+      },
+      "Play"
+    );
+    region.replaceChildren(
+      el(
+        "div",
+        { class: "tier-example-head" },
+        el(
+          "div",
+          {},
+          el("strong", { class: "tier-example-piece" }, example.piece_title),
+          el(
+            "div",
+            { class: "faint mono tier-example-meta" },
+            [example.composer, example.measure_span, example.label].filter(Boolean).join(" · ")
+          )
+        ),
+        play
+      ),
+      example.description ? el("p", { class: "tier-example-text" }, example.description) : null,
+      el("div", { class: "notation-host tier-example-notation" }, renderNotation(excerpt, { width: 460 })),
+      el(
+        "p",
+        { class: "faint tier-example-note" },
+        `Practice pattern built from this passage's ${technique.name.toLowerCase()} · ${notation.key} · ${notation.tempo_bpm} bpm. Not an engraving of the printed score.`
+      )
+    );
+  } catch (error) {
+    region.replaceChildren(el("p", { class: "faint tier-example-note" }, error.detail || "Could not load an example right now."));
+  }
+}
+
 function tierQuizStep(allTechniques, refresh) {
+  const loadExamples = techniqueExampleSource();
   const assignments = new Map();
   const groups = new Map();
   allTechniques.forEach((technique) => {
@@ -261,22 +357,7 @@ function tierQuizStep(allTechniques, refresh) {
 
   const rows = [];
   groups.forEach((techniques, category) => {
-    const label = category.replace(/_/g, " ");
-    const snippet = techniqueSnippet(category);
-    rows.push(
-      el(
-        "div",
-        { class: "tier-category" },
-        el("h3", { style: "margin:0" }, label),
-        snippet
-          ? el(
-              "div",
-              { class: "tier-notation", title: `Illustrative ${label} pattern`, "aria-hidden": "true" },
-              renderNotation(snippet, { width: 300, staffGap: 30 })
-            )
-          : null
-      )
-    );
+    rows.push(el("div", { class: "tier-category" }, el("h3", { style: "margin:0" }, category.replace(/_/g, " "))));
     techniques.forEach((technique) => {
       const buttons = TIERS.map((tier) =>
         el(
@@ -300,17 +381,36 @@ function tierQuizStep(allTechniques, refresh) {
           tier
         )
       );
+      let playbackRegion = null;
+      const example = disclosure("?", {
+        label: `Show an example of ${technique.name}`,
+        buttonClass: "tier-help",
+        regionClass: "tier-example",
+        onFirstOpen: (region) => {
+          playbackRegion = region;
+          fillTechniqueExample(region, technique, loadExamples);
+        },
+        onClose: () => {
+          const playing = playbackRegion?.querySelector(".tier-example-head button");
+          if (playing && playing.textContent === "Stop") playing.click();
+        },
+      });
       rows.push(
         el(
           "div",
-          { class: "list-item" },
+          { class: "tier-row" },
           el(
             "div",
-            {},
-            el("div", { style: "font-weight:500" }, technique.name),
-            technique.mechanic ? el("div", { class: "faint", style: "font-size:12px" }, technique.mechanic) : null
+            { class: "list-item" },
+            el(
+              "div",
+              { class: "tier-name" },
+              el("div", { class: "row", style: "gap:8px;flex-wrap:nowrap" }, el("span", { style: "font-weight:500" }, technique.name), example.button),
+              technique.mechanic ? el("div", { class: "faint", style: "font-size:12px" }, technique.mechanic) : null
+            ),
+            el("div", { class: "row tier-buttons" }, ...buttons)
           ),
-          el("div", { class: "row tier-buttons" }, ...buttons)
+          example.region
         )
       );
     });

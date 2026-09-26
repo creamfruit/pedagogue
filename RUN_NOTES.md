@@ -523,3 +523,170 @@ rendered against the scratch backend with no console errors.
 
 **Verification**: build ✔, pytest 52/52 ✔, rendered with a real text + audio submission against the
 scratch backend at 1280 and 390px, no console errors.
+
+### Phase order (decision)
+
+Phase 10 says to reuse "the same click-to-reveal pattern used for the tier-list notation in Phase
+11", and Phase 12 changes the top-ten step that Phase 10's onboarding audit covers. So I ran
+**11 → 12 → 10**: the declutter pass then works on the final state of every view and reuses a pattern
+that already exists. Each phase is still its own commit.
+
+### Phase 11 — Tier-list notation, full redo
+
+#### ⚠ Read first: the premise of 11b didn't hold, and here's what I did instead
+
+1. **`api.passageSightReading()` does not render the real passage.** No passage in the database
+   stores notes: a `Passage` has only bars, label, difficulty, description and cue. The endpoint
+   (`GET /catalog/passages/{id}/sight-reading`) runs `SightReadingForge(seed).generate(category, difficulty)`,
+   the same randomised per-category builders from the last run, seeded by the passage ID. The piece page
+   even labels it "representative pattern". So "render that real passage" would have produced a
+   generic pattern again, and for sixths it would have produced *thirds*: the double-notes builder
+   only knew thirds and fourths.
+2. **The stem-direction and wrong-stave bugs were in the renderer, not in the patterns.**
+   `renderNotation()` pointed every treble stem up and every bass stem down (`stemUp = clef === "treble"`),
+   drew a separate stem for every note of a chord, and put each *note* on a staff by middle C. So any
+   one-hand leap crossing C4, or an octave B3–B4, was split across both staves. `sectionCard()` on the
+   piece page had the same bugs. Real passage data would *not* have fixed them.
+
+So, following your pipeline (highest-weighted marked passage → `passageSightReading` →
+`renderNotation`), I fixed the two things that stood between it and correct output, and I labelled the
+result honestly instead of calling it a score excerpt:
+
+- **The renderer is rewritten** (`lib/notation.js`, same API):
+  - one stem per chord, with direction set by the standard rule (the note farthest from the middle
+    line decides; ties go down);
+  - beaming within each beat, with secondary beams for sixteenths, stems at least 2.5 spaces long,
+    and flags on the correct side;
+  - a whole chord always stays on one staff;
+  - `hand: "right" | "left"` renders a **single stave**, and `hand: "both"` or a `left` voice renders
+    the grand staff with right hand = treble and left hand = bass;
+  - key signatures (up to 5♯/5♭), accidentals only where they differ from the key, and flats
+    supported, all drawn as SVG paths (the ♯ font glyph rendered orange-tinted on Windows);
+  - time signature, triplets (`tuplet: 3`) with a "3" over the beam, and a viewBox fitted to the
+    content so ledger lines never clip;
+  - default width is now ~110px per bar, so the 8-bar Piece Detail/Practice patterns are no
+    longer crushed into 560px.
+- **The forge is now technique-aware** (`services/notation.py`;
+  `generate(category, difficulty, technique=None, key=None)`, backwards compatible):
+  - Double sixths draws sixths and Double thirds draws thirds, instead of thirds/fourths by
+    difficulty. Broken octaves alternate; Blocked stay blocked. Arpeggio figuration draws
+    broken-chord arpeggios instead of a scale.
+  - **Polyrhythm is actually polyrhythmic now:** 3:2 is RH triplet eighths against LH eighths, and
+    4:3 is RH sixteenths against LH triplet eighths. Before, it was a single voice of three
+    eighths plus a quarter, which is **2.5 beats in a 4/4 bar**.
+  - **Key bug fixed:** the forge picked a key *label* at random but always built the notes on C, F or G.
+    The notes now match the key. Flat keys are spelled with flats, and the synth now parses flats,
+    which it couldn't before.
+  - The passage endpoint passes the piece's own key (`forge_key()`; minor keys use their relative
+    major's signature). So the Pas de deux example is in G, Mephisto is in A, and Rachmaninoff's
+    C minor uses the E♭ signature. It also takes `?technique_id=` so the pattern illustrates the row's
+    technique, not the passage's top-weighted one.
+  - Every single-hand category declares `hand: "right"` (pedalling: `"left"`), so leaps and jumps
+    render on **one stave**. Verified: each opened example has one 5-line stave, and polyrhythm has two.
+  - The coach's sight-reading exercises pass the technique name too, so they benefit.
+- **The UI never presents it as the score.** Each example shows the **real** passage (piece, composer,
+  bars, label, description) above the pattern, and the caption under it reads *"Practice pattern built
+  from this passage's double sixths · G · 128 bpm. Not an engraving of the printed score."*
+
+**If you want actual score excerpts** (the real notes of the Tchaikovsky and Liszt passages), that needs
+a new `notation` JSON column on `passages`, a migration, and transcriptions checked against a score. I
+didn't transcribe anything from memory, because a wrong "real" excerpt would be worse than an honest
+pattern. The renderer is now ready for real data: it handles two voices, chords, key signatures and
+single-stave hands.
+
+#### 11a — hidden by default
+- Every technique row in `tierQuizStep()` has a small round **?** button (`.tier-help`, `aria-expanded`,
+  `aria-controls`, `aria-label="Show an example of Trills"`). **Nothing renders up front:** 0 SVGs on
+  load, and 17 "?" buttons, verified in the browser. The first click fetches the examples list (once per
+  quiz, cached), then that row's pattern. Closing a row stops its playback.
+- The old per-category header snippets and `lib/techniqueSnippets.js` (hand-written patterns) are **deleted**.
+- The click-to-reveal is a new reusable `disclosure()` in `lib/dom.js` (button + lazily-filled
+  region), which Phase 10 reuses.
+- Each revealed example shows the passage, a **Play** button, and one bar of sixteenths (or two bars
+  of anything slower), which scales to fit on mobile.
+- Tier rows no longer wrap their S–D buttons onto two lines, and they stack on phones.
+
+#### 11b — real passage lookup
+- New `GET /catalog/techniques/examples` (`TechniqueExampleService` + `pick_technique_examples()` in
+  `services/catalog.py`): for each technique, the catalogue passage with the highest
+  `PassageTechnique.weight`, with ties broken by passage difficulty. Only `source = catalog` passages on
+  non-user pieces are used, so nobody's private analyzer-found "Hard bar"s leak into onboarding.
+- Bonus fix for last run's open item: `TechniqueRead` now includes `mechanic`, so the tier list's
+  mechanic sub-line finally shows with the real backend.
+
+#### 11c — Pas de deux (sixths) and Mephisto Waltz No. 1 (leaps)
+Neither was seeded. Added to `seed.py`/`seed_lore.py`: composer **Pyotr Ilyich Tchaikovsky**, genres
+**Ballet** and **Waltz**, the pieces, their lore, and one marked passage each at weight **1.0**, so each is
+the top example for its row. Verified: Sixths → *Pas de deux, The Nutcracker*, and Leaps → *Mephisto Waltz No. 1*.
+
+**⚠ Please check these. I couldn't verify them against a score:**
+
+| | Value I used | Confidence |
+|---|---|---|
+| Pas de deux passage bars | **1–8**, "The scale theme in sixths" | **placeholder**: correct them to the bars you mean |
+| Mephisto passage bars | **111–142**, "Right-hand chorus leaps" | **placeholder**: correct them to the chorus bars |
+| Pas de deux key / catalogue | G major, Op. 71 | fairly sure (Intrada theme) |
+| Pas de deux arrangement | lore says pianists usually play **Pletnev's** concert arrangement | an assumption about which version you mean |
+| Mephisto | A major, S. 514, 1862, Allegro vivace, Lenau programme | confident |
+| Difficulty / duration | Pas de deux 8.8 / 5:30; Mephisto 9.5 / 11:00 | judgement |
+
+The descriptions avoid claims I couldn't back up. To correct the bars, edit the tuples in
+`seed_lore.PASSAGES` and re-run `python -m app.seed`.
+
+**Getting them into your real DB:** run `python -m app.seed`. `seed_catalog_detail()` now also inserts
+missing composers and genres (before, a new composer would never reach an already-seeded DB, because
+`seed()` exits early).
+
+**Seed bug fixed on the way.** Re-running the seed deleted and recreated every catalogue passage, which:
+- **crashed** as soon as any `passage_assessment` existed (I hit it on the scratch DB after one text
+  submission);
+- **cascade-deleted users' drills** tied to catalogue passages.
+
+Passages are now upserted in place, matched on (piece, label). Stale ones are deleted only when nothing
+references them. Your real DB currently has 0 assessments and 0 drills (checked read-only), so it's
+unaffected so far.
+
+#### 11d — Arpeggios
+**Already exists** as **"Arpeggio figuration"** (id 8, category *dexterity*) in `TECHNIQUES` *and* in your
+real DB. It was already in the tier list, under the "dexterity" heading next to Rapid scales (verified in
+the browser: all 17 rows render). I didn't add a duplicate. Its example is Ravel's *Jeux d'eau*,
+"Opening cascade" (bars 1–18, weight 0.95), and it now draws a broken-chord arpeggio rather than a
+scale. If "Arpeggio figuration" was just hard to spot, renaming it is a one-line change, but I didn't
+want to rename catalogue data without asking.
+
+#### 11e — Scales
+"Rapid scales" is linked: *Winter Wind*, "The storm entry" (bars 5–12, 0.95).
+
+#### 11f — Coverage for all 17 techniques
+Every technique has a catalogue passage **except Broken octaves**. No seeded passage is tagged with it
+(the Hungarian Rhapsody's octave run is tagged *Blocked* octaves). **Not fabricated.** The row's "?" says
+*"No marked passage in the catalogue uses this technique yet."* That's catalogue-expansion work. A test
+(`test_every_technique_has_a_catalog_passage_except_known_gaps`) pins the gap list, so adding a passage
+will remind whoever does it to update the list.
+
+| Technique | Example passage |
+|---|---|
+| Double thirds | Chopin Op. 25/6, bars 33–44 |
+| Double sixths | **Tchaikovsky Pas de deux, bars 1–8** (new) |
+| Broken octaves | **none — gap** |
+| Blocked octaves | Hungarian Rhapsody No. 2, bars 300–320 |
+| Wide leaps | **Mephisto Waltz No. 1, bars 111–142** (new) |
+| Repeated chords | Rachmaninoff Prelude in G minor, bars 61–88 |
+| Rapid scales | Winter Wind, bars 5–12 |
+| Arpeggio figuration | Jeux d'eau, bars 1–18 |
+| Repeated notes | Für Elise, bars 77–82 |
+| Trills | Chasse-neige, bars 1–12 (a tremolo, tagged as trills in the seed data) |
+| Tenth stretches | Rachmaninoff Concerto 2/I, bars 1–9 |
+| Three against two | Brahms Rhapsody Op. 79/2, bars 1–12 |
+| Four against three | Rachmaninoff Concerto 2/II, bars 5–28 |
+| Melody over accompaniment | Chopin Nocturne Op. 9/2, bars 25–28 |
+| Inner voice projection | Chasse-neige, bars 25–44 |
+| Half pedalling | Clair de lune, bars 27–42 |
+| Sustained endurance | Winter Wind, bars 81–96 |
+
+**Verification**: build ✔, pytest **68/68** ✔ (16 new in `tests/test_notation.py`: the named intervals,
+notes inside the labelled key, flat spelling, hand declarations, complete polyrhythm bars in both hands,
+key mapping, example ranking and catalogue coverage). Seed run twice on the scratch DB (idempotent).
+Every tier example was opened in headless Chrome at 1280 and 390px: one stave for single-hand patterns,
+two for polyrhythm, 0 SVGs before any click, and no console errors. The Piece Detail "Hardest sections"
+pattern was re-checked.

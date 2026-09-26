@@ -360,10 +360,12 @@ class SightReadingGenerator(BaseService):
             difficulty = await self.suggested_difficulty(user)
         seed = random.getrandbits(48)
         category = None
+        technique_name = None
         if technique_id is not None:
             technique = await self.session.get(Technique, technique_id)
             category = technique.category.value if technique else None
-        notation = SightReadingForge(seed).generate(category, difficulty)
+            technique_name = technique.name if technique else None
+        notation = SightReadingForge(seed).generate(category, difficulty, technique_name)
         exercise = SightReadingExercise(
             user_id=user.id,
             style_composer_id=style_composer_id,

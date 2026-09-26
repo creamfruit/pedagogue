@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -20,15 +22,16 @@ from app.schemas.schemas import (
     ProfileUpdate,
     RepertoireEntryRead,
     TechniqueProfileRead,
+    TechniqueExample,
     TechniqueProfileUpdate,
     TechniqueRead,
     TierListSubmit,
     TopTenSubmit,
     UserRead,
 )
-from app.services.catalog import LinkExplainer, PieceOverviewService
+from app.services.catalog import LinkExplainer, PieceOverviewService, TechniqueExampleService
 from app.services.external_catalog import OpenOpusClient
-from app.services.notation import SightReadingForge
+from app.services.notation import SightReadingForge, forge_key
 from app.services.onboarding import CatalogService, OnboardingService
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
@@ -139,6 +142,12 @@ async def list_techniques(session: SessionDep) -> list[TechniqueRead]:
     return [TechniqueRead.model_validate(t) for t in techniques]
 
 
+@catalog_router.get("/techniques/examples", response_model=list[TechniqueExample])
+async def technique_examples(session: SessionDep) -> list[TechniqueExample]:
+    rows = await TechniqueExampleService(session).examples()
+    return [TechniqueExample(**row) for row in rows]
+
+
 @catalog_router.get("/external/search", response_model=list[ExternalCandidate])
 async def search_external_catalog(
     q: str = Query(min_length=2, max_length=100),
@@ -200,20 +209,29 @@ async def piece_overview(piece_id: int, session: SessionDep, user: OptionalUser)
 
 
 @catalog_router.get("/passages/{passage_id}/sight-reading")
-async def passage_sight_reading(passage_id: int, session: SessionDep) -> dict:
+async def passage_sight_reading(
+    passage_id: int, session: SessionDep, technique_id: Optional[int] = Query(default=None)
+) -> dict:
     stmt = (
         select(Passage)
-        .options(selectinload(Passage.technique_links).selectinload(PassageTechnique.technique))
+        .options(
+            selectinload(Passage.technique_links).selectinload(PassageTechnique.technique),
+            selectinload(Passage.piece),
+        )
         .where(Passage.id == passage_id)
     )
     passage = (await session.execute(stmt)).scalars().one_or_none()
     if passage is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="passage not found")
     ranked = sorted(passage.technique_links, key=lambda link: float(link.weight), reverse=True)
-    category = ranked[0].technique.category.value if ranked else None
+    if technique_id is not None:
+        ranked = sorted(ranked, key=lambda link: link.technique_id != technique_id)
+    top = ranked[0].technique if ranked else None
+    category = top.category.value if top else None
     difficulty = float(passage.difficulty_score) if passage.difficulty_score is not None else 5.0
     seed = (passage_id * 2654435761) & 0xFFFFFFFFFFFF
-    return SightReadingForge(seed).generate(category, difficulty)
+    key = forge_key(passage.piece.key_signature) if passage.piece else None
+    return SightReadingForge(seed).generate(category, difficulty, top.name if top else None, key)
 
 
 @catalog_router.get("/links/{source_id}/{target_id}", response_model=LinkSummary)

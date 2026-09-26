@@ -108,6 +108,13 @@ TECHNIQUE_LORE = {
 }
 
 COMPOSER_LORE = {
+    "Pyotr Ilyich Tchaikovsky": (
+        "The Russian composer whose three ballets, Swan Lake, The Sleeping Beauty and The Nutcracker, set "
+        "the template for the genre, alongside six symphonies and the most-played piano concerto of all.",
+        "Conducted at the opening concerts of Carnegie Hall in New York in 1891.",
+        "Long, aching melodies built from simple scale steps, lifted by orchestral climaxes that pile on "
+        "register and weight.",
+    ),
     "Johann Sebastian Bach": (
         "Spent his career as a working church and court musician rather than a celebrity, and was "
         "known in his lifetime more as an organist than as a composer.",
@@ -185,6 +192,26 @@ COMPOSER_LORE = {
 }
 
 PIECE_LORE = {
+    "Pas de deux, The Nutcracker": (
+        1892, "Andante maestoso", "Grand, aching, ceremonial",
+        "The Sugar Plum Fairy and her cavalier's grand duet in the Kingdom of Sweets, the emotional summit of "
+        "the second act. The melody is little more than a descending major scale, stretched and harmonised "
+        "until it sounds enormous.",
+        "Pianists usually play it in Mikhail Pletnev's concert arrangement, which ends his Nutcracker suite "
+        "and turns the orchestral climax into thick chords, octaves and double notes for two hands.",
+        "Tchaikovsky's concert suite from the ballet was a success months before the ballet itself "
+        "premiered to a lukewarm reception in December 1892.",
+    ),
+    "Mephisto Waltz No. 1": (
+        1862, "Allegro vivace", "Demonic, reckless, seductive",
+        "From Lenau's Faust: at a village inn wedding, Mephistopheles takes a fiddle and plays until the "
+        "whole room is swept into the dance. Faust seizes a girl and whirls her out into the night, where a "
+        "nightingale is singing.",
+        "Written as the second of Liszt's Two Episodes from Lenau's Faust for orchestra, with the piano "
+        "version made alongside it. The piano version is the one that became famous.",
+        "It opens with the Devil tuning his fiddle: open fifths stacked one on top of another until the "
+        "dance breaks loose.",
+    ),
     "Invention No. 1 in C major": (
         1723, "Moderato", "Clear and conversational",
         "Two voices in plain conversation. Nothing is hidden, nothing is decorative: the whole piece is "
@@ -425,6 +452,22 @@ PIECE_LORE = {
 }
 
 PASSAGES = {
+    "Pas de deux, The Nutcracker": [
+        ("The scale theme in sixths", 1, 8, 8.8,
+         "The descending-scale melody carried in right-hand sixths over a sweeping accompaniment. Every "
+         "sixth has to sing as one line, with the top voice leading and the lower note never poking out.",
+         "Play the top voice alone with the fingering you will use for the sixths, then add the lower note "
+         "without letting the melody change shape.",
+         [("Double sixths", 1.0), ("Melody over accompaniment", 0.7)]),
+    ],
+    "Mephisto Waltz No. 1": [
+        ("Right-hand chorus leaps", 111, 142, 9.6,
+         "The dance refrain thrown across the keyboard by the right hand alone: wide leaps landing on "
+         "accented chords at full speed, so the hand has to find each landing without looking.",
+         "Practise the jumps as silent landings first, touching the keys without sounding them, then add "
+         "sound once the distance is automatic.",
+         [("Wide leaps", 1.0), ("Repeated chords", 0.5)]),
+    ],
     "Invention No. 1 in C major": [
         ("The inverted stretto", 15, 18, 4.2,
          "Both voices enter in inversion a beat apart, so each hand is playing a different form of the "

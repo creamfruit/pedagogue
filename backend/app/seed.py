@@ -1,6 +1,7 @@
 import asyncio
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.database import dispose_engine, session_scope
 from app.models.models import (
@@ -41,6 +42,8 @@ GENRES = [
     ("Concerto", GenreFamily.CLASSICAL),
     ("Prelude", GenreFamily.CLASSICAL),
     ("Ballade", GenreFamily.CLASSICAL),
+    ("Ballet", GenreFamily.CLASSICAL),
+    ("Waltz", GenreFamily.CLASSICAL),
     ("Jazz standard", GenreFamily.JAZZ),
     ("Film score", GenreFamily.FILM_GAME),
     ("Game soundtrack", GenreFamily.FILM_GAME),
@@ -77,6 +80,7 @@ COMPOSERS = [
     ("Sergei Rachmaninoff", 1873, 1943, "Russian", "Romantic"),
     ("Maurice Ravel", 1875, 1937, "French", "Impressionist"),
     ("Alexander Scriabin", 1872, 1915, "Russian", "Romantic"),
+    ("Pyotr Ilyich Tchaikovsky", 1840, 1893, "Russian", "Romantic"),
 ]
 
 MOVEMENT_WORKS = [
@@ -154,6 +158,11 @@ PIECES = [
      [("Double thirds", 0.6), ("Arpeggio figuration", 0.9), ("Wide leaps", 0.6)]),
     ("Etude in D-sharp minor", "Alexander Scriabin", "Op. 8 No. 12", "D-sharp minor", "Etude", 8.9, 150,
      [("Blocked octaves", 0.8), ("Wide leaps", 0.8), ("Sustained endurance", 0.7)]),
+    ("Pas de deux, The Nutcracker", "Pyotr Ilyich Tchaikovsky", "Op. 71", "G major", "Ballet", 8.8, 330,
+     [("Double sixths", 0.9), ("Blocked octaves", 0.7), ("Melody over accompaniment", 0.7),
+      ("Sustained endurance", 0.6)]),
+    ("Mephisto Waltz No. 1", "Franz Liszt", "S. 514", "A major", "Waltz", 9.5, 660,
+     [("Wide leaps", 0.9), ("Blocked octaves", 0.8), ("Repeated chords", 0.6), ("Sustained endurance", 0.8)]),
 ]
 
 
@@ -238,6 +247,24 @@ async def seed_catalog_detail() -> None:
         composers = {
             c.name: c for c in (await session.execute(select(Composer))).scalars().all()
         }
+        eras = {e.name: e for e in (await session.execute(select(Era))).scalars().all()}
+        for name, birth, death, nation, era in COMPOSERS:
+            if name in composers or era not in eras:
+                continue
+            composer = Composer(
+                name=name, birth_year=birth, death_year=death, nationality=nation, era_id=eras[era].id
+            )
+            session.add(composer)
+            composers[name] = composer
+
+        genres = {g.name: g for g in (await session.execute(select(Genre))).scalars().all()}
+        for name, family in GENRES:
+            if name not in genres:
+                genre = Genre(name=name, family=family)
+                session.add(genre)
+                genres[name] = genre
+        await session.flush()
+
         for name, (bio, fact, sound) in COMPOSER_LORE.items():
             composer = composers.get(name)
             if composer is None:
@@ -246,7 +273,6 @@ async def seed_catalog_detail() -> None:
             composer.fun_fact = fact
             composer.signature_sound = sound
 
-        genres = {g.name: g for g in (await session.execute(select(Genre))).scalars().all()}
         pieces = {p.title: p for p in (await session.execute(select(Piece))).scalars().all()}
         load_factors = {name: float(technique.load_factor) for name, technique in techniques.items()}
         added = 0
@@ -295,11 +321,12 @@ async def seed_catalog_detail() -> None:
             lored += 1
 
         existing = await session.execute(
-            select(Passage).where(Passage.source == PassageSource.CATALOG)
+            select(Passage)
+            .where(Passage.source == PassageSource.CATALOG)
+            .options(selectinload(Passage.technique_links), selectinload(Passage.assessments))
         )
-        for passage in existing.scalars().all():
-            await session.delete(passage)
-        await session.flush()
+        stored = {(passage.piece_id, passage.label): passage for passage in existing.scalars().all()}
+        kept: set[int] = set()
 
         sections = 0
         for title, rows in PASSAGES.items():
@@ -307,28 +334,28 @@ async def seed_catalog_detail() -> None:
             if piece is None:
                 continue
             for label, start, end, difficulty, description, cue, links in rows:
-                passage = Passage(
-                    piece_id=piece.id,
-                    start_measure=start,
-                    end_measure=end,
-                    label=label,
-                    difficulty_score=difficulty,
-                    source=PassageSource.CATALOG,
-                    description=description,
-                    practice_cue=cue,
-                )
-                session.add(passage)
+                passage = stored.get((piece.id, label))
+                if passage is None:
+                    passage = Passage(piece_id=piece.id, label=label, source=PassageSource.CATALOG)
+                    session.add(passage)
+                passage.start_measure = start
+                passage.end_measure = end
+                passage.difficulty_score = difficulty
+                passage.description = description
+                passage.practice_cue = cue
+                passage.technique_links = [
+                    PassageTechnique(technique_id=techniques[name].id, weight=weight)
+                    for name, weight in links
+                    if name in techniques
+                ]
                 await session.flush()
-                for technique_name, weight in links:
-                    technique = techniques.get(technique_name)
-                    if technique is None:
-                        continue
-                    session.add(
-                        PassageTechnique(
-                            passage_id=passage.id, technique_id=technique.id, weight=weight
-                        )
-                    )
+                kept.add(passage.id)
                 sections += 1
+
+        for passage in stored.values():
+            if passage.id not in kept and not passage.assessments:
+                await session.delete(passage)
+        await session.flush()
 
         notes = {
             (n.low_piece_id, n.high_piece_id, n.link_type): n

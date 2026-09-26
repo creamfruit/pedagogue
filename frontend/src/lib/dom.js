@@ -17,6 +17,39 @@ export function el(tag, attrs = {}, ...children) {
   return node;
 }
 
+let disclosureCount = 0;
+
+export function disclosure(trigger, { label, buttonClass = "disclosure-btn", regionClass = "disclosure-region", onFirstOpen, onClose } = {}) {
+  disclosureCount += 1;
+  const id = `disclosure-${disclosureCount}`;
+  const region = el("div", { id, class: regionClass, hidden: true });
+  let opened = false;
+  const button = el(
+    "button",
+    {
+      type: "button",
+      class: buttonClass,
+      "aria-expanded": "false",
+      "aria-controls": id,
+      "aria-label": label,
+      title: label,
+    },
+    trigger
+  );
+  function toggle(force) {
+    const open = force ?? region.hidden;
+    region.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open && !opened) {
+      opened = true;
+      if (onFirstOpen) onFirstOpen(region);
+    }
+    if (!open && onClose) onClose(region);
+  }
+  button.addEventListener("click", () => toggle());
+  return { button, region, toggle };
+}
+
 export function clear(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
