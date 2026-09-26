@@ -86,15 +86,6 @@ export function panel(title, ...children) {
   return el("section", { class: "panel" }, title ? el("h3", {}, title) : null, ...children);
 }
 
-export function stat(label, value, tone) {
-  return el(
-    "div",
-    { class: "panel" },
-    el("div", { class: "stat-label" }, label),
-    el("div", { class: "stat", style: tone ? `color:${tone}` : null }, value)
-  );
-}
-
 export function ringStat(label, value) {
   return el(
     "div",

@@ -1,20 +1,22 @@
 import { api } from "../api/client.js";
-import { el, empty, skeletonBlock, stat, toneForSeverity } from "../lib/dom.js";
+import { el, empty, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 
 export async function dashboardView(outlet) {
   const heading = el(
     "div",
-    { class: "row", style: "justify-content:space-between;margin-bottom:20px" },
-    el("div", {}, el("h1", {}, `Good to see you, ${store.user?.display_name || "pianist"}`), el("p", { class: "muted" }, "Here is where your hands are this week.")),
+    { class: "page-head" },
+    el("div", {}, el("h1", { style: "margin:0" }, `Good to see you, ${store.user?.display_name || "pianist"}`), el("p", { class: "muted", style: "margin:4px 0 0" }, "Here is where your hands are this week.")),
     el("a", { class: "btn", href: "/practice", "data-link": true }, "Start practising")
   );
 
-  const statsRow = el("div", { class: "grid" }, skeletonBlock(2));
-  const loadPanel = el("section", { class: "panel" }, el("h3", {}, "Load guard"), skeletonBlock(2));
-  const activePanel = el("section", { class: "panel" }, el("h3", {}, "In progress"), skeletonBlock(3));
+  const statsRow = el("section", { class: "panel summary-bar summary-bar-numbers", "aria-label": "Repertoire at a glance" }, skeletonBlock(2));
+  const loadTitle = () => el("div", { class: "section-head" }, el("h2", { class: "section-title" }, "Load guard"));
+  const activeTitle = () => el("div", { class: "section-head" }, el("h2", { class: "section-title" }, "In progress"));
+  const loadPanel = el("section", { class: "panel" }, loadTitle(), skeletonBlock(2));
+  const activePanel = el("section", { class: "panel" }, activeTitle(), skeletonBlock(3));
 
-  outlet.append(heading, statsRow, el("div", { class: "grid", style: "margin-top:16px" }, loadPanel, activePanel));
+  outlet.append(heading, statsRow, el("div", { class: "grid", style: "margin-top:var(--space-5)" }, loadPanel, activePanel));
 
   const [stats, load, active] = await Promise.allSettled([
     api.repertoireStats(),
@@ -25,17 +27,22 @@ export async function dashboardView(outlet) {
   statsRow.replaceChildren();
   if (stats.status === "fulfilled") {
     const s = stats.value;
+    const cell = (label, value) =>
+      el("div", { class: "summary-cell" }, el("div", { class: "stat-label" }, label), el("div", { class: "stat" }, value));
+    const average = s.average_difficulty != null && Number.isFinite(Number(s.average_difficulty))
+      ? (Math.round(Number(s.average_difficulty) * 10) / 10).toFixed(1)
+      : "--";
     statsRow.append(
-      stat("Pieces", s.total),
-      stat("Active", s.active),
-      stat("Average difficulty", s.average_difficulty ?? "--"),
-      stat("Submissions", s.submissions)
+      cell("Pieces", s.total),
+      cell("Active", s.active),
+      cell("Average difficulty", average),
+      cell("Submissions", s.submissions)
     );
   } else {
     statsRow.append(empty("Could not load your stats."));
   }
 
-  loadPanel.replaceChildren(el("h3", {}, "Load guard"));
+  loadPanel.replaceChildren(loadTitle());
   if (load.status === "fulfilled") {
     const l = load.value;
     const pct = l.threshold ? Math.min((l.load_total / l.threshold) * 100, 100) : 0;
@@ -73,25 +80,30 @@ export async function dashboardView(outlet) {
     loadPanel.append(empty("No load data yet. Log a practice session."));
   }
 
-  activePanel.replaceChildren(el("h3", {}, "In progress"));
+  activePanel.replaceChildren(activeTitle());
   if (active.status === "fulfilled" && active.value.items.length) {
     activePanel.append(
       el(
         "ul",
-        { class: "list" },
+        { class: "flat-list" },
         ...active.value.items.map((entry) => {
           const progress = entry.current_tempo_bpm && entry.target_tempo_bpm
             ? Math.round((entry.current_tempo_bpm / entry.target_tempo_bpm) * 100)
             : null;
           return el(
             "li",
-            { class: "list-item" },
+            { class: "flat-row" },
             el(
-              "a",
-              { href: `/repertoire/${entry.id}`, "data-link": true, style: "color:inherit" },
-              entry.piece.title
+              "div",
+              {},
+              el("a", { href: `/repertoire/${entry.id}`, "data-link": true, style: "color:inherit;font-weight:500" }, entry.piece.title),
+              entry.piece.composer?.name ? el("div", { class: "faint", style: "font-size:12.5px" }, entry.piece.composer.name) : null
             ),
-            el("span", { class: "pill pill-accent" }, progress != null ? `${progress}%` : entry.status)
+            el(
+              "span",
+              { class: progress != null ? "mono" : "entry-status", title: progress != null ? "Current tempo as a share of the target" : null },
+              progress != null ? `${progress}% of tempo` : entry.status.replace(/_/g, " ")
+            )
           );
         })
       )

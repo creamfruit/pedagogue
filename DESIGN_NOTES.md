@@ -59,8 +59,6 @@ panel › card › inner panel, it's now at most panel › row.
 
 ## Per-view changes
 
-(Filled in below as each view is done.)
-
 ### Piece detail (`entryDetailView` + `pieceOverview`)
 
 **Measured:** 3,792px → **2,636px** tall at 1280 with nothing expanded (−30%). With every reveal
@@ -186,3 +184,42 @@ open it's 3,354px, still shorter than before, because the duplicated fields are 
   frozen, dark core with a pale outline = custom. It's closed by default, since you need it once. It's
   the only place in this pass where I *added* information, and it's hidden until asked for.
 - The canvas, legend toggles, era key and physics are untouched.
+
+### Dashboard (`dashboardView`)
+
+It was already the sparsest view, so it gets consistency touches only:
+- **The four stat tiles are one summary strip**, the same component as piece detail and the
+  Observatory. It's four numbers side by side, and two by two on phones (`.summary-bar-numbers`)
+  instead of a 4-high column.
+- **Average difficulty is rounded to one decimal** (55.22 → 55.2). The second decimal was noise on a 0–100 scale.
+- **"Load guard" and "In progress" get real section titles.**
+- **In-progress rows** are flat rows with the composer under the title. The right-hand value is no
+  longer an orange action pill. It reads "80% of tempo" (with a tooltip) when tempo data exists, or
+  the status as quiet text otherwise. Orange stays reserved for things you can act on.
+- The now-unused `stat()` helper was removed from `lib/dom.js`.
+
+---
+
+## What I deliberately didn't change
+
+- **The four accents and every token value.** No new hue anywhere. New states are opacity steps of
+  starlight or orange.
+- **`h3` globally.** It's the small-caps eyebrow in Practice, Progression and Performances too, which
+  weren't in scope. The new `.section-title` is opt-in, so those views keep their look until they're
+  reworked the same way.
+- **Practice, Progression, Performances, Auth.** Out of this phase's list. They pick up the shared
+  button and input states from Phase 7 and the notation fixes from Phase 11, and nothing else. I
+  screenshotted all three after this phase to confirm they're unaffected.
+- **The constellation canvas and physics**, and the Observatory shop grids (see above for why).
+- **Copy**, except where a label was ambiguous ("Min diff." → "Difficulty (0–100)") or a duplicate
+  instruction was merged.
+
+## Open questions for review
+
+1. **Practice column on the right.** It holds your actions (plan, recordings, notes) beside the
+   reference material on the left. The other reading is that the piece's *content* should come first.
+   Swapping them is one line in `.detail-layout`.
+2. **The recording form auto-opens** on graded or unverified pieces with no recording. If that feels
+   pushy, drop `openForm` in `submissionSections()`.
+3. **Achievements "up next"** shows the first three unearned in catalogue order. Ranking them by
+   closeness to earning would need progress data the API doesn't return.
