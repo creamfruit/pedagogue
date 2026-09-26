@@ -73,6 +73,55 @@ function profileSection() {
   );
 }
 
+const NUDGE_OPTIONS = [
+  [0, "Never"],
+  [1, "After a day without practice"],
+  [2, "After 2 days"],
+  [3, "After 3 days"],
+  [5, "After 5 days"],
+  [7, "After a week"],
+  [14, "After two weeks"],
+];
+
+function remindersSection() {
+  const current = store.user?.nudge_after_days ?? 3;
+  const select = el(
+    "select",
+    { "aria-label": "Practice reminder" },
+    ...NUDGE_OPTIONS.map(([value, label]) => el("option", { value, selected: value === current || null }, label))
+  );
+  select.addEventListener("change", async () => {
+    select.disabled = true;
+    try {
+      store.setUser(await api.updateProfile({ nudge_after_days: Number(select.value) }));
+      await store.refreshProfile();
+      notify.success(Number(select.value) ? "Reminder saved" : "Reminders turned off");
+    } catch (error) {
+      notify.error(error.detail || "Could not save that");
+    } finally {
+      select.disabled = false;
+    }
+  });
+  return sectionBlock(
+    "Practice reminders",
+    { caption: "A reminder on Today when you haven't logged a practice session for a while. It only appears in the app." },
+    field("Remind me", select)
+  );
+}
+
+function tiersSection() {
+  const taken = store.user?.tier_quiz_completed_at;
+  return sectionBlock(
+    "Technique tiers",
+    {
+      caption: taken
+        ? `Last ranked ${new Date(taken).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}. Your tiers personalise every piece's difficulty.`
+        : "Your tiers personalise every piece's difficulty.",
+    },
+    el("a", { class: "btn btn-small", href: "/settings/tiers", "data-link": true }, "Retake the tier quiz")
+  );
+}
+
 function accountSection() {
   return sectionBlock(
     "Account",
@@ -90,7 +139,7 @@ function accountSection() {
 }
 
 export async function settingsView(outlet) {
-  const sections = [profileSection(), accountSection()];
+  const sections = [profileSection(), tiersSection(), remindersSection(), accountSection()];
   outlet.append(
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),
     el("div", { class: "settings-stack" }, ...sections.filter(Boolean))

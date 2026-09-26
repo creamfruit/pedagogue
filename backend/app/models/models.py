@@ -176,6 +176,7 @@ class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     self_level: Mapped[Optional[SelfLevel]] = mapped_column(pg_enum(SelfLevel, "self_level"))
     hand_span_cm: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
+    nudge_after_days: Mapped[int] = mapped_column(SmallInteger, default=3, server_default="3")
     profile_visibility: Mapped[ProfileVisibility] = mapped_column(
         pg_enum(ProfileVisibility, "profile_visibility"),
         default=ProfileVisibility.FRIENDS,

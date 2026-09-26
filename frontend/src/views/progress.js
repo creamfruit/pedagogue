@@ -45,6 +45,9 @@ export async function progressView(outlet, context) {
   );
   host.id = "progress-panel";
   host.setAttribute("role", "tabpanel");
+  if (active === "pathways") {
+    caption.append(" ", el("a", { href: "/settings/tiers", "data-link": true }, "Retake the tier quiz"), " if your strengths have changed.");
+  }
   outlet.append(el("div", { class: "page-head" }, el("div", {}, el("h1", { style: "margin:0" }, "Progress"), caption)), strip, host);
   await current.render(host);
 }

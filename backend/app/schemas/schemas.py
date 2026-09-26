@@ -71,6 +71,7 @@ class UserRead(ORMModel):
     hand_span_cm: Optional[Decimal]
     profile_visibility: ProfileVisibility
     timezone: str = "UTC"
+    nudge_after_days: int = 3
     tier_quiz_completed_at: Optional[datetime] = None
     created_at: datetime
 
@@ -83,6 +84,7 @@ class ProfileUpdate(BaseModel):
     hand_span_cm: Optional[Decimal] = Field(default=None, ge=10, le=35)
     profile_visibility: Optional[ProfileVisibility] = None
     timezone: Optional[str] = Field(default=None, max_length=64)
+    nudge_after_days: Optional[int] = Field(default=None, ge=0, le=30)
 
     @field_validator("timezone")
     @classmethod
@@ -812,6 +814,14 @@ class AchievementRead(BaseModel):
     progress: Optional[AchievementProgress] = None
 
 
+class NudgeRead(BaseModel):
+    days_since_practice: Optional[int]
+    after_days: int
+    message: str
+    entry_id: Optional[uuid.UUID] = None
+    piece_title: Optional[str] = None
+
+
 class StreakRead(BaseModel):
     current: int
     longest: int
@@ -850,6 +860,7 @@ class ProfileSummary(BaseModel):
     achievements_earned: int
     achievements_total: int
     streak: Optional[StreakRead] = None
+    nudge: Optional[NudgeRead] = None
 
 
 class PathwayStep(BaseModel):

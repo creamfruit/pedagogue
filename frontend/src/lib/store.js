@@ -6,6 +6,7 @@ const state = {
   wallet: null,
   loadout: null,
   streak: null,
+  nudge: null,
   ready: false,
 };
 
@@ -26,10 +27,12 @@ async function loadProfile() {
     state.wallet = summary.wallet;
     state.loadout = summary.loadout;
     state.streak = summary.streak || null;
+    state.nudge = summary.nudge || null;
   } catch {
     state.wallet = null;
     state.loadout = null;
     state.streak = null;
+    state.nudge = null;
   }
 }
 
@@ -56,6 +59,9 @@ export const store = {
   },
   get streak() {
     return state.streak;
+  },
+  get nudge() {
+    return state.nudge;
   },
   get ready() {
     return state.ready;

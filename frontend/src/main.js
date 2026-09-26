@@ -11,6 +11,7 @@ import { constellationView } from "./views/constellation.js";
 import { practiceView } from "./views/practice.js";
 import { progressView } from "./views/progress.js";
 import { settingsView } from "./views/settings.js";
+import { tierRetakeView } from "./views/tierRetake.js";
 import { shopView } from "./views/shop.js";
 import { notFoundView } from "./views/notfound.js";
 
@@ -27,6 +28,7 @@ route("/progress", progressView);
 route("/progression", progressView);
 route("/performances", progressView);
 route("/settings", settingsView);
+route("/settings/tiers", tierRetakeView);
 route("/observatory", shopView);
 route("/login", loginView, { public: true });
 route("/register", registerView, { public: true });

@@ -12,7 +12,7 @@ from app.schemas.schemas import (
 )
 from app.services.economy import AchievementEngine, CosmeticService, EconomyService
 from app.services.growth import GrowthService
-from app.services.streaks import StreakService
+from app.services.streaks import NudgeService, StreakService
 
 router = APIRouter(tags=["economy"])
 
@@ -84,6 +84,7 @@ async def profile_summary(user: CurrentUser, session: SessionDep) -> ProfileSumm
         achievements_earned=sum(1 for row in rows if row["earned"]),
         achievements_total=len(rows),
         streak=StreakRead(**(await StreakService(session).stats(user)).as_dict()),
+        nudge=await NudgeService(session).nudge(user),
     )
 
 

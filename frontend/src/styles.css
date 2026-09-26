@@ -2975,3 +2975,30 @@ input[type="date"] {
   margin-top: 8px;
   font-size: 11px;
 }
+
+.nudge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgba(var(--yellow-rgb), 0.45);
+  border-radius: var(--radius);
+  background: rgba(var(--yellow-rgb), 0.07);
+}
+
+.nudge-mark {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--yellow);
+  box-shadow: 0 0 12px rgba(var(--yellow-rgb), 0.6);
+}
+
+.nudge-text {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+  font-size: 14px;
+}

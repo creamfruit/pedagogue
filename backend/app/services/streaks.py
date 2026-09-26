@@ -135,3 +135,52 @@ class StreakService(BaseService):
             ref_type="streak_day",
             ref_id=day.isoformat(),
         )
+
+
+def nudge_message(days: Optional[int], title: Optional[str]) -> str:
+    target = f" {title} is waiting." if title else ""
+    if days is None:
+        return f"You haven't logged a practice session yet.{target}"
+    return f"It's been {days} days since you last practised.{target} Even five minutes keeps your sky from drifting."
+
+
+class NudgeService(BaseService):
+    async def nudge(self, user: User) -> Optional[dict]:
+        from app.models.models import RepertoireEntry, RepertoireStatus
+
+        if not user.nudge_after_days:
+            return None
+        zone = zone_for(user)
+        today = datetime.now(zone).date()
+        last = (
+            await self.session.execute(
+                select(PracticeSession.started_at)
+                .where(PracticeSession.user_id == user.id, PracticeSession.ended_at.is_not(None))
+                .order_by(PracticeSession.started_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        days = (today - local_day(last, zone)).days if last else None
+        if days is not None and days < user.nudge_after_days:
+            return None
+        entries = (
+            await self.session.execute(
+                select(RepertoireEntry)
+                .options(selectinload(RepertoireEntry.piece))
+                .where(
+                    RepertoireEntry.user_id == user.id,
+                    RepertoireEntry.status.in_([RepertoireStatus.LEARNING, RepertoireStatus.POLISHING]),
+                )
+            )
+        ).scalars().all()
+        if not entries and days is None:
+            return None
+        epoch = datetime.min.replace(tzinfo=timezone.utc)
+        pick = min(entries, key=lambda entry: entry.last_practiced_at or epoch, default=None)
+        return {
+            "days_since_practice": days,
+            "after_days": user.nudge_after_days,
+            "message": nudge_message(days, pick.piece.title if pick else None),
+            "entry_id": pick.id if pick else None,
+            "piece_title": pick.piece.title if pick else None,
+        }

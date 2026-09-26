@@ -5,6 +5,54 @@ import { store } from "../lib/store.js";
 import { streakSummary } from "./growth.js";
 
 const ACTIVE = new Set(["learning", "polishing"]);
+const NUDGE_DISMISS_KEY = "pp.nudge-dismissed";
+
+function todayKey() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+function nudgeDismissed() {
+  try {
+    return localStorage.getItem(NUDGE_DISMISS_KEY) === todayKey();
+  } catch {
+    return false;
+  }
+}
+
+function nudgeBanner(nudge) {
+  if (!nudge || nudgeDismissed()) return null;
+  const banner = el(
+    "section",
+    { class: "nudge", role: "status" },
+    el("span", { class: "nudge-mark", "aria-hidden": "true" }),
+    el("p", { class: "nudge-text" }, nudge.message),
+    el(
+      "div",
+      { class: "row", style: "gap:var(--space-2)" },
+      nudge.entry_id
+        ? el("a", { class: "btn btn-small", href: `/repertoire/${nudge.entry_id}`, "data-link": true }, `Open ${nudge.piece_title}`)
+        : el("a", { class: "btn btn-small", href: "/practice", "data-link": true }, "Start a session"),
+      el(
+        "button",
+        {
+          type: "button",
+          class: "btn btn-small btn-ghost",
+          onclick: () => {
+            try {
+              localStorage.setItem(NUDGE_DISMISS_KEY, todayKey());
+            } catch {
+              /* storage unavailable */
+            }
+            banner.remove();
+          },
+        },
+        "Not today"
+      )
+    )
+  );
+  return banner;
+}
+
 export function pickNextUp(entries) {
   const active = entries.filter((entry) => ACTIVE.has(entry.status));
   if (!active.length) return null;
@@ -162,6 +210,7 @@ export async function dashboardView(outlet) {
   );
 
   body.replaceChildren(
+    nudgeBanner(store.nudge),
     el("div", { class: "today-hero" }, nextUpCard(next), weekCard(loadResult.status === "fulfilled" ? loadResult.value : null)),
     el(
       "div",

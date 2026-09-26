@@ -1148,3 +1148,40 @@ no drift. The downgrade drops the column but can't remove an enum value (Postgre
   - the growth series and chart tooltip;
   - achievement labels;
   - timezone sync.
+
+### Phase 18 — Practice nudge, standalone tier retake
+
+**Nudge delivery decision: in-app, not push or email.**
+- *Why:* the app has no mail infrastructure. Web push would need VAPID keys, a push service, stored
+  subscriptions and a scheduler, which is a lot of new infrastructure and a permission prompt for a reminder.
+  In-app reaches you the moment you open the app, with no setup and no permissions.
+- *Cost:* an in-app nudge can't bring you back if you never open the app.
+- The trigger is computed server-side (`NudgeService` in `services/streaks.py`, returned as
+  `ProfileSummary.nudge`), so a future push or email channel would reuse the same logic and just deliver it
+  elsewhere.
+- **Rule:** no *closed* practice session for `users.nudge_after_days` local days (new column, **default 3**,
+  **0 = off**; migration `e18c5d2f7a31`). Someone who has never practised is nudged too, if they have something in
+  progress.
+- **What it says:** "It's been 4 days since you last practised. Fur Elise is waiting. Even five minutes keeps
+  your sky from drifting." It names the in-progress piece you've left longest, with a one-click **Open Fur Elise**.
+- **Where:** a yellow-marked banner at the top of Today (yellow = reward/attention, not action).
+  - **Not today** hides it until tomorrow. That's stored in the browser, because it's a per-viewer convenience,
+    not data.
+- **Setting:** Settings › Practice reminders, from Never to after two weeks.
+
+**Standalone tier retake:**
+- **Entry points:** Settings › Technique tiers (shows when you last ranked) → `/settings/tiers`, and a "Retake
+  the tier quiz" link in the Progress › Pathways caption, since your tiers shape those pathways.
+- **Same component:** it reuses `tierQuizStep` from onboarding, exported in Phase 16 with `initial` and
+  `submitLabel`, pre-filled with your current tiers and saving as "Save tiers". No other onboarding step is
+  involved.
+- **In place, no duplicates:** `set_tier_list` already looks up each `(user_id, technique_id)` row, which is
+  the table's *primary key*, and updates it, so a duplicate is impossible by construction. Now proven:
+  - live, a retake changing one tier left 17 rows for 17 techniques, with the changed tier updated;
+  - an opt-in DB test (`test_tier_retake_updates_in_place`) saves twice and asserts one row per technique.
+
+**Verification**:
+- build ✔ and pytest **95 passed, 2 skipped** ✔; the two opt-in DB tests pass against the scratch DB.
+- `alembic check`: no drift.
+- Live nudge for a never-practised user, and none for one who practised today.
+- Retake round trip in the browser.
