@@ -690,3 +690,60 @@ key mapping, example ranking and catalogue coverage). Seed run twice on the scra
 Every tier example was opened in headless Chrome at 1280 and 390px: one stave for single-hand patterns,
 two for polyrhythm, 0 SVGs before any click, and no console errors. The Piece Detail "Hardest sections"
 pattern was re-checked.
+
+### Phase 12 — Onboarding top-ten save latency
+
+**Result: the suspected slow path isn't on this route, and I couldn't reproduce slowness. Nothing
+was moved to the queue and no code changed. Profile below, as you asked, rather than a further guess.**
+
+**Is an LLM call blocking the save? No.**
+- `topTenStep()` only ever sends catalogue `piece_id`s. Its search is `api.searchPieces` →
+  `GET /catalog/pieces`, catalogue only.
+- `OnboardingService.set_top_ten()` → `CatalogService.resolve_piece()`: for a `piece_id` that's a
+  single `session.get(Piece, id)`. For an inline custom `piece` payload it's `create_user_piece()`,
+  which is pure arithmetic with no generator.
+- The **only** caller of `MetadataGenerator` / the `anthropic` package in the backend is
+  `CatalogService.import_external()` (`POST /catalog/external/import`). That's the Repertoire page's
+  "add from the external (OpenOpus) catalogue" flow, not onboarding.
+- Your real DB (read-only check) has 1 user, 1 repertoire entry, 27 catalogue pieces and **0**
+  OpenOpus or custom pieces, so no piece you could pick has ever gone through the generator.
+
+**Measured timings.** Scratch backend on the same Postgres container; 1 piece; warm process; data volume
+matches yours (27 pieces, indexed `repertoire_entries`).
+
+| Path | Timing |
+|---|---|
+| `PUT /onboarding/top-ten`, server work (curl → `127.0.0.1`) | **46–72 ms** |
+| Same request via curl → `localhost` | **~257 ms**, of which **~206 ms is TCP connect** |
+| Any trivial GET via curl → `localhost` (e.g. `/catalog/techniques`) | ~235 ms (same ~206 ms connect) |
+| Real UI flow in Chrome through the Vite dev proxy: click Continue → PUT → refresh (`summary` + `techniques`) → tastes step `genres` → rendered | **~105 ms total** (PUT finished at 55 ms) |
+| Chrome fetching the API directly, as a production build does (`localhost` vs `127.0.0.1`) | 18–30 ms vs 9–28 ms |
+
+**The one real latency source I found (not confirmed as your symptom).** On this machine `localhost`
+resolves to IPv6 `::1` first, but uvicorn / `fastapi dev` listen on IPv4 `127.0.0.1` only. A client
+that tries `::1` first without a fast fallback pays **~200 ms per new connection**. curl does. Chrome
+and Vite's Node proxy don't (both measured fast). On some Windows setups the refused `::1` attempt takes
+~2 s instead. If your slowness comes from some other client or a different Node/OS networking
+config, pointing things at `127.0.0.1` (`VITE_API_URL=http://127.0.0.1:8000` in `frontend/.env`,
+`DATABASE_URL=...@127.0.0.1:5432`) removes it. I didn't change defaults, because in this stack it
+isn't what makes the save slow.
+
+**Also ruled out:**
+- `DEBUG=true` root DEBUG logging: 0 SQLAlchemy lines are emitted per request, so no console-I/O cost.
+- Service worker: only in production builds, and it never intercepts the PUT.
+- Data volume and missing indexes: data is tiny and indexes exist.
+
+**What would pin it down on your machine.** In DevTools → Network, click Continue on the top-ten step
+and check two things:
+1. whether the long bar is the `PUT /api/v1/onboarding/top-ten` itself, or the follow-up GETs;
+2. in its **Timing** tab, whether the time is "Initial connection" (→ the `localhost` issue above) or
+   "Waiting for server response" (→ backend work, and then the uvicorn log line helps).
+
+With that one screenshot I can fix the right thing.
+
+**Noticed, not changed:** `import_external()` *does* block its HTTP request on the Claude call (up to
+the SDK timeout) when `ANTHROPIC_API_KEY` is set. If adding pieces from the external catalogue feels
+slow, that's the place for the queue move you described. It's a separate flow from the one you
+asked about, so I left it alone.
+
+**Verification**: no code changed in this phase. The build and pytest 68/68 were re-run as the gate.
