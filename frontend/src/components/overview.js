@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { el } from "../lib/dom.js";
+import { el, reveal, sectionBlock } from "../lib/dom.js";
 import { renderNotation } from "../lib/notation.js";
 import { playNotation } from "../lib/synth.js";
 
@@ -155,7 +155,7 @@ function sectionCard(section, index) {
 
   return el(
     "li",
-    { class: "section-card", dataset: { rank: String(index + 1) } },
+    { class: index === 0 ? "section-card section-card-top" : "section-card", dataset: { rank: String(index + 1) } },
     el(
       "div",
       { class: "row", style: "justify-content:space-between;align-items:flex-start;gap:12px" },
@@ -199,6 +199,12 @@ const MASTERY_TONE = {
 function techniqueRow(technique) {
   const share = Math.round(Number(technique.weight) * 100);
   const masteryTone = MASTERY_TONE[technique.mastery_color] || "";
+  const notes = [
+    technique.mechanic ? el("p", { class: "technique-text" }, technique.mechanic) : null,
+    technique.common_fault
+      ? el("p", { class: "technique-fault" }, el("span", { class: "cue-tag cue-warn" }, "Usual fault"), technique.common_fault)
+      : null,
+  ].filter(Boolean);
   return el(
     "li",
     { class: "technique-row" },
@@ -208,32 +214,142 @@ function techniqueRow(technique) {
       el(
         "div",
         { class: "row", style: "gap:8px" },
-        technique.mastery_tier
-          ? el("span", { class: `pill ${masteryTone}` }, technique.mastery_tier)
-          : null,
+        technique.mastery_tier ? el("span", { class: `pill ${masteryTone}` }, technique.mastery_tier) : null,
         el("strong", { style: "font-weight:500" }, technique.name),
-        el(
-          "span",
-          { class: "faint mono", style: "font-size:11px" },
-          CATEGORY_LABELS[technique.category] || technique.category
-        )
+        el("span", { class: "faint mono", style: "font-size:11px" }, CATEGORY_LABELS[technique.category] || technique.category)
       ),
       el("span", { class: "faint mono", style: "font-size:11.5px" }, `${share}% · load ${technique.load_factor}`)
     ),
     el("div", { class: "bar", style: "margin:7px 0 0" }, el("span", { style: `width:${share}%` })),
-    technique.mechanic ? el("p", { class: "technique-text" }, technique.mechanic) : null,
-    technique.common_fault
-      ? el(
-          "p",
-          { class: "technique-fault" },
-          el("span", { class: "cue-tag cue-warn" }, "Usual fault"),
-          technique.common_fault
+    notes.length ? revealParts(reveal("How it's played", notes)) : null
+  );
+}
+
+function revealParts(control) {
+  return [control.button, control.region];
+}
+
+const VISIBLE_SECTIONS = 3;
+
+function aboutSection(overview, { showDifficulty = true } = {}) {
+  const composer = overview.composer;
+  const difficulty = showDifficulty
+    ? difficultyPair(overview.personalized_difficulty, overview.difficulty_score, { band: overview.difficulty_band })
+    : null;
+  const primary = el(
+    "div",
+    { class: "meta-grid" },
+    metaRow("Catalogue", overview.catalog_number),
+    metaRow("Era", overview.era),
+    metaRow("Key", overview.key_signature),
+    metaRow("Marking", overview.tempo_marking),
+    metaRow("Duration", overview.duration_label),
+    metaRow("Difficulty", difficulty, { wide: true })
+  );
+  const secondary = [
+    el(
+      "div",
+      { class: "meta-grid" },
+      metaRow("Composer", composer ? composer.name : null),
+      metaRow("Composed", overview.year_composed),
+      metaRow("Genre", overview.genre),
+      metaRow("Syllabus grade", overview.syllabus_grade),
+      metaRow("Mechanical load", overview.mechanical_load)
+    ),
+    prose("History", overview.historical_note),
+    prose("Worth knowing", overview.fun_fact),
+  ].filter((node) => node && (node.className !== "meta-grid" || node.children.length));
+  const mood =
+    overview.mood && !isJunk("Character", overview.mood)
+      ? el("div", { class: "mood-strip" }, el("span", { class: "cue-tag" }, "Character"), overview.mood)
+      : null;
+  const scene = prose("What it depicts", overview.scene);
+  return sectionBlock(
+    "About this piece",
+    {},
+    primary,
+    mood,
+    scene ? el("div", { class: "lore-panel" }, scene) : null,
+    secondary.length ? revealParts(reveal("More about this piece", el("div", { class: "lore-panel" }, ...secondary))) : null
+  );
+}
+
+function sectionsSection(overview) {
+  const cards = overview.sections.map(sectionCard);
+  const shown = el("ol", { class: "section-list" }, ...cards.slice(0, VISIBLE_SECTIONS));
+  const rest = cards.slice(VISIBLE_SECTIONS);
+  return sectionBlock(
+    "Hardest sections",
+    {
+      caption: `${overview.sections.length} marked passage${overview.sections.length === 1 ? "" : "s"}, hardest first. Tap the bar numbers for a practice pattern.`,
+    },
+    shown,
+    rest.length
+      ? revealParts(
+          reveal(`${rest.length} more passage${rest.length === 1 ? "" : "s"}`, () =>
+            el("ol", { class: "section-list", start: String(VISIBLE_SECTIONS + 1) }, ...rest)
+          )
         )
       : null
   );
 }
 
-export function pieceOverview(overview, { heading = true } = {}) {
+function composerSection(composer) {
+  const signature = prose("Signature sound", composer.signature_sound);
+  const more = [prose("Background", composer.bio), prose("Worth knowing", composer.fun_fact)].filter(Boolean);
+  return sectionBlock(
+    `About ${composer.name}`,
+    {
+      caption: composer.lifespan
+        ? [composer.nationality, composer.lifespan, composer.era].filter(Boolean).join(" · ")
+        : null,
+    },
+    signature ? el("div", { class: "lore-panel" }, signature) : null,
+    more.length ? revealParts(reveal(`More about ${composer.name}`, el("div", { class: "lore-panel" }, ...more))) : null
+  );
+}
+
+function loadSection(profile) {
+  const rows = [
+    metaRow("Widest stretch", profile.max_stretch_semitones ? `${profile.max_stretch_semitones} semitones` : null),
+    metaRow("Stretch in cm", profile.max_stretch_cm ? `${profile.max_stretch_cm} cm` : null),
+    metaRow("Octave density", profile.octave_density),
+    metaRow("Chord density", profile.repeated_chord_density),
+    metaRow("Peak notes/sec", profile.notes_per_second_peak),
+  ].filter(Boolean);
+  return sectionBlock(
+    "Physical load",
+    {},
+    el("div", { class: "meta-grid" }, metaRow("Load index", profile.load_index)),
+    rows.length ? revealParts(reveal("All load measurements", el("div", { class: "meta-grid" }, ...rows))) : null
+  );
+}
+
+function movementsSection(movements) {
+  return sectionBlock(
+    "Movements",
+    {},
+    el(
+      "ul",
+      { class: "flat-list" },
+      ...movements.map((movement) =>
+        el(
+          "li",
+          { class: "flat-row" },
+          el(
+            "div",
+            {},
+            el("div", {}, movement.movement_number != null ? `${movement.movement_number}. ${movement.title}` : movement.title),
+            el("div", { class: "faint mono", style: "font-size:11.5px" }, movement.duration_label)
+          ),
+          movement.difficulty_score != null ? el("span", { class: "pill mono" }, movement.difficulty_score) : null
+        )
+      )
+    )
+  );
+}
+
+export function pieceOverview(overview, { heading = true, difficulty = true } = {}) {
   const composer = overview.composer;
   const wrap = el("div", { class: "overview" });
 
@@ -251,141 +367,24 @@ export function pieceOverview(overview, { heading = true } = {}) {
   const badges = [
     overview.is_custom ? el("span", { class: "pill pill-custom" }, "custom") : null,
     overview.external_source ? el("span", { class: "pill" }, overview.external_source) : null,
-    overview.requires_verification ? el("span", { class: "pill pill-warn" }, "needs verification") : null,
+    heading && overview.requires_verification ? el("span", { class: "pill pill-warn" }, "needs verification") : null,
   ].filter(Boolean);
-  if (badges.length) wrap.append(el("div", { class: "row", style: "margin-bottom:10px" }, ...badges));
+  if (badges.length) wrap.append(el("div", { class: "row" }, ...badges));
 
-  wrap.append(
-    el(
-      "div",
-      { class: "meta-grid" },
-      metaRow("Composer", composer ? composer.name : null),
-      metaRow("Catalogue", overview.catalog_number),
-      metaRow("Era", overview.era),
-      metaRow("Duration", overview.duration_label),
-      metaRow("Key", overview.key_signature),
-      metaRow("Composed", overview.year_composed),
-      metaRow("Marking", overview.tempo_marking),
-      metaRow("Genre", overview.genre),
-      metaRow("Syllabus grade", overview.syllabus_grade),
-      metaRow(
-        "Difficulty",
-        difficultyPair(overview.personalized_difficulty, overview.difficulty_score, { band: overview.difficulty_band }),
-        { wide: true }
-      ),
-      metaRow("Mechanical load", overview.mechanical_load)
-    )
-  );
-
-  if (overview.mood && !isJunk("Character", overview.mood)) {
-    wrap.append(el("div", { class: "mood-strip" }, el("span", { class: "cue-tag" }, "Character"), overview.mood));
-  }
-
-  const lore = [
-    prose("What it depicts", overview.scene),
-    prose("History", overview.historical_note),
-    prose("Worth knowing", overview.fun_fact),
-  ].filter(Boolean);
-  if (lore.length) wrap.append(el("section", { class: "panel lore-panel" }, ...lore));
-
-  if (overview.sections.length) {
-    wrap.append(
-      el(
-        "section",
-        { class: "panel", style: "margin-top:16px" },
-        el("h3", {}, "Hardest sections"),
-        el(
-          "p",
-          { class: "faint mono", style: "font-size:11.5px;margin:-4px 0 12px" },
-          `${overview.sections.length} marked passages, hardest first`
-        ),
-        el("ol", { class: "section-list" }, ...overview.sections.map(sectionCard))
-      )
-    );
-  }
-
+  wrap.append(aboutSection(overview, { showDifficulty: difficulty }));
+  if (overview.sections.length) wrap.append(sectionsSection(overview));
   if (overview.techniques.length) {
     wrap.append(
-      el(
-        "section",
-        { class: "panel", style: "margin-top:16px" },
-        el("h3", {}, "Techniques involved"),
-        el(
-          "p",
-          { class: "faint mono", style: "font-size:11.5px;margin:-4px 0 12px" },
-          "ordered by how much of the difficulty each one carries"
-        ),
+      sectionBlock(
+        "Techniques involved",
+        { caption: "Ordered by how much of the difficulty each one carries." },
         el("ul", { class: "technique-list" }, ...overview.techniques.map(techniqueRow))
       )
     );
   }
-
-  if (composer && (composer.bio || composer.fun_fact || composer.signature_sound)) {
-    wrap.append(
-      el(
-        "section",
-        { class: "panel", style: "margin-top:16px" },
-        el("h3", {}, `About ${composer.name}`),
-        composer.lifespan
-          ? el("p", { class: "faint mono", style: "font-size:11.5px;margin:-4px 0 12px" },
-              [composer.nationality, composer.lifespan, composer.era].filter(Boolean).join(" · "))
-          : null,
-        prose("Signature sound", composer.signature_sound),
-        prose("Background", composer.bio),
-        prose("Worth knowing", composer.fun_fact)
-      )
-    );
-  }
-
-  const profile = overview.load_profile;
-  if (profile) {
-    wrap.append(
-      el(
-        "section",
-        { class: "panel", style: "margin-top:16px" },
-        el("h3", {}, "Physical load"),
-        el(
-          "div",
-          { class: "meta-grid" },
-          metaRow("Load index", profile.load_index),
-          metaRow("Widest stretch", profile.max_stretch_semitones ? `${profile.max_stretch_semitones} semitones` : null),
-          metaRow("Stretch in cm", profile.max_stretch_cm ? `${profile.max_stretch_cm} cm` : null),
-          metaRow("Octave density", profile.octave_density),
-          metaRow("Chord density", profile.repeated_chord_density),
-          metaRow("Peak notes/sec", profile.notes_per_second_peak)
-        )
-      )
-    );
-  }
-
-  if (overview.movements.length) {
-    wrap.append(
-      el(
-        "section",
-        { class: "panel", style: "margin-top:16px" },
-        el("h3", {}, "Movements"),
-        el(
-          "ul",
-          { class: "list" },
-          ...overview.movements.map((movement) =>
-            el(
-              "li",
-              { class: "list-item" },
-              el(
-                "div",
-                {},
-                el("div", {}, movement.movement_number != null ? `${movement.movement_number}. ${movement.title}` : movement.title),
-                el("div", { class: "faint mono", style: "font-size:11.5px" }, movement.duration_label)
-              ),
-              movement.difficulty_score != null
-                ? el("span", { class: "pill mono" }, movement.difficulty_score)
-                : null
-            )
-          )
-        )
-      )
-    );
-  }
+  if (composer && (composer.bio || composer.fun_fact || composer.signature_sound)) wrap.append(composerSection(composer));
+  if (overview.load_profile) wrap.append(loadSection(overview.load_profile));
+  if (overview.movements.length) wrap.append(movementsSection(overview.movements));
 
   return wrap;
 }

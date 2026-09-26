@@ -50,6 +50,34 @@ export function disclosure(trigger, { label, buttonClass = "disclosure-btn", reg
   return { button, region, toggle };
 }
 
+export function reveal(label, fill, { open = false, onClose } = {}) {
+  const control = disclosure(label, {
+    buttonClass: "reveal-btn",
+    regionClass: "reveal-region",
+    onFirstOpen: (region) => {
+      const content = typeof fill === "function" ? fill() : fill;
+      region.append(...[].concat(content).filter(Boolean));
+    },
+    onClose,
+  });
+  if (open) control.toggle(true);
+  return control;
+}
+
+export function sectionBlock(title, { caption, action, className = "" } = {}, ...children) {
+  return el(
+    "section",
+    { class: `panel detail-section ${className}`.trim() },
+    el(
+      "div",
+      { class: "section-head" },
+      el("div", {}, el("h2", { class: "section-title" }, title), caption ? el("p", { class: "section-caption" }, caption) : null),
+      action || null
+    ),
+    ...children
+  );
+}
+
 export function clear(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }

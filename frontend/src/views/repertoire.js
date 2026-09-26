@@ -1,6 +1,6 @@
 import { api, pollSubmission } from "../api/client.js";
 import { difficultyPair, pieceOverview } from "../components/overview.js";
-import { el, empty, openModal, optionCard, skeletonBlock } from "../lib/dom.js";
+import { el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
@@ -559,7 +559,7 @@ function verificationBanner(entry) {
     el(
       "p",
       { class: "muted", style: "margin:8px 0 0;font-size:13.5px" },
-      "This piece is difficulty 70 or above. It shows as a hollow, dotted star in your constellation until you submit a verification take under Practice recordings below."
+      "This piece is difficulty 70 or above. It shows as a hollow, dotted star in your constellation until you submit a verification take in Practice recordings."
     )
   );
 }
@@ -604,53 +604,55 @@ function decayBanner(entry, onMaintained) {
   );
 }
 
+function planStepRow(step, onAdvance) {
+  return el(
+    "li",
+    { class: "flat-row", style: step.status === "done" ? "opacity:0.55" : "" },
+    el(
+      "div",
+      {},
+      el("div", {}, step.instruction),
+      el(
+        "div",
+        { class: "faint mono", style: "font-size:11px" },
+        [step.scope_label, step.est_days != null ? `~${step.est_days}d` : null].filter(Boolean).join(" · ")
+      )
+    ),
+    step.status === "active"
+      ? el("button", { class: "btn btn-small btn-ghost", onclick: () => onAdvance(step.id) }, "Mark done")
+      : el("span", { class: `pill ${step.status === "done" ? "pill-ok" : ""}` }, step.status)
+  );
+}
+
+const PLAN_PREVIEW_STEPS = 3;
+
 function planPanel(entryId, plan, onBuild, onAdvance) {
   if (!plan) {
-    return el(
-      "section",
-      { class: "panel", style: "margin-top:16px" },
-      el("h3", {}, "Guided learning path"),
-      el(
-        "p",
-        { class: "muted", style: "margin:0 0 12px" },
-        "Get a step-by-step plan for this piece, ordered from its gentlest movement or its hardest passages."
-      ),
+    return sectionBlock(
+      "Guided learning path",
+      { caption: "A step-by-step plan for this piece, ordered from its gentlest movement or its hardest passages." },
       el("button", { class: "btn btn-small", onclick: onBuild }, "Build a plan")
     );
   }
-  return el(
-    "section",
-    { class: "panel", style: "margin-top:16px" },
-    el(
-      "div",
-      { class: "row", style: "justify-content:space-between" },
-      el("h3", { style: "margin:0" }, "Guided learning path"),
-      el("span", { class: "pill mono" }, `${Math.round(plan.progress * 100)}%`)
-    ),
-    plan.rationale ? el("p", { class: "muted", style: "font-size:13px" }, plan.rationale) : null,
-    el(
-      "ol",
-      { class: "section-list" },
-      ...plan.steps.map((step) =>
-        el(
-          "li",
-          { class: "list-item", style: step.status === "done" ? "opacity:0.55" : "" },
-          el(
-            "div",
-            {},
-            el("div", {}, step.instruction),
-            el(
-              "div",
-              { class: "faint mono", style: "font-size:11px" },
-              [step.scope_label, step.est_days != null ? `~${step.est_days}d` : null].filter(Boolean).join(" · ")
-            )
-          ),
-          step.status === "active"
-            ? el("button", { class: "btn btn-small btn-ghost", onclick: () => onAdvance(step.id) }, "Mark done")
-            : el("span", { class: `pill ${step.status === "done" ? "pill-ok" : ""}` }, step.status)
-        )
-      )
-    )
+  const active = plan.steps.findIndex((step) => step.status !== "done");
+  const from = Math.max(0, active === -1 ? plan.steps.length - PLAN_PREVIEW_STEPS : active);
+  const preview = plan.steps.slice(from, from + PLAN_PREVIEW_STEPS);
+  const hidden = plan.steps.length - preview.length;
+  return sectionBlock(
+    "Guided learning path",
+    {
+      caption: plan.rationale || null,
+      action: el("span", { class: "pill mono" }, `${Math.round(plan.progress * 100)}%`),
+    },
+    el("ol", { class: "flat-list" }, ...preview.map((step) => planStepRow(step, onAdvance))),
+    hidden > 0
+      ? (() => {
+          const control = reveal(`All ${plan.steps.length} steps`, () =>
+            el("ol", { class: "flat-list" }, ...plan.steps.map((step) => planStepRow(step, onAdvance)))
+          );
+          return [control.button, control.region];
+        })()
+      : null
   );
 }
 
@@ -729,23 +731,14 @@ function submissionCard(submission) {
       )
     );
   }
-  return el("li", { class: "list-item", style: "flex-direction:column;align-items:stretch" }, ...rows);
+  return el("li", { class: "flat-row flat-row-stack" }, ...rows);
 }
 
 function submissionList(items, emptyText) {
-  return el("ul", { class: "list" }, ...(items.length ? items.map(submissionCard) : [empty(emptyText)]));
+  return el("ul", { class: "flat-list" }, ...(items.length ? items.map(submissionCard) : [el("li", { class: "faint", style: "font-size:13px" }, emptyText)]));
 }
 
-function submissionPanelHead(id, title, caption) {
-  return el(
-    "div",
-    { class: "submission-head" },
-    el("h3", { id }, title),
-    el("p", { class: "faint", style: "font-size:12.5px;margin:-4px 0 12px" }, caption)
-  );
-}
-
-function recordingPanel(entry, recordings, onChange) {
+function recordingPanel(entry, recordings, onChange, { openForm = false } = {}) {
   const audioInput = el("input", { type: "file", accept: "audio/*" });
   const fullRun = el("input", { type: "checkbox" });
   const asVerification = el("input", { type: "checkbox", checked: entry.needs_verification || null, disabled: entry.needs_verification || null });
@@ -777,15 +770,8 @@ function recordingPanel(entry, recordings, onChange) {
     "Submit recording"
   );
 
-  return el(
-    "section",
-    { class: "panel submission-panel submission-panel-recording", "aria-labelledby": "recording-heading" },
-    submissionPanelHead(
-      "recording-heading",
-      "Practice recordings",
-      "Audio takes, scored for tempo and interpretation. Verification takes and graded run-throughs go here."
-    ),
-    submissionList(recordings, "No recordings yet."),
+  const form = reveal(
+    "Add a recording",
     el(
       "div",
       { class: "submission-form" },
@@ -799,7 +785,19 @@ function recordingPanel(entry, recordings, onChange) {
       ),
       tap.node,
       el("div", { style: "margin-top:12px" }, audioSubmit)
-    )
+    ),
+    { open: openForm }
+  );
+
+  return sectionBlock(
+    "Practice recordings",
+    {
+      caption: "Audio takes, scored for tempo and interpretation. Verification takes and graded run-throughs go here.",
+      className: "submission-panel submission-panel-recording",
+    },
+    submissionList(recordings, "No recordings yet."),
+    form.button,
+    form.region
   );
 }
 
@@ -851,15 +849,8 @@ function writtenSubmissionPanel(entry, written, onChange) {
     "Upload score"
   );
 
-  return el(
-    "section",
-    { class: "panel submission-panel", "aria-labelledby": "written-heading" },
-    submissionPanelHead(
-      "written-heading",
-      "Notes & scores",
-      "Written practice notes and scanned sheet music, read for bar numbers and techniques."
-    ),
-    submissionList(written, "No notes or scores yet."),
+  const form = reveal(
+    "Add notes or a score",
     el(
       "div",
       { class: "submission-form" },
@@ -867,17 +858,26 @@ function writtenSubmissionPanel(entry, written, onChange) {
       el("div", { class: "field", style: "margin-bottom:0" }, el("label", {}, "Scanned score (PDF)"), el("div", { class: "row" }, pdfInput, pdfSubmit))
     )
   );
+
+  return sectionBlock(
+    "Notes & scores",
+    {
+      caption: "Written practice notes and scanned sheet music, read for bar numbers and techniques.",
+      className: "submission-panel",
+    },
+    submissionList(written, "No notes or scores yet."),
+    form.button,
+    form.region
+  );
 }
 
-function submissionSections(entry, submissions, onChange) {
+function submissionSections(entry, submissions, onChange, { recordingFirst = false } = {}) {
   const recordings = submissions.filter((submission) => submission.submission_type === "audio");
   const written = submissions.filter((submission) => submission.submission_type !== "audio");
-  return el(
-    "div",
-    { class: "submission-split" },
-    recordingPanel(entry, recordings, onChange),
-    writtenSubmissionPanel(entry, written, onChange)
-  );
+  return [
+    recordingPanel(entry, recordings, onChange, { openForm: recordingFirst && recordings.length === 0 }),
+    writtenSubmissionPanel(entry, written, onChange),
+  ];
 }
 
 export async function entryDetailView(outlet, context) {
@@ -895,7 +895,7 @@ export async function entryDetailView(outlet, context) {
 
     const statusSelect = el(
       "select",
-      { style: "max-width:190px" },
+      { class: "select-compact" },
       ...STATUS_FLOW.map((value) =>
         el("option", { value, selected: value === entry.status || null }, value.replace(/_/g, " "))
       )
@@ -930,14 +930,93 @@ export async function entryDetailView(outlet, context) {
             )
           : null;
 
-    // The banners and the overview are null when they do not apply, and
-    // replaceChildren() would render each null as the literal text "null"
-    // (three in a row on an ordinary piece: the "nullnullnull" bug).
+    const statusSave = el(
+      "button",
+      {
+        class: "btn btn-small",
+        disabled: true,
+        onclick: async (event) => {
+          event.target.disabled = true;
+          try {
+            await api.updateEntry(entry.id, { status: statusSelect.value });
+            notify.success("Status updated");
+            await store.refreshProfile();
+            await render();
+          } catch (error) {
+            if (error.status === 423) notify.error(error.detail);
+            else notify.error(error.detail || "Could not update the status");
+            event.target.disabled = false;
+          }
+        },
+      },
+      "Save"
+    );
+    statusSelect.setAttribute("aria-label", "Status");
+    statusSelect.addEventListener("change", () => {
+      statusSave.disabled = statusSelect.value === entry.status;
+    });
+
+    const byline = [
+      entry.piece.composer?.name || "unknown composer",
+      overview?.catalog_number,
+      overview?.key_signature,
+    ].filter(Boolean).join(" · ");
+
+    const notices = [banner, verificationBanner(entry), decayBanner(entry, render)].filter(Boolean);
+    const needsTake = Boolean(entry.needs_verification || (gate && gate.requires_grading && !gate.unlocked));
+
+    const summary = el(
+      "section",
+      { class: "panel summary-bar", "aria-label": "Where this piece stands" },
+      el(
+        "div",
+        { class: "summary-cell" },
+        el("div", { class: "stat-label" }, "Status"),
+        el("div", { class: "row summary-status" }, statusSelect, statusSave)
+      ),
+      el(
+        "div",
+        { class: "summary-cell" },
+        el("div", { class: "stat-label" }, "Tempo · current / target"),
+        el("div", { class: "stat", style: "font-size:20px" }, `${entry.current_tempo_bpm ?? "--"} / ${entry.target_tempo_bpm ?? "--"}`)
+      ),
+      el(
+        "div",
+        { class: "summary-cell" },
+        el("div", { class: "stat-label" }, "Difficulty"),
+        difficultyPair(overview?.personalized_difficulty, overview?.difficulty_score ?? entry.piece.difficulty_score, {
+          band: overview?.difficulty_band,
+        }) || el("div", { class: "stat", style: "font-size:20px" }, "--")
+      )
+    );
+
+    const plan = planPanel(
+      entry.id,
+      plans[0] || null,
+      async () => {
+        try {
+          await api.buildPlan(entry.id);
+          notify.success("Plan built");
+          await render();
+        } catch (error) {
+          notify.error(error.detail || "Could not build a plan");
+        }
+      },
+      async (stepId) => {
+        try {
+          await api.advanceStep(plans[0].id, stepId);
+          await render();
+        } catch (error) {
+          notify.error(error.detail || "Could not advance that step");
+        }
+      }
+    );
+
     const sections = [
       el(
         "div",
-        { class: "row", style: "justify-content:space-between;margin-bottom:18px" },
-        el("div", {}, el("h1", { style: "margin:0" }, entry.piece.title), el("p", { class: "muted", style: "margin:4px 0 0" }, entry.piece.composer?.name || "unknown composer")),
+        { class: "page-head" },
+        el("div", {}, el("h1", { style: "margin:0" }, entry.piece.title), el("p", { class: "muted", style: "margin:4px 0 0" }, byline)),
         el(
           "div",
           { class: "row" },
@@ -945,76 +1024,14 @@ export async function entryDetailView(outlet, context) {
           el("a", { class: "btn btn-ghost btn-small", href: "/repertoire", "data-link": true }, "Back")
         )
       ),
-      banner,
-      verificationBanner(entry),
-      decayBanner(entry, render),
+      summary,
+      notices.length ? el("div", { class: "notice-stack" }, ...notices) : null,
       el(
         "div",
-        { class: "grid" },
-        el("div", { class: "panel" }, el("div", { class: "stat-label" }, "Status"), el("div", { class: "stat", style: "font-size:20px" }, entry.status.replace(/_/g, " "))),
-        el("div", { class: "panel" }, el("div", { class: "stat-label" }, "Tempo"), el("div", { class: "stat", style: "font-size:20px" }, `${entry.current_tempo_bpm ?? "--"} / ${entry.target_tempo_bpm ?? "--"}`)),
-        el(
-          "div",
-          { class: "panel" },
-          el("div", { class: "stat-label" }, "Difficulty"),
-          difficultyPair(overview?.personalized_difficulty, overview?.difficulty_score ?? entry.piece.difficulty_score, {
-            band: overview?.difficulty_band,
-          }) || el("div", { class: "stat", style: "font-size:20px" }, "--")
-        )
+        { class: "detail-layout" },
+        el("div", { class: "detail-aside" }, plan, ...submissionSections(entry, submissions, render, { recordingFirst: needsTake })),
+        el("div", { class: "detail-main" }, overview ? pieceOverview(overview, { heading: false, difficulty: false }) : null)
       ),
-      el(
-        "section",
-        { class: "panel", style: "margin-top:16px" },
-        el("h3", {}, "Change status"),
-        el(
-          "div",
-          { class: "row" },
-          statusSelect,
-          el(
-            "button",
-            {
-              class: "btn btn-small",
-              onclick: async (event) => {
-                event.target.disabled = true;
-                try {
-                  await api.updateEntry(entry.id, { status: statusSelect.value });
-                  notify.success("Status updated");
-                  await store.refreshProfile();
-                  await render();
-                } catch (error) {
-                  if (error.status === 423) notify.error(error.detail);
-                  else notify.error(error.detail || "Could not update the status");
-                  event.target.disabled = false;
-                }
-              },
-            },
-            "Save"
-          )
-        )
-      ),
-      planPanel(
-        entry.id,
-        plans[0] || null,
-        async () => {
-          try {
-            await api.buildPlan(entry.id);
-            notify.success("Plan built");
-            await render();
-          } catch (error) {
-            notify.error(error.detail || "Could not build a plan");
-          }
-        },
-        async (stepId) => {
-          try {
-            await api.advanceStep(plans[0].id, stepId);
-            await render();
-          } catch (error) {
-            notify.error(error.detail || "Could not advance that step");
-          }
-        }
-      ),
-      submissionSections(entry, submissions, render),
-      overview ? pieceOverview(overview, { heading: false }) : null,
     ];
     host.replaceChildren(...sections.filter(Boolean));
   }
