@@ -50,6 +50,26 @@ export async function constellationView(outlet) {
   const legendHost = el("div", { class: "legend" });
   const canvas = el("canvas");
   const detail = el("div", { class: "panel", style: "margin-top:16px" });
+  const drawerBody = el("div", { class: "sky-drawer-body" });
+  const drawerClose = el("button", { type: "button", class: "sky-drawer-close", "aria-label": "Close details" }, "×");
+  const drawer = el("aside", { class: "sky-drawer", hidden: true, "aria-label": "Selected star or connection", tabindex: "-1" }, drawerClose, drawerBody);
+
+  function showDrawer(...content) {
+    drawerBody.replaceChildren(...content.filter(Boolean));
+    drawer.hidden = false;
+    if (window.matchMedia("(max-width: 899px)").matches) drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function closeDrawer() {
+    drawer.hidden = true;
+    selectedLink = null;
+    draw();
+  }
+
+  drawerClose.addEventListener("click", closeDrawer);
+  drawer.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDrawer();
+  });
 
   function chartGuide() {
     const item = (term, meaning) => el("li", {}, el("strong", { style: "font-weight:500" }, term), " — ", meaning);
@@ -81,7 +101,7 @@ export async function constellationView(outlet) {
     );
   }
   showIntro();
-  const wrap = el("div", { class: "constellation-wrap" }, legendHost, canvas);
+  const wrap = el("div", { class: "constellation-wrap" }, legendHost, canvas, drawer);
   const loading = el("div", {}, skeletonBlock(4));
 
   const headline = el("p", { class: "faint mono", style: "margin:0;font-size:12px" });
@@ -686,7 +706,7 @@ export async function constellationView(outlet) {
     const targetId = link.target.id ?? link.target;
     const sourceTitle = link.source.title ?? "";
     const targetTitle = link.target.title ?? "";
-    detail.replaceChildren(
+    showDrawer(
       el("div", { class: "stat-label" }, `${link.link_type.replace(/_/g, " / ")} link`),
       el("p", { class: "muted", style: "margin:6px 0 14px" }, `${sourceTitle} — ${targetTitle}`),
       skeletonBlock(3)
@@ -694,11 +714,10 @@ export async function constellationView(outlet) {
     try {
       const summary = await api.linkSummary(sourceId, targetId, link.link_type);
       if (selectedLink !== link) return;
-      detail.replaceChildren(linkSummaryPanel(summary));
-      detail.scrollIntoView({ behavior: "smooth", block: "end" });
+      showDrawer(linkSummaryPanel(summary));
     } catch (error) {
       if (selectedLink !== link) return;
-      detail.replaceChildren(empty(error.detail || "Could not explain that connection."));
+      showDrawer(empty(error.detail || "Could not explain that connection."));
     }
   }
 
@@ -737,7 +756,7 @@ export async function constellationView(outlet) {
       );
       actions.push(runButton);
     }
-    detail.replaceChildren(
+    showDrawer(
       el("h2", { style: "margin:0 0 4px" }, node.title),
       el(
         "p",

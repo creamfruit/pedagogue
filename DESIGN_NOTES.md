@@ -326,3 +326,18 @@ were missing). Nothing told you what to do.
   it has its own action.
 - The summary strip, two-column layout and reveals from Phase 10 stay. They tested well, and moving them again
   would be change for its own sake.
+
+## Constellation
+
+- **The selection opens in a drawer over the sky, not in a panel below it.** The canvas is ~600px tall, so on a
+  laptop the old info panel sat below the fold. Every click on a star meant scrolling away from the thing you'd
+  just clicked.
+  - From 900px up, the drawer floats over the right edge of the canvas: 360px wide, sized to its content,
+    scrolling internally if long.
+  - It has a close button, and Escape closes it. Closing clears the highlighted connection.
+  - Below 900px, it becomes a plain panel directly under the canvas (a floating card would cover most of a phone
+    sky), and it scrolls into view.
+- **The intro and "How to read the chart" stay below the canvas.** They're read once, and shouldn't cover the sky.
+- This is also the slot for later phases. The drawer is where an earned achievement shape (Phase 22) and a meteor
+  shower's details (Phase 23) will open, and the lineage view (Phase 21) will be a **tab**, per the "peer views are
+  tabs" rule.
