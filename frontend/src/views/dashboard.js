@@ -1,114 +1,204 @@
 import { api } from "../api/client.js";
-import { el, empty, skeletonBlock, toneForSeverity } from "../lib/dom.js";
+import { el, empty, sectionBlock, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { store } from "../lib/store.js";
+
+const ACTIVE = new Set(["learning", "polishing"]);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function daysSince(value) {
+  if (!value) return null;
+  const then = new Date(value).getTime();
+  if (Number.isNaN(then)) return null;
+  return Math.max(0, Math.floor((Date.now() - then) / DAY_MS));
+}
+
+export function lastPractisedLabel(value) {
+  const days = daysSince(value);
+  if (days === null) return "Not practised yet";
+  if (days === 0) return "Practised today";
+  if (days === 1) return "Practised yesterday";
+  return `Last practised ${days} days ago`;
+}
+
+export function tempoShare(entry) {
+  if (!entry.current_tempo_bpm || !entry.target_tempo_bpm) return null;
+  return Math.min(100, Math.round((entry.current_tempo_bpm / entry.target_tempo_bpm) * 100));
+}
+
+export function pickNextUp(entries) {
+  const active = entries.filter((entry) => ACTIVE.has(entry.status));
+  if (!active.length) return null;
+  return [...active].sort((a, b) => {
+    const da = daysSince(a.last_practiced_at);
+    const db = daysSince(b.last_practiced_at);
+    if (da === null && db !== null) return -1;
+    if (db === null && da !== null) return 1;
+    if (da !== db) return (db ?? 0) - (da ?? 0);
+    return Number(a.piece.difficulty_score ?? 0) - Number(b.piece.difficulty_score ?? 0);
+  })[0];
+}
+
+function tempoBar(entry) {
+  const share = tempoShare(entry);
+  if (share === null) return null;
+  return el(
+    "div",
+    { class: "tempo-progress", title: `${entry.current_tempo_bpm} of ${entry.target_tempo_bpm} bpm` },
+    el("div", { class: "bar" }, el("span", { style: `width:${share}%` })),
+    el("span", { class: "faint mono" }, `${share}% of tempo`)
+  );
+}
+
+function nextUpCard(entry) {
+  if (!entry) {
+    return sectionBlock(
+      "Next up",
+      { caption: "Nothing is in progress yet." },
+      el("a", { class: "btn", href: "/repertoire/new", "data-link": true }, "Add a piece to learn")
+    );
+  }
+  const reasons = [lastPractisedLabel(entry.last_practiced_at)];
+  if (entry.decay_level > 0.35) reasons.push(entry.is_frozen ? "frozen in your sky" : "starting to drift");
+  return el(
+    "section",
+    { class: "panel panel-accent next-up" },
+    el("div", { class: "stat-label" }, "Next up"),
+    el("h2", { class: "next-up-title" }, el("a", { href: `/repertoire/${entry.id}`, "data-link": true }, entry.piece.title)),
+    el("p", { class: "muted", style: "margin:0" }, [entry.piece.composer?.name, entry.status.replace(/_/g, " ")].filter(Boolean).join(" · ")),
+    el("p", { class: "next-up-reason" }, reasons.join(", ") + "."),
+    tempoBar(entry),
+    el(
+      "div",
+      { class: "row", style: "margin-top:var(--space-4)" },
+      el("a", { class: "btn", href: `/repertoire/${entry.id}`, "data-link": true }, "Open piece"),
+      el("a", { class: "btn btn-ghost", href: "/practice", "data-link": true }, "Start a session")
+    )
+  );
+}
+
+function weekCard(load) {
+  if (!load) return sectionBlock("This week", {}, empty("No load data yet. Log a practice session."));
+  const pct = load.threshold ? Math.min((load.load_total / load.threshold) * 100, 100) : 0;
+  return sectionBlock(
+    "This week",
+    { caption: `${load.minutes_this_week} minutes logged`, action: el("span", { class: `pill ${toneForSeverity(load.severity)}` }, load.severity) },
+    el("div", { class: "stat-label" }, "Load guard"),
+    el(
+      "div",
+      { class: "row", style: "gap:var(--space-3);flex-wrap:nowrap" },
+      el("span", { class: "stat", style: "font-size:24px" }, Math.round(load.load_total)),
+      el("span", { class: "faint mono", style: "font-size:12px" }, `of ${Math.round(load.threshold)}`)
+    ),
+    el("div", { class: "bar", style: "margin:8px 0 6px" }, el("span", { style: `width:${pct}%` })),
+    el("p", { class: "muted", style: "margin:0;font-size:13px" }, load.message || ""),
+    load.stretch_warnings?.length
+      ? el(
+          "ul",
+          { class: "flat-list", style: "margin-top:var(--space-3)" },
+          ...load.stretch_warnings.map((w) =>
+            el("li", { class: "flat-row" }, el("span", {}, w.title), el("span", { class: "pill pill-warn" }, `needs ${w.required_cm}cm`))
+          )
+        )
+      : null
+  );
+}
+
+function entryRow(entry) {
+  return el(
+    "li",
+    { class: "flat-row today-row" },
+    el(
+      "div",
+      { style: "min-width:0;flex:1" },
+      el("a", { href: `/repertoire/${entry.id}`, "data-link": true, class: "today-row-title" }, entry.piece.title),
+      el("div", { class: "faint", style: "font-size:12.5px" }, [entry.piece.composer?.name, lastPractisedLabel(entry.last_practiced_at)].filter(Boolean).join(" · ")),
+      tempoBar(entry)
+    ),
+    el("span", { class: "entry-status" }, entry.status.replace(/_/g, " "))
+  );
+}
+
+function attentionRow(entry) {
+  const reason = entry.is_frozen
+    ? "Frozen: log a maintenance pass to thaw it"
+    : entry.decay_level > 0.35
+      ? "Drifting: a short maintenance pass resets it"
+      : "Needs a verification take before it lights up";
+  return el(
+    "li",
+    { class: "flat-row" },
+    el(
+      "div",
+      {},
+      el("a", { href: `/repertoire/${entry.id}`, "data-link": true, class: "today-row-title" }, entry.piece.title),
+      el("div", { class: "faint", style: "font-size:12.5px" }, reason)
+    ),
+    el("span", { class: `pill ${entry.is_frozen || entry.decay_level > 0.35 ? "pill-frozen" : "pill-warn"}` }, entry.is_frozen ? "frozen" : entry.decay_level > 0.35 ? "drifting" : "unverified")
+  );
+}
+
+function statsStrip(stats) {
+  const cell = (label, value) => el("div", { class: "summary-cell" }, el("div", { class: "stat-label" }, label), el("div", { class: "stat" }, value));
+  const average =
+    stats.average_difficulty != null && Number.isFinite(Number(stats.average_difficulty))
+      ? (Math.round(Number(stats.average_difficulty) * 10) / 10).toFixed(1)
+      : "--";
+  return el(
+    "section",
+    { class: "panel summary-bar summary-bar-numbers", "aria-label": "Repertoire at a glance" },
+    cell("Pieces", stats.total),
+    cell("Active", stats.active),
+    cell("Average difficulty", average),
+    cell("Submissions", stats.submissions)
+  );
+}
 
 export async function dashboardView(outlet) {
   const heading = el(
     "div",
     { class: "page-head" },
-    el("div", {}, el("h1", { style: "margin:0" }, `Good to see you, ${store.user?.display_name || "pianist"}`), el("p", { class: "muted", style: "margin:4px 0 0" }, "Here is where your hands are this week.")),
+    el(
+      "div",
+      {},
+      el("h1", { style: "margin:0" }, `Good to see you, ${store.user?.display_name || "pianist"}`),
+      el("p", { class: "muted", style: "margin:4px 0 0" }, "Here is where your hands are this week.")
+    ),
     el("a", { class: "btn", href: "/practice", "data-link": true }, "Start practising")
   );
+  const body = el("div", { class: "today" }, skeletonBlock(4));
+  outlet.append(heading, body);
 
-  const statsRow = el("section", { class: "panel summary-bar summary-bar-numbers", "aria-label": "Repertoire at a glance" }, skeletonBlock(2));
-  const loadTitle = () => el("div", { class: "section-head" }, el("h2", { class: "section-title" }, "Load guard"));
-  const activeTitle = () => el("div", { class: "section-head" }, el("h2", { class: "section-title" }, "In progress"));
-  const loadPanel = el("section", { class: "panel" }, loadTitle(), skeletonBlock(2));
-  const activePanel = el("section", { class: "panel" }, activeTitle(), skeletonBlock(3));
-
-  outlet.append(heading, statsRow, el("div", { class: "grid", style: "margin-top:var(--space-5)" }, loadPanel, activePanel));
-
-  const [stats, load, active] = await Promise.allSettled([
+  const [statsResult, loadResult, entriesResult] = await Promise.allSettled([
     api.repertoireStats(),
     api.load(),
-    api.repertoire({ status: "learning", limit: 5 }),
+    api.repertoire({ limit: 100 }),
   ]);
+  const entries = entriesResult.status === "fulfilled" ? entriesResult.value.items : [];
+  const active = entries.filter((entry) => ACTIVE.has(entry.status));
+  const next = pickNextUp(entries);
+  const attention = entries.filter((entry) => entry.decay_level > 0.35 || entry.needs_verification);
 
-  statsRow.replaceChildren();
-  if (stats.status === "fulfilled") {
-    const s = stats.value;
-    const cell = (label, value) =>
-      el("div", { class: "summary-cell" }, el("div", { class: "stat-label" }, label), el("div", { class: "stat" }, value));
-    const average = s.average_difficulty != null && Number.isFinite(Number(s.average_difficulty))
-      ? (Math.round(Number(s.average_difficulty) * 10) / 10).toFixed(1)
-      : "--";
-    statsRow.append(
-      cell("Pieces", s.total),
-      cell("Active", s.active),
-      cell("Average difficulty", average),
-      cell("Submissions", s.submissions)
-    );
-  } else {
-    statsRow.append(empty("Could not load your stats."));
-  }
+  const inProgress = sectionBlock(
+    "In progress",
+    {
+      caption: active.length ? `${active.length} piece${active.length === 1 ? "" : "s"} you're working on` : null,
+      action: el("a", { class: "reveal-link", href: "/repertoire", "data-link": true }, "All repertoire"),
+    },
+    active.length
+      ? el("ul", { class: "flat-list" }, ...active.filter((entry) => entry !== next).slice(0, 6).map(entryRow))
+      : empty("Nothing in progress.", el("a", { class: "btn", href: "/repertoire/new", "data-link": true }, "Add a piece"))
+  );
 
-  loadPanel.replaceChildren(loadTitle());
-  if (load.status === "fulfilled") {
-    const l = load.value;
-    const pct = l.threshold ? Math.min((l.load_total / l.threshold) * 100, 100) : 0;
-    loadPanel.append(
-      el(
-        "div",
-        { class: "row", style: "justify-content:space-between" },
-        el("span", { class: "stat", style: "font-size:24px" }, Math.round(l.load_total)),
-        el("span", { class: `pill ${toneForSeverity(l.severity)}` }, l.severity)
-      ),
-      el("div", { class: "bar", style: "margin:12px 0 0" }, el("span", { style: `width:${pct}%` })),
-      el(
-        "div",
-        { class: "bar-ticks", style: "margin-bottom:10px" },
-        el("span", {}, "0"),
-        el("span", {}, Math.round(l.threshold / 2)),
-        el("span", {}, Math.round(l.threshold))
-      ),
-      el("p", { class: "muted", style: "margin:0" }, l.message || ""),
-      el("p", { class: "faint mono", style: "margin:8px 0 0;font-size:12px" }, `${l.minutes_this_week} minutes logged this week`)
-    );
-    if (l.stretch_warnings?.length) {
-      loadPanel.append(
-        el("h3", { style: "margin-top:18px" }, "Hand span"),
-        el(
-          "ul",
-          { class: "list" },
-          ...l.stretch_warnings.map((w) =>
-            el("li", { class: "list-item" }, el("span", {}, w.title), el("span", { class: "pill pill-warn" }, `${w.required_cm}cm`))
-          )
-        )
-      );
-    }
-  } else {
-    loadPanel.append(empty("No load data yet. Log a practice session."));
-  }
-
-  activePanel.replaceChildren(activeTitle());
-  if (active.status === "fulfilled" && active.value.items.length) {
-    activePanel.append(
-      el(
-        "ul",
-        { class: "flat-list" },
-        ...active.value.items.map((entry) => {
-          const progress = entry.current_tempo_bpm && entry.target_tempo_bpm
-            ? Math.round((entry.current_tempo_bpm / entry.target_tempo_bpm) * 100)
-            : null;
-          return el(
-            "li",
-            { class: "flat-row" },
-            el(
-              "div",
-              {},
-              el("a", { href: `/repertoire/${entry.id}`, "data-link": true, style: "color:inherit;font-weight:500" }, entry.piece.title),
-              entry.piece.composer?.name ? el("div", { class: "faint", style: "font-size:12.5px" }, entry.piece.composer.name) : null
-            ),
-            el(
-              "span",
-              { class: progress != null ? "mono" : "entry-status", title: progress != null ? "Current tempo as a share of the target" : null },
-              progress != null ? `${progress}% of tempo` : entry.status.replace(/_/g, " ")
-            )
-          );
-        })
-      )
-    );
-  } else {
-    activePanel.append(empty("Nothing in progress.", el("a", { class: "btn", href: "/repertoire", "data-link": true }, "Add a piece")));
-  }
+  body.replaceChildren(
+    el("div", { class: "today-hero" }, nextUpCard(next), weekCard(loadResult.status === "fulfilled" ? loadResult.value : null)),
+    el(
+      "div",
+      { class: "today-lists" },
+      inProgress,
+      attention.length
+        ? sectionBlock("Needs attention", { caption: "Pieces fading from your sky or waiting on a verification take." }, el("ul", { class: "flat-list" }, ...attention.slice(0, 6).map(attentionRow)))
+        : null
+    ),
+    statsResult.status === "fulfilled" ? statsStrip(statsResult.value) : empty("Could not load your stats.")
+  );
 }

@@ -2541,3 +2541,64 @@ input[type="date"] {
   font-size: 12px;
   color: var(--text-faint);
 }
+
+.today {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.today-hero,
+.today-lists {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .today-hero {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+}
+
+.next-up-title {
+  margin: 6px 0 4px;
+  font-size: clamp(20px, 2.4vw, 26px);
+}
+
+.next-up-title a {
+  color: var(--text);
+}
+
+.next-up-title a:hover {
+  color: var(--starlight);
+}
+
+.next-up-reason {
+  margin: var(--space-3) 0 0;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+
+.tempo-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.tempo-progress .bar {
+  flex: 1;
+  max-width: 220px;
+}
+
+.today-row-title {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.today-row-title:hover {
+  color: var(--starlight);
+}

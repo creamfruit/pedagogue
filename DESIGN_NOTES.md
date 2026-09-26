@@ -270,3 +270,29 @@ saves the second 50px bar on every page.
 
 **4. Settings** (`/settings`) edits what onboarding collected once and never let you change: display name, level,
 years playing, hand span (with a hint explaining how to measure it), and profile visibility.
+
+## Today (was Dashboard)
+
+**Before:** four vanity numbers first, then a load panel, then a list of *learning* pieces only (polishing ones
+were missing). Nothing told you what to do.
+
+**After, ordered by "what now?":**
+1. **Next up**, the largest, orange-framed card: the in-progress piece you've gone longest without practising.
+   Never-practised pieces come first, and ties go to the easier piece.
+   - It says *why* ("Not practised yet", "Last practised 9 days ago", "starting to drift") and shows tempo
+     progress when you've set a target.
+   - Two actions: Open piece, Start a session.
+   - This is spaced repetition in miniature. It needs only `last_practiced_at`, which every entry already has.
+2. **This week** beside it: minutes logged, the load-guard meter and stretch warnings. This is where Phase 17's
+   streak goes, since both answer "how is my week going?".
+3. **In progress**: learning and polishing pieces, with the composer, when you last practised, and a tempo bar.
+   It links to the full repertoire.
+4. **Needs attention**, shown only when non-empty: drifting or frozen pieces, and pieces waiting on a
+   verification take, each with the one action that fixes it.
+5. **The stats strip, last.** Totals are nice to know but not a reason to open the app.
+
+- **"Active" means the same thing everywhere:** learning and polishing, matching the backend's `active` stat.
+  The first draft counted performance-ready pieces too, so the page said "6 in progress" above a strip saying
+  "Active 4".
+- Performance-ready pieces are in maintenance, so they surface under *Needs attention* when they drift, not in
+  the in-progress list.
