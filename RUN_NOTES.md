@@ -1617,3 +1617,111 @@ than Observatory: it's about your data, not the sky.
   success toast. No console errors.
 - **Not verified:** opening the file in Tableau itself, since Tableau isn't installed here. The file was
   validated by reading it back with the Hyper API, which is the engine Tableau uses.
+
+### Phase 25 — Duet mode: design options memo (not built, as asked)
+
+The goal: an AI-played second part, synchronised with the user playing their part, live or recorded. This is an
+assessment of what exists, what's missing, and the options, so the scoping session can start from decisions, not
+discovery.
+
+#### What the codebase has today (checked, not assumed)
+
+- **Score data is the binding constraint.**
+  - No catalogue piece has a full score.
+  - What exists is short notation JSON: passage excerpts (roughly 8–32 bars, and at least two are still
+    placeholders: Pas de deux bars 1–8 and Mephisto bars 111–142, flagged in Phase 11), the forge and
+    sight-reading generators' output, and the Phase 20 daily snippets.
+  - The shape is `{key, time, tempo_bpm, measures: [{notes: [...], left: [...]}]}`. Each event has
+    `pitches`/`pitch`, `duration` (s/e/q/h/w) and an optional `tuplet: 3`, with two voices (`notes` = right hand,
+    `left` = left hand).
+  - There are no dynamics, articulations, pedalling or tempo changes, and no ties across bars.
+- **`synth.js`:**
+  - `playNotation()` schedules triangle-wave oscillators on its **own new AudioContext**, at one fixed
+    `tempo_bpm`, from a precomputed timeline. Bar callbacks use `setTimeout`.
+  - Phase 19 added a shared `audioContext()` and a `click()` voice, and `metronome.js` has a proper look-ahead
+    scheduler (25ms tick, 120ms horizon) on the audio clock.
+  - Nothing can change tempo mid-playback, start from a bar, or follow external timing.
+- **`notation.js`:** it engraves both voices, and has a `highlight {measure, note}` ring (Phase 20). It can already
+  show "you are here" if something tells it where "here" is.
+- **Listening:** the Practice "live listening" mode is a label only. There's no `getUserMedia`, no pitch or onset
+  detection in the client, and server-side audio analysis explicitly says "transcription and score alignment not
+  yet wired". Recorded takes carry an optional `tempo_curve`, compared against a reference
+  curve for the interpretation score.
+
+#### Decision 1: where the second part comes from
+
+| Option | What it is | Pros | Cons |
+|---|---|---|---|
+| **A. Pre-authored accompaniment** | A second-part notation JSON per duet-enabled piece or passage, written by hand, from public-domain editions, or by importing MusicXML, e.g. teacher primo/secondo parts. | Musically correct; the only option that sounds like the piece | Content work per piece; needs a MusicXML→notation importer (none exists); licensing care for editions |
+| **B. Algorithmic from the user's part** | Generate a part from the passage: bass line from the left-hand roots, block or broken chords from harmonic analysis, a drone, or a rhythmic pulse. | Works for every passage and every generated snippet today; no content cost | Needs harmonic analysis (none exists); sounds generic; wrong for pieces with a real ensemble part (concertos, the Nutcracker) |
+| **C. "Other hand" duet** | The AI plays the *other hand* of the existing two-voice notation while the user plays one. | **Zero new content**: both voices already exist; ideal for hands-separate practice | Not a true duet; limited by the short excerpts |
+| **D. Claude-authored part** | Ask Claude, through the Phase 13 AI ledger (once per subject, persisted), to write a secondo in the notation JSON schema, validated against the passage's bars and key | Scales like B, reads more musically than rules | Needs strict validation and a human-review flag; can't claim authenticity; still limited by excerpt length |
+
+**Recommendation:** ship **C first**, since it needs only playback and sync work. Add **A** for a small curated
+set, beginning with the concerto passages, where a real second part exists and matters. Treat **B/D** as a later
+"jam along with any snippet" feature. All four produce the same notation JSON, so the playback and sync layer is
+shared.
+
+#### Decision 2: how the AI part keeps time with the user
+
+1. **Fixed tempo, count-in (the user follows the machine).**
+   - The metronome's look-ahead scheduler plays the part at a chosen tempo after a one-bar count-in, and the
+     user keeps up.
+   - This is simple and robust: essentially `playNotation` rebuilt on the shared context plus the Phase 19
+     scheduler, with a start bar and a tempo slider.
+   - It's the right first build, and it also serves as the "practice at 70%" tool.
+2. **Tap- or pedal-driven (the user conducts).**
+   - The user taps a key or foot pedal (Bluetooth page-turners send key events) on each beat, and the scheduler
+     re-estimates tempo from the taps (`bpmFromTaps` already exists).
+   - The part stays in time with a human without any audio analysis.
+3. **Score following from the microphone (the machine follows the user).**
+   - Onset and pitch detection on the live mic, aligned to the user's expected notes with online DTW or an
+     HMM-style follower.
+   - The accompanist's position and tempo are nudged towards the estimate, smoothed so it never jumps, and it
+     waits at fermatas.
+   - This is the "real" duet partner, and by far the most work.
+   - Browser-side it needs `getUserMedia` plus an AudioWorklet for onset detection. A small WASM pitch tracker is
+     more reliable than raw autocorrelation for piano chords.
+   - Latency has to be measured and compensated per device: roughly 20–60ms round trip on laptops, often worse
+     over Bluetooth output.
+4. **Recorded take, aligned afterwards.**
+   - The user uploads a take, and the server aligns it to the score and returns a beat map, which the existing
+     `tempo_curve` shape could carry.
+   - The AI part is rendered to follow that map, so the user hears "your take plus the other part".
+   - There's no real-time constraint, and it reuses the submission pipeline, but it needs the server-side
+     transcription and alignment that the analyzers say isn't wired yet.
+
+**Recommendation:** build 1, then 2, as the first duet release. Treat 3 as its own project, with a spike to
+measure latency and detection accuracy on real pianos first. Plan 4 alongside the grading pipeline, since the same
+alignment work unlocks score-aware grading.
+
+#### What can be reused, and what has to change
+
+- **Reuse as-is:**
+  - `notation.js` rendering of both voices, and `highlight`, to show the follower's position.
+  - The notation JSON schema.
+  - `metronome.js`'s look-ahead scheduler pattern and `bpmFromTaps`.
+  - `synth.js`'s `audioContext()` and `pitchToFrequency`.
+  - The Phase 13 AI ledger, for option D.
+  - Passage and sight-reading endpoints as the content source.
+- **Must change in `synth.js`:**
+  - Move `playNotation` onto the shared context (it currently creates a new context per call, which can't share a
+    clock with the metronome or a follower).
+  - Replace the precomputed timeline with a **scheduler over a beat position**, so tempo can change mid-play.
+  - Add start-from-bar, per-voice mute (for C), and a softer, pianistic voice (the triangle wave reads as a
+    chiptune next to a real piano; a small sampled-piano soundfont or additive partials with a decay envelope).
+  - Replace `setTimeout` bar callbacks with audio-clock callbacks, the way the metronome's lights already work.
+- **New:** a duet session view on Practice (part picker, tempo, count-in, follow mode). For 3: a mic permission
+  flow, a latency calibration step (play a click, detect it), and a follower module.
+- **Content:** decide which pieces get an authored part (A). If they come from MusicXML, a converter becomes the
+  first backend task. The "Not verified" placeholder passages must be replaced before any of them become duet
+  material.
+
+#### Open questions for the scoping session
+
+- Should duets be *practice* (hands-separate, slowed down) or *performance* (a real partner)? The answer decides
+  between C/1 and A/3.
+- Which ten pieces or passages first, and who authors the parts?
+- Is a sampled piano acceptable, given download size and licensing, or should the voice stay synthesised?
+- Does a duet take count as a graded submission (Phase 9 recordings)? If so, the AI part must be removable from the
+  recording, which means a headphones-only mode or a separate stem.
