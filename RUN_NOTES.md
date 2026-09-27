@@ -1568,3 +1568,52 @@ your say-so, because deploys may rely on the current behaviour.
     banner to 1/5.
   - Ending the shower cleared it; the caught piece keeps `meteor: true` in the graph.
   - Screenshots at 1280 and 390px, where the cluster label is clamped inside the canvas. No console errors.
+
+### Phase 24 — Tableau .hyper export
+
+**Endpoint:** `GET /api/v1/export/tableau` (signed-in user only). It returns
+`piano-pedagogue-YYYY-MM-DD.hyper` as an attachment (`application/vnd.tableau.hyper`).
+- Built with **`tableauhyperapi`**, which is now in `requirements.txt` (`>=0.0.19`). No Tableau licence is needed
+  to write the file. Installed and tested here on Python 3.13 / Windows.
+- **How it's built:** the data is read asynchronously, then the Hyper file is written in a thread pool, since the
+  Hyper process API is blocking. It goes into a per-request temp directory, which also holds Hyper's own logs, so
+  no `hyperd.log` lands in the working directory. The directory is deleted after the response is sent.
+- If the package isn't installed on a server, the endpoint returns **503** with a clear message, not a 500.
+
+**Tables** (schema `Extract`, all columns nullable, timestamps as `timestamp_tz`):
+
+| Table | Grain | Columns |
+|---|---|---|
+| `practice_sessions` | session | id, started/ended, mode, duration and logged minutes, piece count, perceived tension |
+| `practice_items` | piece within session | session id, start, entry id, title, minutes, load units |
+| `submissions` | submission | id, date, entry, title, type, status, duration, full-run/verification flags, **overall score, tempo stability, restarts, memory slips** (joined from readiness scores) |
+| `repertoire` | entry | piece, composer, era, genre, **status, difficulty**, top-ten, started/completed, last practised, tempos, verified, custom, caught-in-meteor-shower |
+| `technique_mastery` | technique | name, category, **tier**, proficiency, self-rating, strength/weakness flags, updated |
+| `wallet_history` | ledger entry | date, reason, detail, XP change, gold change, **XP earned to date, gold balance** |
+
+**Judgment call: running totals are anchored to the wallet.** `wallet_history`'s running columns are offset so
+that the *last* row equals the wallet's actual lifetime XP and gold balance, as shown in the app. Summing the
+ledger from zero would diverge from the wallet if a balance ever changed outside the ledger.
+- On the scratch account it did diverge, by 300 XP and 90 gold. I checked the code: the only two writers,
+  `award` and `spend`, both update the wallet in the same transaction. So I put the gap down to my own earlier
+  test manipulations of that scratch account, not an app bug.
+- The anchoring keeps the export honest either way: any difference shows up as an opening balance on the first
+  row, rather than as a final number that disagrees with the app.
+
+**UI:** a new **Settings › Your data** section, with a "Download for Tableau (.hyper)" button (it shows
+"Preparing…" while the file builds) and a "What's in the file" reveal listing the six tables. It downloads through
+an authenticated fetch into a blob, taking the filename from `Content-Disposition`. I put it in Settings rather
+than Observatory: it's about your data, not the sky.
+
+**Verification**:
+- build ✔, pytest ✔. The new `test_tableau_export.py` covers:
+  - value flattening;
+  - a round trip of every column type plus an all-null row, and an empty table, read back through Hyper;
+  - cleanup of the temp directory;
+  - on the scratch DB, the six-table set and running totals anchored to the wallet.
+- Live: the endpoint returned 200 with the attachment headers, and reading the file back through Hyper gave 10
+  repertoire, 74 practice sessions, 74 items, 3 submissions, 17 techniques and 18 ledger rows.
+- In the browser, the Settings button downloaded `piano-pedagogue-2026-09-27.hyper` (128 KB) and showed the
+  success toast. No console errors.
+- **Not verified:** opening the file in Tableau itself, since Tableau isn't installed here. The file was
+  validated by reading it back with the Hyper API, which is the engine Tableau uses.

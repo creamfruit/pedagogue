@@ -16,5 +16,6 @@ pymupdf>=1.24
 httpx>=0.27
 anthropic>=1.8,<2
 tzdata>=2024.1
+tableauhyperapi>=0.0.19
 pytest>=8.0
 pytest-asyncio>=0.23

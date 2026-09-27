@@ -127,6 +127,37 @@ export async function request(path, { method = "GET", body, params, form, signal
   return data;
 }
 
+export async function download(path, fallbackName) {
+  const headers = {};
+  const token = tokenStore.get();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  let response;
+  try {
+    response = await fetch(buildUrl(path), { headers });
+  } catch {
+    throw new ApiError(0, "you appear to be offline");
+  }
+  if (!response.ok) {
+    const data = await parse(response);
+    if (response.status === 401) {
+      tokenStore.clear();
+      notifyUnauthorized();
+    }
+    throw new ApiError(response.status, extractDetail(data, response.status), data);
+  }
+  const disposition = response.headers.get("content-disposition") || "";
+  const name = disposition.match(/filename="?([^";]+)"?/)?.[1] || fallbackName;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return name;
+}
+
 export const api = {
   get: (path, params, options) => request(path, { ...options, params }),
   post: (path, body, options) => request(path, { ...options, method: "POST", body }),
@@ -204,6 +235,7 @@ export const api = {
   constellation: (params) => request("/progression/constellation", { params }),
   familyTree: () => request("/progression/constellation/family-tree"),
   practiceDna: () => request("/progress/practice-dna"),
+  exportTableau: () => download("/export/tableau", "piano-pedagogue.hyper"),
   meteorShower: () => request("/meteor-showers/current"),
   catchMeteor: (showerId, pieceId) => request(`/meteor-showers/${showerId}/catch`, { method: "POST", body: { piece_id: pieceId } }),
   friendConstellation: (friendId, params) =>

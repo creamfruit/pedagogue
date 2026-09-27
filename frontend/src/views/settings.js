@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { el, sectionBlock } from "../lib/dom.js";
+import { el, reveal, sectionBlock } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 
@@ -211,6 +211,49 @@ function socialSection() {
   );
 }
 
+function dataSection() {
+  const button = el(
+    "button",
+    {
+      type: "button",
+      class: "btn btn-small",
+      onclick: async () => {
+        button.disabled = true;
+        const label = button.textContent;
+        button.textContent = "Preparing…";
+        try {
+          const name = await api.exportTableau();
+          notify.success(`Downloaded ${name}`);
+        } catch (error) {
+          notify.error(error.detail || error.message || "Could not build the export");
+        } finally {
+          button.disabled = false;
+          button.textContent = label;
+        }
+      },
+    },
+    "Download for Tableau (.hyper)"
+  );
+  const tables = [
+    ["practice_sessions", "one row per session: start, end, mode, minutes"],
+    ["practice_items", "minutes per piece within each session"],
+    ["submissions", "recordings and other submissions, with graded scores"],
+    ["repertoire", "every piece with its status, difficulty and dates"],
+    ["technique_mastery", "your tier and proficiency in each technique"],
+    ["wallet_history", "every XP and gold change, with running totals"],
+  ];
+  const list = reveal("What's in the file", () =>
+    el("ul", { class: "flat-list", style: "font-size:13px" }, ...tables.map(([name, what]) => el("li", { class: "flat-row" }, el("span", { class: "mono" }, name), el("span", { class: "faint" }, what))))
+  );
+  return sectionBlock(
+    "Your data",
+    { caption: "A Tableau extract of your practice history. Open it in Tableau Desktop or Public (no licence is needed to create the file)." },
+    el("div", { style: "margin-bottom:var(--space-3)" }, button),
+    list.button,
+    list.region
+  );
+}
+
 function accountSection() {
   return sectionBlock(
     "Account",
@@ -228,7 +271,7 @@ function accountSection() {
 }
 
 export async function settingsView(outlet) {
-  const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), accountSection()];
+  const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), dataSection(), accountSection()];
   outlet.append(
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),
     el("div", { class: "settings-stack" }, ...sections.filter(Boolean))
