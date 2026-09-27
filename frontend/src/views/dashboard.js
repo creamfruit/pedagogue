@@ -156,6 +156,24 @@ function attentionRow(entry) {
   );
 }
 
+function rouletteCard() {
+  const body = el("div", {}, skeletonBlock(1));
+  const card = sectionBlock("Daily roulette", { caption: "Today's shared sight-reading snippet." }, body);
+  api
+    .rouletteToday()
+    .then(({ snippet, attempt }) => {
+      const what = `${snippet.category.replace(/_/g, " ")} · difficulty ${snippet.difficulty.toFixed(1)}`;
+      body.replaceChildren(
+        attempt?.finished
+          ? el("p", { style: "margin:0 0 var(--space-3)" }, `You scored ${attempt.score} (${attempt.correct}/${attempt.total}). New snippet tomorrow.`)
+          : el("p", { class: "muted", style: "margin:0 0 var(--space-3)" }, what),
+        el("a", { class: attempt?.finished ? "btn btn-small btn-ghost" : "btn btn-small", href: "/roulette", "data-link": true }, attempt?.finished ? "See standings" : "Play today's")
+      );
+    })
+    .catch(() => card.remove());
+  return card;
+}
+
 function statsStrip(stats) {
   const cell = (label, value) => el("div", { class: "summary-cell" }, el("div", { class: "stat-label" }, label), el("div", { class: "stat" }, value));
   const average =
@@ -216,6 +234,7 @@ export async function dashboardView(outlet) {
       "div",
       { class: "today-lists" },
       inProgress,
+      rouletteCard(),
       attention.length
         ? sectionBlock("Needs attention", { caption: "Pieces fading from your sky or waiting on a verification take." }, el("ul", { class: "flat-list" }, ...attention.slice(0, 6).map(attentionRow)))
         : null

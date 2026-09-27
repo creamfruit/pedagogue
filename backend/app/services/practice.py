@@ -184,7 +184,9 @@ class PracticeSessionService(BaseService):
         practice.close(perceived_tension)
         await self.session.flush()
         await self.economy.reward_practice(user, practice.logged_minutes, practice.id)
-        await StreakService(self.session).award_bonus(user, practice)
+        streaks = StreakService(self.session)
+        await streaks.award_bonus(user, practice)
+        await streaks.record_week(user, practice)
         await self.achievements.evaluate(user)
         return await self.get(user, practice.id)
 

@@ -44,10 +44,17 @@ async def generate_coach_feedback(submission_id: uuid.UUID | str) -> Optional[st
     return await run(submission_id)
 
 
+async def generate_daily_snippet(day: Optional[str] = None) -> Optional[str]:
+    from app.services.roulette import generate_daily_snippet as run
+
+    return await run(day)
+
+
 JOBS: dict[str, Callable[..., Awaitable[Any]]] = {
     "process_submission": process_submission,
     "generate_piece_metadata": generate_piece_metadata,
     "generate_coach_feedback": generate_coach_feedback,
+    "generate_daily_snippet": generate_daily_snippet,
 }
 
 
@@ -118,7 +125,16 @@ def _arq_job(name: str):
     return job
 
 
+def _cron_jobs() -> list:
+    try:
+        from arq import cron
+    except ImportError:
+        return []
+    return [cron(_arq_job("generate_daily_snippet"), hour=0, minute=0, second=5)]
+
+
 class WorkerSettings:
     functions = [_arq_job(name) for name in JOBS]
+    cron_jobs = _cron_jobs()
     max_jobs = 4
     job_timeout = 900

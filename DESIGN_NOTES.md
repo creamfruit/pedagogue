@@ -394,3 +394,11 @@ were missing). Nothing told you what to do.
 
 - The metronome sits **beside the session card** at the top of Practice (a two-column grid on wide screens). Timing tools belong next to the thing you are timing, not below the fold.
 - The ambient room is a **header toggle** (a pill with a status dot), not a panel. It changes the whole page rather than adding content. When on it uses starlight, per the "selected/on = starlight" rule; the downbeat light is yellow, the other beats starlight.
+
+## Phase 20 — Leaderboards and roulette
+
+- **Leaderboards live in Progress** as a tab after Pathways. A ranking is progress relative to others, so it doesn't get a top-level nav item. The top bar stays at six.
+- **The Today card** for the roulette sits between In progress and Needs attention. It is a one-line daily invitation, and becomes "You scored N · See standings" once played.
+- **Standings** are a quiet ranked list (rank, name, detail, score, in monospace for numbers). Your own row is tinted starlight, per the "selected/you = starlight" rule. There are no podium colours: gold/yellow means reward in this app, and ranking isn't a reward.
+- **The ringed note** in the roulette is yellow: a "look here" mark that is not an action (orange) or a selection (starlight).
+- **Friends and opt-in** are one Settings section. The opt-in checkbox comes first, because it governs everything below it.

@@ -106,6 +106,19 @@ class StreakService(BaseService):
         today = datetime.now(zone_for(user)).date()
         return compute_streak(await self.minutes_by_day(user), today)
 
+    async def record_week(self, user: User, practice: PracticeSession) -> None:
+        from app.services.leaderboard import LeaderboardService, practice_week_board
+
+        zone = zone_for(user)
+        day = local_day(practice.started_at, zone)
+        start = day - timedelta(days=day.weekday())
+        minutes = await self.minutes_by_day(user)
+        total = sum(value for when, value in minutes.items() if start <= when < start + timedelta(days=7))
+        stats = compute_streak(minutes, datetime.now(zone).date())
+        await LeaderboardService(self.session).submit(
+            practice_week_board(day), user, total, {"minutes": total, "streak": stats.current}, keep="replace"
+        )
+
     async def award_bonus(self, user: User, practice: PracticeSession) -> Optional[LedgerEntry]:
         from app.services.economy import EconomyService
 

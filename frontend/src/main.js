@@ -12,6 +12,7 @@ import { practiceView } from "./views/practice.js";
 import { progressView } from "./views/progress.js";
 import { settingsView } from "./views/settings.js";
 import { tierRetakeView } from "./views/tierRetake.js";
+import { rouletteView } from "./views/roulette.js";
 import { shopView } from "./views/shop.js";
 import { notFoundView } from "./views/notfound.js";
 
@@ -29,6 +30,7 @@ route("/progression", progressView);
 route("/performances", progressView);
 route("/settings", settingsView);
 route("/settings/tiers", tierRetakeView);
+route("/roulette", rouletteView);
 route("/observatory", shopView);
 route("/login", loginView, { public: true });
 route("/register", registerView, { public: true });

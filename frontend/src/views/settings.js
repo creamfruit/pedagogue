@@ -122,6 +122,95 @@ function tiersSection() {
   );
 }
 
+function friendRow(item, actions) {
+  return el("li", { class: "flat-row" }, el("span", {}, item.name), el("div", { class: "row", style: "gap:var(--space-2)" }, ...actions));
+}
+
+function socialSection() {
+  const optIn = el("input", { type: "checkbox", checked: store.user?.leaderboard_opt_in || null });
+  optIn.addEventListener("change", async () => {
+    optIn.disabled = true;
+    try {
+      store.setUser(await api.updateProfile({ leaderboard_opt_in: optIn.checked }));
+      notify.success(optIn.checked ? "You'll appear on leaderboards" : "You're hidden from leaderboards");
+    } catch (error) {
+      optIn.checked = !optIn.checked;
+      notify.error(error.detail || "Could not save that");
+    } finally {
+      optIn.disabled = false;
+    }
+  });
+  const email = el("input", { type: "email", placeholder: "friend@example.com", "aria-label": "Friend's email" });
+  const lists = el("div", { class: "stack", style: "gap:var(--space-3)" });
+
+  async function refresh() {
+    try {
+      const view = await api.friends();
+      const act = (label, run, ghost = true) =>
+        el(
+          "button",
+          {
+            type: "button",
+            class: `btn btn-small${ghost ? " btn-ghost" : ""}`,
+            onclick: async () => {
+              try {
+                await run();
+                await refresh();
+              } catch (error) {
+                notify.error(error.detail || "That didn't work");
+              }
+            },
+          },
+          label
+        );
+      const block = (title, items, actions) =>
+        items.length ? el("div", {}, el("div", { class: "stat-label" }, title), el("ul", { class: "flat-list" }, ...items.map((item) => friendRow(item, actions(item))))) : null;
+      lists.replaceChildren(
+        ...[
+          block("Requests for you", view.incoming, (item) => [act("Accept", () => api.respondFriend(item.id, "accept"), false), act("Decline", () => api.respondFriend(item.id, "decline"))]),
+          block("Friends", view.friends, (item) => [act("Remove", () => api.removeFriend(item.id))]),
+          block("Waiting for a reply", view.outgoing, (item) => [act("Cancel", () => api.removeFriend(item.id))]),
+        ].filter(Boolean)
+      );
+      if (!lists.children.length) lists.append(el("p", { class: "faint", style: "margin:0;font-size:13px" }, "No friends yet."));
+    } catch (error) {
+      lists.replaceChildren(el("p", { class: "faint" }, error.detail || "Could not load friends."));
+    }
+  }
+
+  const send = el(
+    "button",
+    {
+      type: "submit",
+      class: "btn btn-small",
+      onclick: async (event) => {
+        event.preventDefault();
+        if (!email.value.trim()) return;
+        send.disabled = true;
+        try {
+          const reply = await api.requestFriend(email.value.trim());
+          notify.success(reply.detail);
+          email.value = "";
+          await refresh();
+        } catch (error) {
+          notify.error(error.detail || "Could not send that");
+        } finally {
+          send.disabled = false;
+        }
+      },
+    },
+    "Send request"
+  );
+  refresh();
+  return sectionBlock(
+    "Friends & leaderboards",
+    { caption: "Friends see each other's constellations (per your visibility setting) and share leaderboards. Nobody appears on a leaderboard unless they opt in." },
+    el("label", { class: "check-label", style: "margin-bottom:var(--space-4)" }, optIn, "Show me on leaderboards"),
+    el("form", { class: "row", style: "margin-bottom:var(--space-4);flex-wrap:nowrap" }, email, send),
+    lists
+  );
+}
+
 function accountSection() {
   return sectionBlock(
     "Account",
@@ -139,7 +228,7 @@ function accountSection() {
 }
 
 export async function settingsView(outlet) {
-  const sections = [profileSection(), tiersSection(), remindersSection(), accountSection()];
+  const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), accountSection()];
   outlet.append(
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),
     el("div", { class: "settings-stack" }, ...sections.filter(Boolean))

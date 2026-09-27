@@ -1,6 +1,7 @@
 import { el, tabs } from "../lib/dom.js";
 import { navigate } from "../router.js";
 import { growthView } from "./growth.js";
+import { leaderboardsView } from "./leaderboards.js";
 import { performancesView } from "./performances.js";
 import { progressionView } from "./progression.js";
 
@@ -16,6 +17,12 @@ const TABS = [
     label: "Pathways",
     caption: "Pick a piece you want to play and the engine works backwards from it.",
     render: (host) => progressionView(host, { embedded: true }),
+  },
+  {
+    id: "leaderboards",
+    label: "Leaderboards",
+    caption: "Today's sight-reading roulette and this week's practice, among friends or everyone who's opted in.",
+    render: (host) => leaderboardsView(host),
   },
   {
     id: "performances",

@@ -177,6 +177,7 @@ class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     hand_span_cm: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
     nudge_after_days: Mapped[int] = mapped_column(SmallInteger, default=3, server_default="3")
+    leaderboard_opt_in: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     profile_visibility: Mapped[ProfileVisibility] = mapped_column(
         pg_enum(ProfileVisibility, "profile_visibility"),
         default=ProfileVisibility.FRIENDS,
@@ -1476,3 +1477,40 @@ class AIGeneration(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     input_tokens: Mapped[Optional[int]] = mapped_column(Integer)
     output_tokens: Mapped[Optional[int]] = mapped_column(Integer)
     completed_at: Mapped[Optional[datetime]]
+
+
+class LeaderboardEntry(Base):
+    __tablename__ = "leaderboard_entries"
+
+    board: Mapped[str] = mapped_column(String(60), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
+    score: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    detail: Mapped[Optional[dict[str, Any]]]
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    user: Mapped[User] = relationship()
+
+
+class DailySnippet(Base):
+    __tablename__ = "daily_snippets"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    seed: Mapped[int] = mapped_column(BigInteger)
+    category: Mapped[str] = mapped_column(String(40))
+    difficulty: Mapped[Decimal] = mapped_column(Numeric(3, 1))
+    notation: Mapped[dict[str, Any]]
+    quiz: Mapped[list[Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class RouletteAttempt(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "roulette_attempts"
+    __table_args__ = (UniqueConstraint("day", "user_id", name="uq_roulette_attempts_day_user"),)
+
+    day: Mapped[date] = mapped_column(ForeignKey("daily_snippets.day", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    started_at: Mapped[datetime]
+    finished_at: Mapped[Optional[datetime]]
+    answers: Mapped[Optional[list[Any]]] = mapped_column(JSONB)
+    result: Mapped[Optional[dict[str, Any]]]
+    score: Mapped[Optional[int]] = mapped_column(Integer)

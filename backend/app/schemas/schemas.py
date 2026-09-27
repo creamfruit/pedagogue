@@ -72,6 +72,7 @@ class UserRead(ORMModel):
     profile_visibility: ProfileVisibility
     timezone: str = "UTC"
     nudge_after_days: int = 3
+    leaderboard_opt_in: bool = False
     tier_quiz_completed_at: Optional[datetime] = None
     created_at: datetime
 
@@ -85,6 +86,7 @@ class ProfileUpdate(BaseModel):
     profile_visibility: Optional[ProfileVisibility] = None
     timezone: Optional[str] = Field(default=None, max_length=64)
     nudge_after_days: Optional[int] = Field(default=None, ge=0, le=30)
+    leaderboard_opt_in: Optional[bool] = None
 
     @field_validator("timezone")
     @classmethod

@@ -9,6 +9,7 @@ from app.api.v1 import (
     practice,
     progression,
     repertoire,
+    social,
     submissions,
 )
 
@@ -23,3 +24,4 @@ api_router.include_router(practice.router)
 api_router.include_router(coach.router)
 api_router.include_router(performance.router)
 api_router.include_router(economy.router)
+api_router.include_router(social.router)

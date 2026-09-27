@@ -94,7 +94,7 @@ function beatsOf(note) {
   return note.tuplet === 3 ? (beats * 2) / 3 : beats;
 }
 
-export function renderNotation(notation, { width: requestedWidth, staffGap = 46 } = {}) {
+export function renderNotation(notation, { width: requestedWidth, staffGap = 46, highlight = null } = {}) {
   const twoVoices = notation.hand === "both" || notation.measures.some((measure) => measure.left?.length);
   const hand = !twoVoices && (notation.hand === "right" || notation.hand === "left") ? notation.hand : null;
   const staves = hand ? [staffForEvent([], hand)] : ["treble", "bass"];
@@ -183,6 +183,11 @@ export function renderNotation(notation, { width: requestedWidth, staffGap = 46 
       }
       track(y - 5);
       track(y + 5);
+      if (event.highlight && step === Math.max(...event.steps)) {
+        track(y - 11);
+        track(y + 11);
+        layer.append(svg("circle", { cx: event.x, cy: y, r: 10, fill: "none", stroke: "var(--yellow)", "stroke-width": 2, class: "notation-highlight" }));
+      }
       layer.append(
         svg("ellipse", {
           cx: event.x,
@@ -283,13 +288,13 @@ export function renderNotation(notation, { width: requestedWidth, staffGap = 46 
           { notes: measure.left || [], hand: "left" },
         ]
       : [{ notes: measure.notes || [], hand }];
-    voices.forEach((voice) => drawVoice(voice, startX));
+    voices.forEach((voice, voiceIndex) => drawVoice(voice, startX, voiceIndex === 0 && highlight?.measure === measureIndex ? highlight.note : null));
   });
 
-  function drawVoice(voice, startX) {
+  function drawVoice(voice, startX, highlightIndex) {
     let cursor = 0;
     const events = [];
-    voice.notes.forEach((note) => {
+    voice.notes.forEach((note, noteIndex) => {
       const pitches = note.pitches || (note.pitch ? [note.pitch] : []);
       if (pitches.length) {
         events.push({
@@ -300,6 +305,7 @@ export function renderNotation(notation, { width: requestedWidth, staffGap = 46 
           duration: note.duration,
           tuplet: note.tuplet,
           beat: Math.floor(cursor + 1e-6),
+          highlight: noteIndex === highlightIndex,
         });
       }
       cursor += beatsOf(note);

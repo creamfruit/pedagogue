@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -27,7 +28,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("database reachable")
     except SQLAlchemyError:
         logger.exception("database unreachable at startup")
+    scheduler = None
+    if settings.job_queue != "redis":
+        from app.services.roulette import snippet_scheduler
+
+        scheduler = asyncio.create_task(snippet_scheduler())
     yield
+    if scheduler is not None:
+        scheduler.cancel()
     await dispose_engine()
     logger.info("engine disposed")
 
