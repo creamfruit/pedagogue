@@ -10,7 +10,7 @@ from app.services.notation import KEY_PITCH_CLASS, MAJOR_SCALE_STEPS, SightReadi
 
 SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 BEATS = {"s": 0.25, "e": 0.5, "q": 1.0, "h": 2.0, "w": 4.0}
-CATALOG_GAPS = {"Broken octaves"}
+CATALOG_GAPS = {"Double sixths"}
 
 
 def midi(pitch: str) -> int:
@@ -112,5 +112,5 @@ def test_every_technique_has_a_catalog_passage_except_known_gaps():
 
 def test_requested_examples_come_from_the_named_pieces():
     best = catalog_examples()
-    assert best["Double sixths"][2] == "Pas de deux, The Nutcracker"
     assert best["Wide leaps"][2] == "Mephisto Waltz No. 1"
+    assert best["Broken octaves"][2] == "Mephisto Waltz No. 1"

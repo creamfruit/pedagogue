@@ -452,21 +452,19 @@ PIECE_LORE = {
 }
 
 PASSAGES = {
-    "Pas de deux, The Nutcracker": [
-        ("The scale theme in sixths", 1, 8, 8.8,
-         "The descending-scale melody carried in right-hand sixths over a sweeping accompaniment. Every "
-         "sixth has to sing as one line, with the top voice leading and the lower note never poking out.",
-         "Play the top voice alone with the fingering you will use for the sixths, then add the lower note "
-         "without letting the melody change shape.",
-         [("Double sixths", 1.0), ("Melody over accompaniment", 0.7)]),
-    ],
+    "Pas de deux, The Nutcracker": [],
     "Mephisto Waltz No. 1": [
-        ("Right-hand chorus leaps", 111, 142, 9.6,
-         "The dance refrain thrown across the keyboard by the right hand alone: wide leaps landing on "
-         "accented chords at full speed, so the hand has to find each landing without looking.",
-         "Practise the jumps as silent landings first, touching the keys without sounding them, then add "
-         "sound once the distance is automatic.",
-         [("Wide leaps", 1.0), ("Repeated chords", 0.5)]),
+        ("Presto right-hand leaps", 767, 786, 9.6,
+         "In the Presto the right hand plays a single note and then leaps up to a double octave above it, "
+         "again and again at full speed, with a repeated chord closing every fourth bar.",
+         "Practise the jumps as silent landings first, touching the double octave without sounding it, then "
+         "add sound once the distance is automatic.",
+         [("Wide leaps", 1.0), ("Repeated chords", 0.4)]),
+        ("Descending broken octaves", 173, 181, 9.0,
+         "The right hand snaps each note to its upper octave in sixteenths, sliding down the keyboard over "
+         "repeated left-hand chords.",
+         "Block each pair as an octave first, then break it open while keeping the thumb light.",
+         [("Broken octaves", 1.0)]),
     ],
     "Invention No. 1 in C major": [
         ("The inverted stretto", 15, 18, 4.2,
@@ -573,19 +571,19 @@ PASSAGES = {
          [("Sustained endurance", 0.9), ("Blocked octaves", 0.5)]),
     ],
     "Etude in G-sharp minor, Double Thirds": [
-        ("Chromatic third ascent", 1, 8, 9.0,
-         "Chromatic double thirds from the first bar, quiet and fast, with every pair required to sound as "
-         "one attack.",
+        ("Opening trill in thirds", 1, 4, 9.0,
+         "The piece opens on a sotto voce trill in thirds, B–D♯ against C♯–E, repeated in even sixteenths "
+         "for four bars before anything moves.",
+         "Keep the wrist loose and the trill quiet; practise it in dotted rhythms before playing it even.",
+         [("Double thirds", 1.0), ("Trills", 0.8)]),
+        ("Chromatic third ascent", 5, 10, 9.2,
+         "Out of the trill the right hand climbs a chromatic scale in thirds over two octaves, trills again, "
+         "then climbs again even higher.",
          "Practise the upper voice legato and the lower staccato, then swap, so neither can hide.",
          [("Double thirds", 1.0)]),
-        ("The trill-in-thirds section", 33, 44, 9.4,
-         "Double thirds turning into trills in thirds, which removes even the forward motion that made the "
-         "earlier passages manageable.",
-         "Work in short bursts with full release between; this passage is where hands get injured.",
-         [("Double thirds", 1.0), ("Trills", 0.8)]),
-        ("Final chromatic descent", 61, 69, 9.2,
-         "The opening material inverted and driven downward to the close, with the hand tired and the tempo "
-         "at its highest.",
+        ("Final chromatic descent", 57, 60, 9.2,
+         "Near the end the thirds run chromatically down more than three octaves and settle back into the "
+         "opening trill, now low in the keyboard.",
          "Build it backwards from the last bar so the ending is the most secure part.",
          [("Double thirds", 1.0), ("Sustained endurance", 0.7)]),
     ],
