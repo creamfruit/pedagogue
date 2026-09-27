@@ -39,6 +39,15 @@ async def get_current_user(session: SessionDep, token: TokenDep) -> User:
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
+
+async def get_admin_user(user: CurrentUser) -> User:
+    if user.email.lower() not in settings.admin_emails:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin only")
+    return user
+
+
+AdminUser = Annotated[User, Depends(get_admin_user)]
+
 optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login", auto_error=False)
 
 

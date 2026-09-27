@@ -443,6 +443,7 @@ class ConstellationService(BaseService):
                     "is_verified": entry.is_verified or not entry.needs_verification,
                     "is_custom": piece.is_custom,
                     "decay": entry.decay_level,
+                    "meteor": entry.meteor_shower_id is not None,
                 }
             )
 

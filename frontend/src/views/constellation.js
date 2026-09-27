@@ -5,6 +5,9 @@ import { store } from "../lib/store.js";
 import { navigate } from "../router.js";
 import { familyTreeView } from "./familyTree.js";
 import { drawFigures, figureAt, layoutFigures, markNewFigures, toFigureSpace } from "../lib/achievementSky.js";
+import { deadline, formatCountdown, secondsUntil } from "../lib/countdown.js";
+import { clusterCentre, drawMeteors, layoutMeteors, meteorAt } from "../lib/meteorLayer.js";
+import { catchPiece, meteorBanner, rewardLine } from "./meteorBanner.js";
 import { forceCenter, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import {
   DRIFT,
@@ -135,27 +138,35 @@ export async function constellationView(outlet, context = {}) {
   let graph;
   let loadout = store.loadout;
   let achievements = [];
+  let showerView = null;
   try {
-    const [graphResult, loadoutResult, achievementResult] = await Promise.all([
+    const [graphResult, loadoutResult, achievementResult, showerResult] = await Promise.all([
       api.constellation({ threshold: 0.25 }),
       loadout ? Promise.resolve(loadout) : api.loadout().catch(() => null),
       api.achievements().catch(() => []),
+      api.meteorShower().catch(() => null),
     ]);
     graph = graphResult;
     loadout = loadoutResult || {};
     achievements = achievementResult || [];
+    showerView = showerResult;
   } catch (error) {
     loading.replaceChildren(empty(error.detail || "Could not load the constellation."));
     return;
   }
 
   loading.remove();
+  const reload = () => navigate(window.location.pathname + window.location.search, { replace: true });
+  const shower = showerView?.active || null;
+  const showerEnds = shower ? deadline(shower.seconds_left) : null;
+  const banner = meteorBanner(showerView, { onCaught: reload, onExpire: reload });
+  if (banner.node) outlet.append(banner.node);
   headline.textContent = `${graph.nodes.length} star${graph.nodes.length === 1 ? "" : "s"} · ${graph.links.length} connection${graph.links.length === 1 ? "" : "s"}`;
   outlet.append(wrap, detail);
 
   if (!graph.nodes.length) {
     wrap.replaceChildren(empty("Add pieces to your repertoire and they will appear here."));
-    return;
+    return banner.stop;
   }
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -293,6 +304,8 @@ export async function constellationView(outlet, context = {}) {
   let backdrop = [];
   let clock = 0;
   let figures = [];
+  let meteors = [];
+  let hoveredMeteor = null;
   let hoveredFigure = null;
   let figuresMarked = false;
 
@@ -369,6 +382,7 @@ export async function constellationView(outlet, context = {}) {
     seedPositions();
     seedBackdrop();
     figures = layoutFigures(achievements, width, height);
+    meteors = shower ? layoutMeteors(shower.pieces, width, height) : [];
     if (!figuresMarked) {
       figuresMarked = true;
       markNewFigures(figures);
@@ -618,6 +632,18 @@ export async function constellationView(outlet, context = {}) {
     ctx.globalAlpha = 1;
 
     drawRipples();
+    if (meteors.length) {
+      drawMeteors(ctx, meteors, {
+        colors,
+        clock,
+        reduceMotion,
+        hovered: hoveredMeteor,
+        k: transform.k,
+        label: `☄ ${shower.name.toUpperCase()} · ${formatCountdown(secondsUntil(showerEnds))}`,
+        centre: clusterCentre(width, height),
+        bounds: { left: -transform.x / transform.k, right: (width - transform.x) / transform.k },
+      });
+    }
 
     nodes.forEach((node) => {
       const speed = Math.hypot(node.vx || 0, node.vy || 0);
@@ -715,6 +741,12 @@ export async function constellationView(outlet, context = {}) {
       openLinkDetail(edge);
       return;
     }
+    const meteor = meteorAt(meteors, point, 14 / transform.k);
+    if (meteor) {
+      selectedLink = null;
+      openMeteorDetail(meteor);
+      return;
+    }
     const figure = figureUnder(event);
     if (figure) {
       selectedLink = null;
@@ -754,12 +786,14 @@ export async function constellationView(outlet, context = {}) {
 
     const found = nodeAt(point);
     const edge = found ? null : linkAt(point);
-    const figure = found || edge ? null : figureUnder(event);
-    if (found !== hovered || edge !== hoveredLink || figure !== hoveredFigure) {
+    const meteor = found || edge ? null : meteorAt(meteors, point, 14 / transform.k);
+    const figure = found || edge || meteor ? null : figureUnder(event);
+    if (found !== hovered || edge !== hoveredLink || figure !== hoveredFigure || meteor !== hoveredMeteor) {
       hovered = found;
       hoveredLink = edge;
       hoveredFigure = figure;
-      canvas.style.cursor = found || edge || figure ? "pointer" : "grab";
+      hoveredMeteor = meteor;
+      canvas.style.cursor = found || edge || figure || meteor ? "pointer" : "grab";
       draw();
     }
   });
@@ -795,6 +829,32 @@ export async function constellationView(outlet, context = {}) {
     }
   }
 
+  function openMeteorDetail(meteor) {
+    const { piece } = meteor;
+    const left = el("span", { class: "mono" }, formatCountdown(secondsUntil(showerEnds)));
+    const button = el(
+      "button",
+      {
+        type: "button",
+        class: "btn btn-small",
+        onclick: async () => {
+          button.disabled = true;
+          await catchPiece(shower, piece, reload);
+          button.disabled = false;
+        },
+      },
+      "Catch it"
+    );
+    showDrawer(
+      el("div", { class: "stat-label", style: "color:var(--orange)" }, `Meteor shower · ${shower.name}`),
+      el("h2", { style: "margin:6px 0 4px" }, piece.title),
+      el("p", { class: "muted", style: "margin:0 0 var(--space-3)" }, [piece.composer, piece.era, piece.difficulty !== null ? `difficulty ${Math.round(piece.difficulty)}` : null].filter(Boolean).join(" · ")),
+      el("p", { style: "margin:0 0 var(--space-2);font-size:13.5px" }, `Catch it to add it to your repertoire: ${rewardLine(shower)}.`),
+      el("p", { class: "faint", style: "margin:0 0 var(--space-4);font-size:12.5px" }, "Gone from the sky in ", left, ". It stays in the catalogue afterwards, just without the bonus."),
+      button
+    );
+  }
+
   function openFigureDetail(figure) {
     const { achievement } = figure;
     const earned = achievement.earned_at ? new Date(achievement.earned_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : null;
@@ -817,6 +877,7 @@ export async function constellationView(outlet, context = {}) {
       node.is_custom ? el("span", { class: "pill pill-custom" }, "custom") : null,
       node.is_verified === false ? el("span", { class: "pill pill-unverified" }, "needs verification") : null,
       node.decay >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen · needs maintenance") : null,
+      node.meteor ? el("span", { class: "pill pill-meteor" }, "☄ caught in a meteor shower") : null,
     ];
     const actions = [
       el("a", { class: "btn btn-small", href: `/repertoire/${node.entry_id}`, "data-link": true }, "Open piece"),
@@ -902,6 +963,7 @@ export async function constellationView(outlet, context = {}) {
   recentre();
 
   return () => {
+    banner.stop();
     simulation.stop();
     window.removeEventListener("resize", onResize);
     window.removeEventListener("blur", onBlur);

@@ -50,11 +50,18 @@ async def generate_daily_snippet(day: Optional[str] = None) -> Optional[str]:
     return await run(day)
 
 
+async def schedule_meteor_shower(hours: int = 48, count: int = 5) -> Optional[int]:
+    from app.services.meteor import schedule_meteor_shower as run
+
+    return await run(hours, count)
+
+
 JOBS: dict[str, Callable[..., Awaitable[Any]]] = {
     "process_submission": process_submission,
     "generate_piece_metadata": generate_piece_metadata,
     "generate_coach_feedback": generate_coach_feedback,
     "generate_daily_snippet": generate_daily_snippet,
+    "schedule_meteor_shower": schedule_meteor_shower,
 }
 
 
@@ -130,7 +137,10 @@ def _cron_jobs() -> list:
         from arq import cron
     except ImportError:
         return []
-    return [cron(_arq_job("generate_daily_snippet"), hour=0, minute=0, second=5)]
+    return [
+        cron(_arq_job("generate_daily_snippet"), hour=0, minute=0, second=5),
+        cron(_arq_job("schedule_meteor_shower"), weekday=4, hour=18, minute=0, second=0),
+    ]
 
 
 class WorkerSettings:

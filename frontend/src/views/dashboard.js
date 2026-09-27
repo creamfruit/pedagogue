@@ -1,4 +1,5 @@
 import { api } from "../api/client.js";
+import { deadline, formatCountdown, secondsUntil } from "../lib/countdown.js";
 import { el, empty, sectionBlock, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { daysSince, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { store } from "../lib/store.js";
@@ -156,6 +157,41 @@ function attentionRow(entry) {
   );
 }
 
+function meteorCard() {
+  const host = el("div", {});
+  api
+    .meteorShower()
+    .then((view) => {
+      const shower = view?.active;
+      if (!shower) return;
+      const left = el("span", { class: "mono" });
+      const until = deadline(shower.seconds_left);
+      const tick = () => {
+        left.textContent = formatCountdown(secondsUntil(until));
+        if (!host.isConnected) clearInterval(timer);
+      };
+      const timer = setInterval(tick, 1000);
+      tick();
+      host.replaceWith(
+        sectionBlock(
+          "☄ Meteor shower",
+          { caption: shower.name, className: "meteor-card" },
+          el(
+            "p",
+            { style: "margin:0 0 var(--space-3)" },
+            shower.open ? `${shower.open} bonus piece${shower.open === 1 ? "" : "s"} to catch, ` : "All caught. ",
+            "ends in ",
+            left,
+            "."
+          ),
+          el("a", { class: "btn btn-small", href: "/constellation", "data-link": true }, shower.open ? "Open the sky" : "See your sky")
+        )
+      );
+    })
+    .catch(() => host.remove());
+  return host;
+}
+
 function rouletteCard() {
   const body = el("div", {}, skeletonBlock(1));
   const card = sectionBlock("Daily roulette", { caption: "Today's shared sight-reading snippet." }, body);
@@ -234,6 +270,7 @@ export async function dashboardView(outlet) {
       "div",
       { class: "today-lists" },
       inProgress,
+      meteorCard(),
       rouletteCard(),
       attention.length
         ? sectionBlock("Needs attention", { caption: "Pieces fading from your sky or waiting on a verification take." }, el("ul", { class: "flat-list" }, ...attention.slice(0, 6).map(attentionRow)))

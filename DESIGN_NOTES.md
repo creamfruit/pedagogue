@@ -415,3 +415,10 @@ were missing). Nothing told you what to do.
 - **Reward = yellow, and a different mark.** Pieces are dots with halos. Achievements are four-point sparkles joined by dashed lines, the way a star chart draws a constellation figure. Shape carries the difference, so it survives the Baroque/Classical pieces also being yellow.
 - **Further back than your pieces** (a 0.6× parallax layer). Achievements are the backdrop of your sky, earned once and permanent. Pieces are the live, draggable foreground.
 - **Names are hidden until you hover**, except during a figure's first-appearance bloom. Eighteen always-on labels would crowd out the piece labels, which matter more.
+
+## Phase 23 — Meteor showers
+
+- **Orange, because catching is an action.** The banner, the meteor tails, the cluster label and the Today card are orange (action). Meteor heads are starlight, so they read as lights in the sky rather than buttons.
+- **The banner goes above the canvas, not inside it.** A countdown you have to find isn't a countdown. The canvas repeats it next to the cluster so the two are connected.
+- **Meteors are static**, unlike pieces. They're visitors, not part of your sky yet: once caught, they join the physics as a star.
+- **A list alternative** ("Catch from a list") sits in the banner, for keyboard and screen-reader users and for an empty sky.

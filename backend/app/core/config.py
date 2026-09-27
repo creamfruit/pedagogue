@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
 
+    admin_emails_raw: str = Field(default="", validation_alias=AliasChoices("ADMIN_EMAILS", "admin_emails_raw"))
     cors_origins_raw: str = Field(
         default="http://localhost:5173,http://localhost:4173",
         validation_alias=AliasChoices("CORS_ORIGINS", "cors_origins_raw"),
@@ -56,6 +57,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
+
+    @property
+    def admin_emails(self) -> set[str]:
+        return {email.strip().lower() for email in self.admin_emails_raw.split(",") if email.strip()}
 
     @property
     def is_production(self) -> bool:

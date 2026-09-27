@@ -593,6 +593,7 @@ class RepertoireEntry(UUIDPrimaryKeyMixin, Base):
     notes: Mapped[Optional[str]] = mapped_column(Text)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     last_practiced_at: Mapped[Optional[datetime]]
+    meteor_shower_id: Mapped[Optional[int]] = mapped_column(ForeignKey("meteor_showers.id", ondelete="SET NULL"), index=True)
 
     user: Mapped[User] = relationship(back_populates="repertoire")
     piece: Mapped[Piece] = relationship()
@@ -1339,6 +1340,7 @@ class LedgerReason(str, enum.Enum):
     PURCHASE = "purchase"
     ADJUSTMENT = "adjustment"
     STREAK_BONUS = "streak_bonus"
+    METEOR_CATCH = "meteor_catch"
 
 
 class CosmeticKind(str, enum.Enum):
@@ -1514,3 +1516,36 @@ class RouletteAttempt(UUIDPrimaryKeyMixin, Base):
     answers: Mapped[Optional[list[Any]]] = mapped_column(JSONB)
     result: Mapped[Optional[dict[str, Any]]]
     score: Mapped[Optional[int]] = mapped_column(Integer)
+
+
+class MeteorShower(IntPrimaryKeyMixin, Base):
+    __tablename__ = "meteor_showers"
+    __table_args__ = (
+        CheckConstraint("ends_at > starts_at", name="window_order"),
+        CheckConstraint("learn_multiplier >= 1", name="learn_multiplier_floor"),
+    )
+
+    name: Mapped[str] = mapped_column(String(80))
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    starts_at: Mapped[datetime] = mapped_column(index=True)
+    ends_at: Mapped[datetime] = mapped_column(index=True)
+    catch_xp: Mapped[int] = mapped_column(Integer, default=40, server_default="40")
+    catch_gold: Mapped[int] = mapped_column(Integer, default=25, server_default="25")
+    learn_multiplier: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("1.50"), server_default="1.50")
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    pieces: Mapped[list[MeteorShowerPiece]] = relationship(
+        back_populates="shower", cascade="all, delete-orphan", order_by="MeteorShowerPiece.position"
+    )
+
+
+class MeteorShowerPiece(Base):
+    __tablename__ = "meteor_shower_pieces"
+
+    shower_id: Mapped[int] = mapped_column(ForeignKey("meteor_showers.id", ondelete="CASCADE"), primary_key=True)
+    piece_id: Mapped[int] = mapped_column(ForeignKey("pieces.id", ondelete="CASCADE"), primary_key=True)
+    position: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
+
+    shower: Mapped[MeteorShower] = relationship(back_populates="pieces")
+    piece: Mapped[Piece] = relationship()

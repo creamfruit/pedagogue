@@ -204,6 +204,8 @@ export const api = {
   constellation: (params) => request("/progression/constellation", { params }),
   familyTree: () => request("/progression/constellation/family-tree"),
   practiceDna: () => request("/progress/practice-dna"),
+  meteorShower: () => request("/meteor-showers/current"),
+  catchMeteor: (showerId, pieceId) => request(`/meteor-showers/${showerId}/catch`, { method: "POST", body: { piece_id: pieceId } }),
   friendConstellation: (friendId, params) =>
     request(`/progression/constellation/${friendId}`, { params }),
 

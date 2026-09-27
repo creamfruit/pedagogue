@@ -4,6 +4,7 @@ from app.api.v1 import (
     auth,
     coach,
     economy,
+    events,
     onboarding,
     performance,
     practice,
@@ -25,3 +26,4 @@ api_router.include_router(coach.router)
 api_router.include_router(performance.router)
 api_router.include_router(economy.router)
 api_router.include_router(social.router)
+api_router.include_router(events.router)

@@ -1456,3 +1456,115 @@ achievement figures aren't shown anywhere.
   - Clicking opened the drawer with the right achievement.
   - A fresh profile showed the one-time bloom with every name.
   - No console errors.
+
+### ⚠ Incident during Phase 23: the main `piano` dev database was reset to empty
+
+**What happened.** While checking the Phase 23 migration, I ran `alembic check` and then `alembic downgrade -1`,
+meaning to target the scratch database `piano_migtest`. I set only `ALEMBIC_DATABASE_URL`. But `alembic/env.py`
+takes its URL from `settings.async_dsn`, which is **`DATABASE_URL`**, so both commands ran against the default
+database, **`piano`**.
+- `piano` was still at the Run 2 head (`a77858f33c61`). Downgrading one step from there ran the *first* migration's
+  downgrade, which **dropped every table**.
+- Earlier in this run, a read-only count showed that `piano` held **1 user account, 1 repertoire entry and the 27
+  seeded catalogue pieces** (the ledger was empty).
+- There is no dump, backup or volume snapshot, so that one account and its entry can't be recovered. Everything else
+  in it was seed data.
+
+**What I did:**
+- I stopped all work on `piano`.
+- I tried to rebuild it to the current schema (it's empty, so nothing more could be lost), but the rebuild was
+  blocked by a permission check. I've left it for you.
+- Every later migration command in this run sets both URLs explicitly and asserts the target database name first.
+
+**To restore your local dev DB** (it has no tables at the moment):
+
+    cd backend
+    export DATABASE_URL=postgresql+asyncpg://piano:piano@localhost:5432/piano
+    export ALEMBIC_DATABASE_URL=postgresql+psycopg://piano:piano@localhost:5432/piano
+    .venv/Scripts/python -m alembic upgrade head
+    .venv/Scripts/python seed.py
+
+Then register your account again. I'm sorry about this. The root cause, an alembic env that ignores
+`ALEMBIC_DATABASE_URL`, is worth fixing so this can't happen to anyone again. I haven't changed `env.py` without
+your say-so, because deploys may rely on the current behaviour.
+
+### Phase 23 — Meteor shower events
+
+**Mechanism** (`services/meteor.py`, `api/v1/events.py`, migration `a23d6e8f1b52`):
+- **Tables:**
+  - `meteor_showers`: name, description, a `starts_at`/`ends_at` window, the catch reward (40 XP / 25 gold by
+    default), and a `learn_multiplier` (1.5× by default).
+  - `meteor_shower_pieces`: 3–8 catalogue pieces per shower.
+  - `repertoire_entries.meteor_shower_id`, which records that an entry was caught in a shower.
+  - The new ledger reason is `meteor_catch`.
+- **Admin:**
+  - `POST /admin/meteor-showers` accepts a name, an optional start (a future start schedules it), 1–168 hours,
+    and either explicit `piece_ids` or `count` for an automatic pick.
+  - `GET /admin/meteor-showers` lists showers, and `POST /admin/meteor-showers/{id}/end` ends one early (or deletes
+    it, if it hasn't started yet).
+  - Overlapping windows are rejected, and so are user-created pieces.
+- **Who is an admin** (a judgment call): the app had no admin role, so I added an **`ADMIN_EMAILS`** allowlist
+  setting. It defaults to empty, so admin routes return 403 until you set it. I verified the 403 for a non-admin.
+  A role column would be the longer-term answer; this gets you a working switch without a users-table migration.
+- **Scheduled:** the `schedule_meteor_shower` job is in the job registry, with an arq **cron every Friday at 18:00
+  UTC** for a 48-hour weekend shower.
+  - The automatic pick spreads 5 top-level catalogue pieces across the difficulty range, avoids the previous
+    shower's pieces, and is deterministic per start date.
+  - It skips the run if a shower already overlaps.
+  - Unlike the roulette, there's no lifespan fallback, because an event that appears by itself should be a
+    deliberate deploy choice. Without the redis worker, showers come from the admin endpoint only.
+
+**The player's side:**
+- `GET /meteor-showers/current` returns the active shower, with each piece marked:
+  - *open*;
+  - *caught* (caught in this shower);
+  - *yours* (already in your repertoire beforehand, so it can't be caught).
+  It also returns the next upcoming shower.
+- **Catching** (`POST /meteor-showers/{id}/catch`) adds the piece to your repertoire as *learning*, tags the entry
+  with the shower, and pays the catch reward.
+  - The reward is paid **once per user, shower and piece**: delete it and catch it again, and it comes back
+    without paying again. Tested.
+  - When a caught entry is later learnt, the learning reward is multiplied (1.5×), and the ledger detail says why.
+
+**After the window closes** (the judgment call the brief asked me to log):
+- **Caught (attempted) pieces:** they stay in your repertoire as normal entries, with nothing removed or
+  downgraded.
+  - They keep the meteor tag, so the **1.5× learn bonus still applies whenever you learn them**, even weeks
+    later. The reasoning: showing up during the window was the ask, and learning a hard piece takes longer than a
+    weekend. A bonus that expired mid-learning would punish the people who engaged.
+  - The sky drawer shows a "☄ caught in a meteor shower" pill on those stars.
+- **Never-caught pieces:** they vanish from the event, meaning the meteors leave the sky and catching returns
+  **410 Gone**.
+  - They were ordinary catalogue pieces all along, so **they remain in the catalogue and can be added normally**,
+    just without the catch reward or multiplier. Checked live: after ending the shower, catalogue search still
+    returns Jeux d'eau.
+  - Nothing is deleted.
+
+**The event in the sky** (Constellation › Your sky):
+- An orange **banner** above the canvas shows the name, a live "ends in 1d 23h" countdown, "N/5 caught", the
+  reward line, and a **"Catch from a list"** reveal. The list is the keyboard- and screen-reader-accessible way
+  to catch, and it also works with an empty repertoire, where there's no canvas.
+- In the canvas, open pieces appear as a **temporary cluster of meteors** in the upper right. Each is a starlight
+  head with a streaking orange tail that shimmers, and they are static: they don't take part in the physics. The
+  shower's name and a live countdown are drawn above the cluster.
+- Hovering a meteor names it. Tapping it opens the drawer, with the piece, the reward, "gone from the sky in …"
+  and **Catch it**.
+- A catch reloads the view, so the piece joins your sky as a normal star. When the countdown hits zero, the view
+  reloads without the meteors.
+- **Today** gets a "☄ Meteor shower" card during an active shower, with the name, pieces left, a live countdown,
+  and a link to the sky.
+- When no shower is active but one is scheduled, the sky shows a one-line "Next meteor shower … starts in …".
+
+**Verification**:
+- Migration round trip on `piano_migtest` (with both URLs explicit); `alembic check` reports no drift.
+- build ✔, pytest ✔. With the scratch DB there are **116 passed**, including a new DB test covering:
+  - overlap and piece-count validation;
+  - the view states, the catch reward, re-catch without a second payout, and not-in-shower 404;
+  - ending the shower, then a 410 on a late catch;
+  - the caught entry keeping its tag, and the 1.5× learning reward.
+- Live on the scratch stack: an admin created "Autumn Leonids" with an automatic pick of 5 pieces (2 were already
+  the user's), and a non-admin got 403.
+  - Tapping a computed meteor position opened its drawer, and **Catch it** gave +40 XP / +25 gold, updating the
+    banner to 1/5.
+  - Ending the shower cleared it; the caught piece keeps `meteor: true` in the graph.
+  - Screenshots at 1280 and 390px, where the cluster label is clamped inside the canvas. No console errors.

@@ -509,6 +509,7 @@ class ConstellationNode(BaseModel):
     is_verified: bool = True
     is_custom: bool = False
     decay: float = 0.0
+    meteor: bool = False
 
 
 class ConstellationLink(BaseModel):
@@ -814,6 +815,22 @@ class AchievementRead(BaseModel):
     series: Optional[str] = None
     tier: Optional[int] = None
     progress: Optional[AchievementProgress] = None
+
+
+class MeteorShowerCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=80)
+    description: Optional[str] = Field(default=None, max_length=400)
+    starts_at: Optional[datetime] = None
+    hours: int = Field(default=48, ge=1, le=168)
+    piece_ids: Optional[list[int]] = Field(default=None, max_length=8)
+    count: int = Field(default=5, ge=3, le=8)
+    catch_xp: int = Field(default=40, ge=0, le=500)
+    catch_gold: int = Field(default=25, ge=0, le=500)
+    learn_multiplier: float = Field(default=1.5, ge=1.0, le=3.0)
+
+
+class MeteorCatch(BaseModel):
+    piece_id: int
 
 
 class NudgeRead(BaseModel):

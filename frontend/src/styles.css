@@ -3695,3 +3695,67 @@ input[type="date"] {
   font-size: 12px;
   line-height: 1;
 }
+
+.meteor-banner {
+  margin: 0 0 var(--space-3);
+  padding: 12px 16px;
+  border: 1px solid var(--orange-line);
+  border-radius: var(--radius);
+  background: var(--orange-wash);
+}
+
+.meteor-banner-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.meteor-icon {
+  color: var(--orange);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.meteor-title {
+  font-weight: 500;
+}
+
+.meteor-ends,
+.meteor-count {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 12.5px;
+}
+
+.meteor-countdown {
+  color: var(--orange);
+}
+
+.meteor-next {
+  margin: 0 0 var(--space-3);
+  font-size: 13px;
+}
+
+.meteor-banner .reveal-btn {
+  margin-top: var(--space-2);
+}
+
+.pill-meteor {
+  color: var(--orange);
+  border-color: var(--orange-line);
+}
+
+.meteor-card .section-caption {
+  color: var(--orange);
+}
+
+@media (max-width: 600px) {
+  .meteor-banner-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .meteor-count {
+    grid-column: 2;
+  }
+}

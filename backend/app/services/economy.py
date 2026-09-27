@@ -189,12 +189,21 @@ class EconomyService(BaseService):
         if already.scalar_one_or_none() is not None:
             return None
         xp, gold = learning_reward(entry.piece.difficulty_score)
+        detail = f"learned {entry.piece.title}"
+        if entry.meteor_shower_id is not None:
+            from app.models.models import MeteorShower
+
+            shower = await self.session.get(MeteorShower, entry.meteor_shower_id)
+            if shower is not None:
+                multiplier = float(shower.learn_multiplier)
+                xp, gold = round(xp * multiplier), round(gold * multiplier)
+                detail = f"{detail} (caught in {shower.name}, ×{multiplier:g})"
         return await self.award(
             user,
             xp,
             gold,
             LedgerReason.PIECE_LEARNED,
-            detail=f"learned {entry.piece.title}",
+            detail=detail,
             ref_type="repertoire_entry",
             ref_id=entry.id,
         )
