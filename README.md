@@ -349,3 +349,12 @@ per memory slip, clamped to 0 to 100. A piece is only stage ready at 85 or above
 genuinely clean run, and an entry that clears that bar is promoted to
 `performance_ready` automatically. A program's verdict follows its weakest link, not its
 average.
+
+
+## Credits
+
+Piano playback uses the Salamander Grand Piano V3 samples by Alexander Holm (CC BY 3.0).
+Technique examples in onboarding are real passages from the First Editions of Fryderyk Chopin's
+Music (Fryderyk Chopin Institute, CC BY 4.0), the ASAP dataset (CC BY-NC-SA 4.0) and
+Bernd Krueger's Classical Piano MIDI (CC BY-SA 3.0 DE). See `tools/excerpts/README.md` for how
+the library is built and checked, and the licence note before any commercial release.

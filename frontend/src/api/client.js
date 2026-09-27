@@ -180,6 +180,7 @@ export const api = {
     request("/onboarding/techniques", { method: "PUT", body: { techniques } }),
   updateTierList: (tiers) => request("/onboarding/tier-list", { method: "PUT", body: { tiers } }),
   updateTopTen: (pieces) => request("/onboarding/top-ten", { method: "PUT", body: { pieces } }),
+  finishOnboarding: () => request("/onboarding/finish", { method: "POST" }),
 
   searchPieces: (q, limit = 20) => request("/catalog/pieces", { params: { q, limit } }),
   createPiece: (payload) => request("/catalog/pieces", { method: "POST", body: payload }),

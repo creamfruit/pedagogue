@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "dist",
       sourcemap: true,
+      chunkSizeWarningLimit: 1500,
     },
     plugins: [
       VitePWA({
@@ -26,8 +27,8 @@ export default defineConfig(({ mode }) => {
           name: "Piano Pedagogue",
           short_name: "Pedagogue",
           description: "Your repertoire, your weaknesses, your route to the next piece.",
-          theme_color: "#08090a",
-          background_color: "#08090a",
+          theme_color: "#070814",
+          background_color: "#070814",
           display: "standalone",
           orientation: "any",
           start_url: "/",
@@ -46,11 +47,21 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
           navigateFallback: "index.html",
           navigateFallbackDenylist: [/^\/api/, /^\/health/],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           runtimeCaching: [
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith("/samples/") || url.pathname.startsWith("/excerpts/"),
+              handler: "CacheFirst",
+              options: {
+                cacheName: "piano-library",
+                expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 90 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
             {
               urlPattern: ({ url }) => url.pathname.startsWith("/api/v1/catalog"),
               handler: "StaleWhileRevalidate",

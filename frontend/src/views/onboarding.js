@@ -1,7 +1,6 @@
 import { api } from "../api/client.js";
 import { disclosure, el, empty, skeletonBlock } from "../lib/dom.js";
-import { renderNotation } from "../lib/notation.js";
-import { playNotation } from "../lib/synth.js";
+import { excerptPanel, excerptsFor } from "../lib/excerpts.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
@@ -116,7 +115,7 @@ function completedSteps(status) {
       status.profile_complete ? "profile" : null,
       status.tier_quiz_complete ? "tier_quiz" : null,
       status.top_ten_logged > 0 ? "top_ten" : null,
-      status.genres_chosen > 0 || status.composers_chosen > 0 ? "tastes" : null,
+      status.tastes_complete ? "tastes" : null,
     ].filter(Boolean)
   );
 }
@@ -266,103 +265,18 @@ function profileStep(summary, refresh) {
   );
 }
 
-const EXAMPLE_EVENT_BUDGET = 16;
-
-function excerptOf(notation) {
-  const measures = [];
-  let events = 0;
-  for (const measure of notation.measures) {
-    if (measures.length && events + measure.notes.length > EXAMPLE_EVENT_BUDGET) break;
-    measures.push(measure);
-    events += measure.notes.length;
-    if (measures.length === 2) break;
-  }
-  return { ...notation, measures };
-}
-
-function techniqueExampleSource() {
-  let pending = null;
-  return () => {
-    if (!pending) {
-      pending = api
-        .techniqueExamples()
-        .then((list) => new Map(list.map((example) => [example.technique_id, example])))
-        .catch((error) => {
-          pending = null;
-          throw error;
-        });
-    }
-    return pending;
-  };
-}
-
-async function fillTechniqueExample(region, technique, loadExamples) {
-  region.replaceChildren(el("p", { class: "faint tier-example-note" }, "Finding a passage that uses this technique…"));
+async function fillTechniqueExample(region, technique, register) {
+  region.replaceChildren(el("p", { class: "faint tier-example-note" }, "Finding a passage from the repertoire…"));
   try {
-    const example = (await loadExamples()).get(technique.id);
-    if (!example) {
-      region.replaceChildren(
-        el("p", { class: "faint tier-example-note" }, "No marked passage in the catalogue uses this technique yet.")
-      );
-      return;
-    }
-    const notation = await api.passageSightReading(example.passage_id, technique.id);
-    const excerpt = excerptOf(notation);
-    let playback = null;
-    const play = el(
-      "button",
-      {
-        type: "button",
-        class: "btn btn-small btn-ghost",
-        onclick: () => {
-          if (playback) {
-            playback.stop();
-            playback = null;
-            play.textContent = "Play";
-            return;
-          }
-          play.textContent = "Stop";
-          playback = playNotation(excerpt, {
-            onDone: () => {
-              playback = null;
-              play.textContent = "Play";
-            },
-          });
-        },
-      },
-      "Play"
-    );
-    region.replaceChildren(
-      el(
-        "div",
-        { class: "tier-example-head" },
-        el(
-          "div",
-          {},
-          el("strong", { class: "tier-example-piece" }, example.piece_title),
-          el(
-            "div",
-            { class: "faint mono tier-example-meta" },
-            [example.composer, example.measure_span, example.label].filter(Boolean).join(" · ")
-          )
-        ),
-        play
-      ),
-      example.description ? el("p", { class: "tier-example-text" }, example.description) : null,
-      el("div", { class: "notation-host tier-example-notation" }, renderNotation(excerpt, { width: 460 })),
-      el(
-        "p",
-        { class: "faint tier-example-note" },
-        `Practice pattern built from this passage's ${technique.name.toLowerCase()} · ${notation.key} · ${notation.tempo_bpm} bpm. Not an engraving of the printed score.`
-      )
-    );
+    const panel = excerptPanel(await excerptsFor(technique.name));
+    register(panel.stop);
+    region.replaceChildren(panel.node);
   } catch (error) {
-    region.replaceChildren(el("p", { class: "faint tier-example-note" }, error.detail || "Could not load an example right now."));
+    region.replaceChildren(el("p", { class: "faint tier-example-note" }, error.message || "Could not load an example right now."));
   }
 }
 
 export function tierQuizStep(allTechniques, refresh, { initial = new Map(), submitLabel = "Continue" } = {}) {
-  const loadExamples = techniqueExampleSource();
   const assignments = new Map([...initial].filter(([id]) => allTechniques.some((technique) => technique.id === id)));
   const groups = new Map();
   allTechniques.forEach((technique) => {
@@ -430,21 +344,21 @@ export function tierQuizStep(allTechniques, refresh, { initial = new Map(), subm
         buttons[TIERS.indexOf(saved)].classList.add("tier-btn-active");
         buttons[TIERS.indexOf(saved)].setAttribute("aria-pressed", "true");
       }
-      let playbackRegion = null;
+      let stopExample = null;
       const example = disclosure("?", {
         label: `How ${technique.name} is played, with an example`,
         buttonClass: "tier-help",
         regionClass: "tier-example",
         onFirstOpen: (region) => {
-          playbackRegion = region;
           const exampleHost = el("div");
           if (technique.mechanic) region.append(el("p", { class: "tier-example-mechanic" }, technique.mechanic));
           region.append(exampleHost);
-          fillTechniqueExample(exampleHost, technique, loadExamples);
+          fillTechniqueExample(exampleHost, technique, (stop) => {
+            stopExample = stop;
+          });
         },
         onClose: () => {
-          const playing = playbackRegion?.querySelector(".tier-example-head button");
-          if (playing && playing.textContent === "Stop") playing.click();
+          if (stopExample) stopExample();
         },
       });
       rows.push(
@@ -480,7 +394,7 @@ export function tierQuizStep(allTechniques, refresh, { initial = new Map(), subm
         { class: "tier-legend mono" },
         TIERS.map((tier) => TIER_LABEL[tier]).join("   ·   ")
       ),
-      el("p", { class: "faint", style: "margin:0;font-size:12.5px" }, "Tap ? beside a technique to see how it's played and hear an example.")
+      el("p", { class: "faint", style: "margin:0;font-size:12.5px" }, "Tap ? beside a technique to see a real passage that uses it and hear it on piano.")
     ),
     el("div", { class: "stack tier-rows" }, ...rows),
     el("div", { class: "sticky-actions" }, submit)
@@ -634,8 +548,10 @@ function tastesStep(summary, refresh) {
             api.updateGenres(Array.from(chosenGenres)),
             api.updateComposers(chosenComposers.map((composer, index) => ({ composer_id: composer.id, rank: index + 1 }))),
           ]);
+          await api.finishOnboarding();
+          await store.refreshOnboarding();
           notify.success("Studio is set up");
-          await refresh();
+          navigate("/");
         } catch (error) {
           notify.error(error.detail || "Could not save your tastes");
           setBusy(finish, false);
