@@ -362,6 +362,9 @@ export async function shopView(outlet, context = {}) {
           { caption: `${earned} of ${rows.length} unlocked${next.length ? " · the next tier in each series, closest first" : ""}` },
           el("div", { class: "bar", style: "margin:-6px 0 var(--space-4)" }, el("span", { style: `width:${rows.length ? (earned / rows.length) * 100 : 0}%` })),
           next.length ? el("div", { class: "shop-grid" }, ...next.map(achievementCard)) : null,
+          earned
+            ? el("p", { class: "faint", style: "margin:var(--space-3) 0;font-size:12.5px" }, "Each one you earn adds its own small constellation to ", el("a", { href: "/constellation", "data-link": true }, "your sky"), ".")
+            : null,
           all.button,
           all.region
         )

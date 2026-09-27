@@ -3687,3 +3687,11 @@ input[type="date"] {
     width: 30%;
   }
 }
+
+.legend-sparkle {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1;
+}

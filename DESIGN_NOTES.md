@@ -409,3 +409,9 @@ were missing). Nothing told you what to do.
 - **The family tree is a Constellation tab** ("Your sky · Family tree"), as planned in Phase 16. It's a second way of looking at how pieces relate, so it's a peer view, not a new page.
 - **Colour roles:** your pieces and the selected line are starlight (you/selected). The composer's emphasis is orange at 80%, the one data hue this app's charts use (as in Phase 17). Everything else is neutral. No new hues.
 - **Why it isn't a radar chart:** a radar chart of 17 techniques makes area the message, and its area depends on axis order. Aligned bar rows sorted by the composer's emphasis are read row by row, and double as the table view.
+
+## Phase 22 — Achievement constellations
+
+- **Reward = yellow, and a different mark.** Pieces are dots with halos. Achievements are four-point sparkles joined by dashed lines, the way a star chart draws a constellation figure. Shape carries the difference, so it survives the Baroque/Classical pieces also being yellow.
+- **Further back than your pieces** (a 0.6× parallax layer). Achievements are the backdrop of your sky, earned once and permanent. Pieces are the live, draggable foreground.
+- **Names are hidden until you hover**, except during a figure's first-appearance bloom. Eighteen always-on labels would crowd out the piece labels, which matter more.

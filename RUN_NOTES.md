@@ -1402,3 +1402,57 @@ Constellation › **Family tree** tab):
   - selecting a composer swaps the table (Rachmaninoff → Chopin);
   - clicking Clair de lune lit its 5-edge line, and the list reveal lists all 26 pieces;
   - no console errors.
+
+### Phase 22 — Star-shaped achievements
+
+Each **earned** achievement now adds its own small constellation to the canvas in `constellation.js`
+(`lib/achievementSky.js`). Pieces are unchanged; this is an extra layer.
+
+- **A fixed shape per code.** There are 18 hand-drawn stick figures, one for each seeded achievement. The
+  shapes fit the names:
+  - First light is a lone star with two companions.
+  - Five under the fingers is a Cassiopeia "W", and Repertoire builder is a Cygnus-like cross.
+  - Three in a row is a belt of three, A full week is a seven-star dipper, and Moon cycle is a crescent.
+  - Flawless is a pentagram, Grade eight club an octagon of eight, and Virtuoso a crown.
+  - Two against three is a row of three interlocked with a row of two.
+  - Rising and Seasoned are one and two upward chevrons.
+  - First fortune is a coin, and On the record a disc.
+  - Series grow with their tier: 3 → 5 → 8 stars for the repertoire series.
+- **A fixed position per code.** Each code has a fixed angular slot on a ring around the sky's centre, where
+  your pieces settle. It is clamped inside the canvas, so a figure is always in the same place.
+  - Checked with a scratch script: at 1200×596 no two of the 18 figures overlap. At a 358×400 phone size, two
+    pairs' bounding circles touch if *all 18* are earned. I accepted that.
+- **Unknown future codes** get a deterministic hashed shape and position, so an achievement added later still
+  appears. It won't have a designed shape until one is added to `FIGURES`.
+- **Distinct from pieces, within the palette:**
+  - They are yellow, since yellow = reward in this app.
+  - Pieces are round dots with halos, in era colours. Figures are **four-point sparkles joined by thin dashed
+    lines**. So even Baroque/Classical pieces, which are also yellow, don't read as achievements.
+  - Figures sit on their **own parallax layer (0.6×)**, between the backdrop stars (0.3×) and the pieces (1×),
+    so they move like distant sky when you pan or zoom. They never take part in the physics.
+- **Interaction:**
+  - Hovering brightens a figure and shows its name. Tapping it opens the existing sky drawer: "Achievement
+    constellation", the name, description, the earned date, rewards, and a link to Observatory › Achievements.
+  - Hit order is star → connector → figure → pan, so figures never steal a drag.
+  - A legend toggle, "✦ achievements (N)", hides them, and "How to read the chart" explains them.
+- **A one-time bloom for newly earned figures.** The first time a figure appears in your sky, it glows and shows
+  its name for about 4 seconds.
+  - The set of codes already seen is kept in browser storage. That's a per-viewer convenience: if it's cleared,
+    you just see the bloom again.
+  - With reduced motion there is no bloom and no twinkle.
+- The Observatory's Achievements tab now says that each earned achievement adds a constellation to your sky,
+  with a link.
+
+**Not done:** the friend-constellation view (`/constellation/{friend_id}`) has no frontend page yet, so friends'
+achievement figures aren't shown anywhere.
+
+**Verification**:
+- build ✔ and pytest ✔ (no backend change).
+- A scratch Node check that all 18 codes have figures, every edge index is valid, and the layout is in-bounds
+  with no overlaps (see above).
+- In headless Chrome at 1280 and 390px, the 9 earned figures render around the repertoire cluster.
+  - A synthetic hover at the dipper's computed position set the pointer cursor and drew the "A FULL WEEK" label.
+    I confirmed this from a canvas bitmap, because element screenshots dropped the hover state.
+  - Clicking opened the drawer with the right achievement.
+  - A fresh profile showed the one-time bloom with every name.
+  - No console errors.

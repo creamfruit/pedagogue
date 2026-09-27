@@ -4,6 +4,7 @@ import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { navigate } from "../router.js";
 import { familyTreeView } from "./familyTree.js";
+import { drawFigures, figureAt, layoutFigures, markNewFigures, toFigureSpace } from "../lib/achievementSky.js";
 import { forceCenter, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import {
   DRIFT,
@@ -103,7 +104,8 @@ export async function constellationView(outlet, context = {}) {
         item("Bright core", "marks a top-ten piece or the star you're holding."),
         item("Hollow, dashed star", "needs a verification take before it lights up."),
         item("Faded star", "is drifting from lack of practice; a fine dashed ring around it means it has frozen."),
-        item("Dark core with a pale outline", "is a custom piece you added yourself.")
+        item("Dark core with a pale outline", "is a custom piece you added yourself."),
+        item("Yellow stick figures", "are achievements you've earned. Each one has its own shape and place in the sky, and sits further back than your pieces. Tap one to read it.")
       )
     );
     return [guide.button, guide.region];
@@ -132,13 +134,16 @@ export async function constellationView(outlet, context = {}) {
 
   let graph;
   let loadout = store.loadout;
+  let achievements = [];
   try {
-    const [graphResult, loadoutResult] = await Promise.all([
+    const [graphResult, loadoutResult, achievementResult] = await Promise.all([
       api.constellation({ threshold: 0.25 }),
       loadout ? Promise.resolve(loadout) : api.loadout().catch(() => null),
+      api.achievements().catch(() => []),
     ]);
     graph = graphResult;
     loadout = loadoutResult || {};
+    achievements = achievementResult || [];
   } catch (error) {
     loading.replaceChildren(empty(error.detail || "Could not load the constellation."));
     return;
@@ -184,6 +189,28 @@ export async function constellationView(outlet, context = {}) {
     );
     legendHost.append(button);
   });
+
+  const earnedCount = achievements.filter((achievement) => achievement.earned).length;
+  let showFigures = true;
+  if (earnedCount) {
+    const figureToggle = el(
+      "button",
+      {
+        type: "button",
+        "aria-pressed": "true",
+        style: `color:${colors.yellow}`,
+        onclick: () => {
+          showFigures = !showFigures;
+          figureToggle.setAttribute("aria-pressed", showFigures ? "true" : "false");
+          if (!showFigures) hoveredFigure = null;
+          draw();
+        },
+      },
+      el("span", { class: "legend-sparkle", "aria-hidden": "true" }, "✦"),
+      `achievements (${earnedCount})`
+    );
+    legendHost.append(figureToggle);
+  }
 
   legendHost.append(
     el(
@@ -265,6 +292,9 @@ export async function constellationView(outlet, context = {}) {
   let running = true;
   let backdrop = [];
   let clock = 0;
+  let figures = [];
+  let hoveredFigure = null;
+  let figuresMarked = false;
 
   const drift = forceDrift();
   drift.ambient(!reduceMotion);
@@ -338,6 +368,12 @@ export async function constellationView(outlet, context = {}) {
     drift.bounds({ width, height });
     seedPositions();
     seedBackdrop();
+    figures = layoutFigures(achievements, width, height);
+    if (!figuresMarked) {
+      figuresMarked = true;
+      markNewFigures(figures);
+      if (reduceMotion) figures.forEach((figure) => (figure.bloom = 0));
+    }
     const centre = simulation.force("centre");
     if (centre) centre.x(width / 2).y(height / 2);
   }
@@ -348,6 +384,15 @@ export async function constellationView(outlet, context = {}) {
       x: (event.clientX - rect.left - transform.x) / transform.k,
       y: (event.clientY - rect.top - transform.y) / transform.k,
     };
+  }
+
+  function screenPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  function figureUnder(event) {
+    return showFigures ? figureAt(figures, toFigureSpace(screenPoint(event), transform)) : null;
   }
 
   function nodeAt(point) {
@@ -546,6 +591,7 @@ export async function constellationView(outlet, context = {}) {
     ctx.clearRect(0, 0, width, height);
     drawNebula();
     drawBackdrop();
+    if (showFigures) drawFigures(ctx, figures, { transform, colors, clock, reduceMotion, hovered: hoveredFigure, font: "'JetBrains Mono', monospace" });
 
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);
@@ -669,6 +715,12 @@ export async function constellationView(outlet, context = {}) {
       openLinkDetail(edge);
       return;
     }
+    const figure = figureUnder(event);
+    if (figure) {
+      selectedLink = null;
+      openFigureDetail(figure);
+      return;
+    }
     capture(event.pointerId);
     panning = {
       startX: event.clientX,
@@ -702,10 +754,12 @@ export async function constellationView(outlet, context = {}) {
 
     const found = nodeAt(point);
     const edge = found ? null : linkAt(point);
-    if (found !== hovered || edge !== hoveredLink) {
+    const figure = found || edge ? null : figureUnder(event);
+    if (found !== hovered || edge !== hoveredLink || figure !== hoveredFigure) {
       hovered = found;
       hoveredLink = edge;
-      canvas.style.cursor = found || edge ? "pointer" : "grab";
+      hoveredFigure = figure;
+      canvas.style.cursor = found || edge || figure ? "pointer" : "grab";
       draw();
     }
   });
@@ -739,6 +793,19 @@ export async function constellationView(outlet, context = {}) {
       if (selectedLink !== link) return;
       showDrawer(empty(error.detail || "Could not explain that connection."));
     }
+  }
+
+  function openFigureDetail(figure) {
+    const { achievement } = figure;
+    const earned = achievement.earned_at ? new Date(achievement.earned_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : null;
+    const rewards = [achievement.xp_reward ? `${achievement.xp_reward} XP` : null, achievement.gold_reward ? `${achievement.gold_reward} gold` : null].filter(Boolean).join(" · ");
+    showDrawer(
+      el("div", { class: "stat-label", style: "color:var(--yellow)" }, "Achievement constellation"),
+      el("h2", { style: "margin:6px 0 4px" }, achievement.name),
+      el("p", { class: "muted", style: "margin:0 0 var(--space-3)" }, achievement.description),
+      el("p", { class: "faint", style: "margin:0 0 var(--space-4);font-size:12.5px" }, [earned ? `Earned ${earned}` : null, rewards].filter(Boolean).join(" · ")),
+      el("a", { class: "btn btn-small btn-ghost", href: "/observatory?tab=achievements", "data-link": true }, "All achievements")
+    );
   }
 
   function openDetail(node) {
