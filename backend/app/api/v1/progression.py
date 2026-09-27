@@ -21,6 +21,7 @@ from app.schemas.schemas import (
     ScoredPieceRead,
     SteppingStoneResponse,
 )
+from app.services.family_tree import FamilyTreeService
 from app.services.progression import (
     ConstellationService,
     PathPlanner,
@@ -216,6 +217,11 @@ async def constellation(
     types = [t.strip() for t in link_types.split(",")] if link_types else None
     graph = await ConstellationService(session).build(user, types, threshold)
     return ConstellationGraph(**graph)
+
+
+@router.get("/constellation/family-tree")
+async def family_tree(user: CurrentUser, session: SessionDep) -> dict:
+    return await FamilyTreeService(session).build(user)
 
 
 @router.get("/constellation/{friend_id}", response_model=ConstellationGraph)

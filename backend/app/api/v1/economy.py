@@ -12,6 +12,7 @@ from app.schemas.schemas import (
 )
 from app.services.economy import AchievementEngine, CosmeticService, EconomyService
 from app.services.growth import GrowthService
+from app.services.practice_dna import PracticeDNAService
 from app.services.streaks import NudgeService, StreakService
 
 router = APIRouter(tags=["economy"])
@@ -91,6 +92,11 @@ async def profile_summary(user: CurrentUser, session: SessionDep) -> ProfileSumm
 @router.get("/progress/difficulty-history")
 async def difficulty_history(user: CurrentUser, session: SessionDep, weeks: int = Query(default=26, ge=4, le=104)) -> dict:
     return await GrowthService(session).difficulty_history(user, weeks)
+
+
+@router.get("/progress/practice-dna")
+async def practice_dna(user: CurrentUser, session: SessionDep) -> dict:
+    return await PracticeDNAService(session).build(user)
 
 
 @router.get("/progress/streak", response_model=StreakRead)

@@ -48,6 +48,20 @@ def cosine(a: dict[int, float], b: dict[int, float]) -> float:
     return dot / (norm_a * norm_b)
 
 
+SAME_ERA = 0.7
+SAME_GENRE = 0.5
+
+
+def era_genre_link(a: Piece, b: Piece) -> Optional[tuple[float, str]]:
+    era_a = a.composer.era_id if a.composer else None
+    era_b = b.composer.era_id if b.composer else None
+    if era_a and era_a == era_b:
+        return SAME_ERA, a.composer.era.name if a.composer.era else "same era"
+    if a.genre_id and a.genre_id == b.genre_id:
+        return SAME_GENRE, a.genre.name if a.genre else "same genre"
+    return None
+
+
 def coverage(target: dict[int, float], candidate: dict[int, float]) -> float:
     if not target:
         return 0.0
@@ -442,15 +456,9 @@ class ConstellationService(BaseService):
                     if strength >= threshold:
                         links.append(self.link(a.id, b.id, "technique", round(strength, 3), "shared techniques"))
                 if "era_genre" in types:
-                    era_a = a.composer.era_id if a.composer else None
-                    era_b = b.composer.era_id if b.composer else None
-                    if era_a and era_a == era_b:
-                        label = a.composer.era.name if a.composer and a.composer.era else "same era"
-                        links.append(self.link(a.id, b.id, "era_genre", 0.7, label))
-                    elif a.genre_id and a.genre_id == b.genre_id:
-                        links.append(
-                            self.link(a.id, b.id, "era_genre", 0.5, a.genre.name if a.genre else "same genre")
-                        )
+                    shared = era_genre_link(a, b)
+                    if shared:
+                        links.append(self.link(a.id, b.id, "era_genre", *shared))
 
         return {
             "nodes": nodes,

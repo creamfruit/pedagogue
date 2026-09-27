@@ -1313,3 +1313,92 @@ card on Today, the `/roulette` page, and the friends and opt-in controls in Sett
   - a roulette play-through rang exactly one note per question, and clicking first options scored 0/8 with no
     speed bonus;
   - the result review and standings render; no console errors.
+
+### Phase 21 — Practice DNA and the piece family tree
+
+Both are computed from data already in the catalogue: `piece_techniques` weights, the tier-quiz
+`proficiency_score`s, composer eras, genres and years. There is no new table, input or data source.
+
+**Practice DNA** (`services/practice_dna.py`, `GET /progress/practice-dna`, Progress › **Practice DNA** tab):
+- **A composer's profile** is the share of total technique weight across their non-custom catalogue pieces.
+  - For example, Rachmaninoff here is 21% sustained endurance, 20% blocked octaves, 19% tenth stretches.
+  - Imported pieces count once their metadata has been generated (Phase 15).
+- **The similarity read** (the judgment call) is a **correlation of shapes, not a match of levels.**
+  - It is Pearson's r across your rated techniques, between your proficiency and the composer's emphasis.
+  - The "obvious" measure, the average of your tiers weighted by what they ask for, rewards a uniformly high
+    self-rating: an all-S pianist would "match" every composer equally.
+  - Correlation asks the question in the brief: *does this music lean on the techniques you're relatively
+    strongest at?*
+  - Labels:
+    - ≥ 0.5 is "Strong match";
+    - ≥ 0.2 is "Some overlap";
+    - above −0.2 is "Little in common";
+    - below that is "Leans on your weaker techniques".
+  - "Closest to X's technical demands" is only claimed for a composer at ≥ 0.2. Otherwise the page says no
+    composer lines up clearly yet and names the nearest.
+  - A perfectly flat tier profile has no shape, so it gets an explicit "too even to single out" message rather
+    than a fake ranking.
+- **The weighted-tier average is still shown**, as a secondary line: "Weighted by what Rachmaninoff asks for
+  most, your tiers average B (5.8 of 10)". It answers a different, useful question, "how ready am I?".
+- **Honesty:**
+  - The page calls itself a rough read, and says it measures technique only, not musicianship.
+  - Composers with a single catalogue piece are flagged "based on 1 piece · thin sample". Today that's Mozart,
+    Ravel, Tchaikovsky and Scriabin, since the seeded catalogue has 30 pieces across 11 composers.
+  - At least 4 rated techniques are required.
+- **Chart:** a ranked composer list (a single-hue orange meter from "opposite" through "unrelated" to "same
+  shape"), and a side-by-side table.
+  - The table is real `<table>` markup, so it is its own table view. Each technique row pairs your tier (a
+    neutral starlight-tint bar plus the tier letter) with the composer's emphasis (an orange bar plus the share).
+  - These are two aligned panels on separate scales, not a dual axis.
+  - The composer's bars use the Phase 17 validated orange at 80%. Identity is carried by the column headers,
+    not by colour, so no categorical palette is involved.
+  - Rows are sorted by the composer's emphasis; unused techniques are faded to the bottom.
+
+**Piece family tree** (`services/family_tree.py`, `GET /progression/constellation/family-tree`,
+Constellation › **Family tree** tab):
+- **Scope:** every top-level catalogue piece with technique data and a placeable year, plus your own custom
+  pieces. Currently 26 nodes. Individual movements are left out, so their parent work stands in.
+  - A piece's year is `year_composed`, else the composer's birth + 30, else the era start + 50. Estimates are
+    shown as "c. 1840".
+- **Lineage rule:** each piece's parent is the **earlier** piece it most resembles, if the resemblance is at
+  least 0.3. A piece with no earlier piece close enough founds its own line. Because parents are always
+  earlier, the result is a forest, with no cycles.
+- **Resemblance**, reusing and extending the constellation's link logic:
+  - It is **0.6 × technique cosine**, the exact `cosine()` behind the constellation's technique lines.
+  - Plus **0.4 × era/genre context**, which extends the constellation's era/genre link: same era 0.7
+    (the constellation constant), a *neighbouring* era 0.35 (new, so lineages can cross era boundaries),
+    and + 0.3 for the same genre.
+  - I pulled the constellation's era/genre check into a shared `era_genre_link()` helper with named constants,
+    and the constellation now calls it. Its behaviour is unchanged, and the existing tests pass.
+  - Same composer is **shown** as a reason but not **scored**. Otherwise every composer's works would chain
+    into a single line and hide cross-composer resemblance.
+- **What it produces on the seed catalogue** reads plausibly:
+  - Bach → Mozart K.545 → Moonlight → Revolutionary Étude, which then branches to Winter Wind → Chasse-neige and
+    to Double Thirds → Feux follets / Mephisto;
+  - Chopin's Nocturne → Liebestraum, Brahms's Intermezzo and Clair de lune;
+  - Debussy's Arabesque → Ravel's Jeux d'eau.
+  - The page states plainly that it is **a map of resemblance, not documented influence.**
+- **View:** an SVG timeline (x = year, with gridlines every 25 years) and one row per piece in tree order.
+  - Connectors are elbows from each parent's trunk.
+  - Your pieces are filled starlight dots; the rest of the catalogue are hollow.
+  - Picking a piece lights its whole line (ancestors and descendants) in starlight and dims the rest. The panel
+    below shows: descends from X (N% alike: shared techniques; same composer · era · genre); the full line
+    back to its founder, with clickable steps; and what it led to.
+  - It opens focused on your most recent piece.
+  - Hover or focus shows a tooltip. Nodes are keyboard-operable buttons.
+  - A **"Read the tree as a list"** reveal gives the same tree as a nested list.
+  - On phones it scrolls horizontally inside its own box, never the page.
+
+**Verification**:
+- build ✔, pytest ✔ (110 passed, 3 skipped). The new `test_lineage.py` covers:
+  - the demand share;
+  - pearson's edge cases (flat, short);
+  - shape-not-level similarity, including an all-S profile giving `None`;
+  - readiness and coverage, labels and the summary sentence;
+  - the year fallbacks, the era/genre context, parent assignment with its floor, and affinity.
+- Live on the scratch stack:
+  - both endpoints return the output described above;
+  - screenshots at 1280 and 390px;
+  - selecting a composer swaps the table (Rachmaninoff → Chopin);
+  - clicking Clair de lune lit its 5-edge line, and the list reveal lists all 26 pieces;
+  - no console errors.

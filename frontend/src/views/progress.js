@@ -2,6 +2,7 @@ import { el, tabs } from "../lib/dom.js";
 import { navigate } from "../router.js";
 import { growthView } from "./growth.js";
 import { leaderboardsView } from "./leaderboards.js";
+import { practiceDnaView } from "./practiceDna.js";
 import { performancesView } from "./performances.js";
 import { progressionView } from "./progression.js";
 
@@ -17,6 +18,12 @@ const TABS = [
     label: "Pathways",
     caption: "Pick a piece you want to play and the engine works backwards from it.",
     render: (host) => progressionView(host, { embedded: true }),
+  },
+  {
+    id: "dna",
+    label: "Practice DNA",
+    caption: "Your technique tiers beside the demands of the composers in the catalogue.",
+    render: (host) => practiceDnaView(host),
   },
   {
     id: "leaderboards",

@@ -1,7 +1,9 @@
 import { api } from "../api/client.js";
 import { linkSummaryPanel } from "../components/overview.js";
-import { el, empty, reveal, skeletonBlock } from "../lib/dom.js";
+import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
 import { store } from "../lib/store.js";
+import { navigate } from "../router.js";
+import { familyTreeView } from "./familyTree.js";
 import { forceCenter, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import {
   DRIFT,
@@ -46,7 +48,24 @@ const BACKDROP_STARS = 240;
 const PARALLAX = 0.3;
 const TRAIL_SPEED = 2.4;
 
-export async function constellationView(outlet) {
+function skyTabs(active) {
+  return tabs(
+    [
+      { id: "sky", label: "Your sky" },
+      { id: "family", label: "Family tree" },
+    ],
+    active,
+    (id) => navigate(id === "sky" ? "/constellation" : "/constellation?tab=family", { replace: true }),
+    { label: "Constellation views", controls: "constellation-panel" }
+  );
+}
+
+export async function constellationView(outlet, context = {}) {
+  if (context.query?.tab === "family") {
+    const panel = el("div", { class: "tab-panel", id: "constellation-panel", role: "tabpanel" });
+    outlet.append(el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Constellation")), skyTabs("family"), panel);
+    return familyTreeView(panel);
+  }
   const legendHost = el("div", { class: "legend" });
   const canvas = el("canvas");
   const detail = el("div", { class: "panel", style: "margin-top:16px" });
@@ -107,6 +126,7 @@ export async function constellationView(outlet) {
   const headline = el("p", { class: "faint mono", style: "margin:0;font-size:12px" });
   outlet.append(
     el("div", { class: "page-head", style: "align-items:baseline" }, el("h1", { style: "margin:0" }, "Constellation"), headline),
+    skyTabs("sky"),
     loading
   );
 

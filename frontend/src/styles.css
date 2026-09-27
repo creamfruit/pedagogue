@@ -3332,3 +3332,358 @@ input[type="date"] {
   border-color: rgba(var(--pink-rgb), 0.5);
   color: var(--text-dim);
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line-bright);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover,
+.link-btn:focus-visible {
+  color: var(--starlight);
+  text-decoration-color: var(--starlight-line);
+}
+
+.dna-summary {
+  margin: 0 0 var(--space-2);
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--text);
+  max-width: 64ch;
+}
+
+.dna-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  margin-top: var(--space-5);
+}
+
+.dna-composers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dna-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dna-composer:hover {
+  border-color: var(--line-bright);
+}
+
+.dna-composer.is-selected {
+  border-color: var(--starlight-line);
+  background: var(--starlight-wash);
+}
+
+.dna-composer-name {
+  font-weight: 500;
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dna-composer-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.dna-composer-meta {
+  font-size: 11.5px;
+}
+
+.dna-composer-meta.is-thin::after {
+  content: " · thin sample";
+}
+
+.dna-meter {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.dna-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: rgba(var(--orange-rgb), 0.8);
+}
+
+.dna-meter-mid {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--bg-panel);
+}
+
+.dna-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dna-table th,
+.dna-table td {
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  font-weight: 400;
+}
+
+.dna-table thead th {
+  border-top: none;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  padding-bottom: 8px;
+}
+
+.dna-table tbody th {
+  padding-right: var(--space-3);
+  white-space: nowrap;
+}
+
+.dna-table td {
+  width: 36%;
+  padding-left: var(--space-3);
+}
+
+.dna-table tr.is-unused th,
+.dna-table tr.is-unused td {
+  color: var(--text-faint);
+}
+
+.dna-table tbody tr:hover {
+  background: var(--starlight-wash);
+}
+
+.dna-bar-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.dna-track {
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: var(--bg-sunk);
+}
+
+.dna-bar {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+}
+
+.dna-bar-you {
+  background: rgba(var(--starlight-rgb), 0.55);
+}
+
+.dna-bar-them {
+  background: rgba(var(--orange-rgb), 0.8);
+}
+
+.dna-value {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.tree-plot {
+  position: relative;
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.tree-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-sunk);
+}
+
+.tree-scroll svg {
+  display: block;
+}
+
+.tree-grid-major {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.tree-grid-minor {
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.tree-edge {
+  fill: none;
+  stroke: var(--line-bright);
+  stroke-width: 1.5;
+}
+
+.tree-edge.is-lit {
+  stroke: var(--starlight);
+  stroke-width: 2;
+}
+
+.tree-edge.is-dim {
+  opacity: 0.35;
+}
+
+.tree-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.tree-hit {
+  fill: transparent;
+}
+
+.tree-node:hover .tree-hit,
+.tree-node:focus-visible .tree-hit {
+  fill: rgba(var(--starlight-rgb), 0.05);
+}
+
+.tree-dot {
+  fill: var(--bg-sunk);
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+}
+
+.tree-node.is-yours .tree-dot {
+  fill: var(--starlight);
+  stroke: var(--bg-sunk);
+  stroke-width: 2;
+}
+
+.tree-ring {
+  fill: none;
+  stroke: var(--starlight);
+  stroke-width: 1.5;
+}
+
+.tree-label {
+  font-size: 12px;
+  fill: var(--text-dim);
+}
+
+.tree-node.is-yours .tree-label,
+.tree-node.is-focus .tree-label {
+  fill: var(--text);
+}
+
+.tree-label-meta {
+  fill: var(--text-faint);
+  font-size: 11px;
+}
+
+.tree-node.is-dim {
+  opacity: 0.4;
+}
+
+.tree-key {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-dim);
+}
+
+.tree-key-yours {
+  background: var(--starlight);
+  border-color: var(--starlight);
+}
+
+.tree-key-lit {
+  background: var(--starlight);
+}
+
+.tree-yours-tag {
+  color: var(--starlight);
+}
+
+.tree-list,
+.tree-list ul {
+  list-style: none;
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: 13px;
+}
+
+.tree-list {
+  padding-left: 0;
+  margin-top: var(--space-3);
+}
+
+.tree-list li {
+  padding: 2px 0;
+}
+
+.tree-list-item {
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-list-item.is-yours {
+  color: var(--text);
+}
+
+.tree-list-item:hover {
+  color: var(--starlight);
+}
+
+@media (max-width: 899px) {
+  .dna-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dna-table td {
+    width: 30%;
+  }
+}

@@ -202,6 +202,8 @@ export const api = {
   decideRecommendation: (id, status) =>
     request(`/progression/recommendations/${id}`, { method: "PATCH", body: { status } }),
   constellation: (params) => request("/progression/constellation", { params }),
+  familyTree: () => request("/progression/constellation/family-tree"),
+  practiceDna: () => request("/progress/practice-dna"),
   friendConstellation: (friendId, params) =>
     request(`/progression/constellation/${friendId}`, { params }),
 

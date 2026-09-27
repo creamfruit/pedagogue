@@ -402,3 +402,10 @@ were missing). Nothing told you what to do.
 - **Standings** are a quiet ranked list (rank, name, detail, score, in monospace for numbers). Your own row is tinted starlight, per the "selected/you = starlight" rule. There are no podium colours: gold/yellow means reward in this app, and ranking isn't a reward.
 - **The ringed note** in the roulette is yellow: a "look here" mark that is not an action (orange) or a selection (starlight).
 - **Friends and opt-in** are one Settings section. The opt-in checkbox comes first, because it governs everything below it.
+
+## Phase 21 — Practice DNA and family tree
+
+- **Practice DNA is a Progress tab**, between Pathways and Leaderboards. It answers "what kind of pianist am I becoming?", which is a progress question. The page leads with a single sentence (the read), not the chart. The chart is there to back up the sentence.
+- **The family tree is a Constellation tab** ("Your sky · Family tree"), as planned in Phase 16. It's a second way of looking at how pieces relate, so it's a peer view, not a new page.
+- **Colour roles:** your pieces and the selected line are starlight (you/selected). The composer's emphasis is orange at 80%, the one data hue this app's charts use (as in Phase 17). Everything else is neutral. No new hues.
+- **Why it isn't a radar chart:** a radar chart of 17 techniques makes area the message, and its area depends on axis order. Aligned bar rows sorted by the composer's emphasis are read row by row, and double as the table view.
