@@ -454,13 +454,13 @@ PIECE_LORE = {
 PASSAGES = {
     "Pas de deux, The Nutcracker": [],
     "Mephisto Waltz No. 1": [
-        ("Presto right-hand leaps", 767, 786, 9.6,
+        ("Presto right-hand leaps", 767, 786, 9.4,
          "In the Presto the right hand plays a single note and then leaps up to a double octave above it, "
          "again and again at full speed, with a repeated chord closing every fourth bar.",
          "Practise the jumps as silent landings first, touching the double octave without sounding it, then "
          "add sound once the distance is automatic.",
          [("Wide leaps", 1.0), ("Repeated chords", 0.4)]),
-        ("Descending broken octaves", 173, 181, 9.0,
+        ("Descending broken octaves", 173, 181, 8.8,
          "The right hand snaps each note to its upper octave in sixteenths, sliding down the keyboard over "
          "repeated left-hand chords.",
          "Block each pair as an octave first, then break it open while keeping the thumb light.",
@@ -479,269 +479,269 @@ PASSAGES = {
          [("Rapid scales", 0.6), ("Inner voice projection", 0.5)]),
     ],
     "Prelude in C major, WTC I": [
-        ("The chromatic descent", 20, 27, 4.0,
+        ("The chromatic descent", 20, 27, 2.7,
          "The harmony slides chromatically while the figuration stays identical, so the only thing keeping "
          "the piece alive is evenness of touch.",
          "Play the bass line alone as long notes to hear where the harmony is actually moving.",
          [("Arpeggio figuration", 0.8)]),
-        ("The dominant pedal", 28, 32, 3.8,
+        ("The dominant pedal", 28, 32, 2.6,
          "A held low G under five bars of unchanging figuration, where most players either rush or let the "
          "tone die.",
          "Set a metronome and do not allow the tempo to move; this passage is a test of nerve, not fingers.",
          [("Arpeggio figuration", 0.7)]),
     ],
     "Fur Elise": [
-        ("The F major episode", 23, 34, 4.4,
+        ("The F major episode", 23, 34, 3.3,
          "A new theme over a broken-chord left hand that has to stay quiet while the right hand crescendos.",
          "Practise the left hand alone at pianissimo until it can run without attention.",
          [("Arpeggio figuration", 0.7), ("Melody over accompaniment", 0.6)]),
-        ("The repeated-note storm", 77, 82, 5.0,
+        ("The repeated-note storm", 77, 82, 3.8,
          "Fast repeated A naturals with changing fingers, leading into a chromatic descent; the hardest "
          "six bars in the piece by a wide margin.",
          "Use 3-2-1 on the repeated notes and keep the wrist high so each key fully resets.",
          [("Repeated notes", 0.9), ("Rapid scales", 0.6)]),
     ],
     "Sonata in C major, K. 545, I": [
-        ("The scale descent", 5, 8, 4.4,
+        ("The scale descent", 5, 8, 3.3,
          "Two octaves of continuous sixteenths with no dynamic cover. Any unevenness in the thumb crossings "
          "is audible from the back of a hall.",
          "Practise in dotted rhythms both ways, then in groups of four starting on each successive note.",
          [("Rapid scales", 0.9)]),
-        ("The recapitulation in F", 42, 49, 4.0,
+        ("The recapitulation in F", 42, 49, 3.0,
          "Mozart brings the theme back in the wrong key, so fingerings learned in the exposition no longer "
          "work and the hand has to relearn the same music.",
          "Write in the new fingering before playing it once, or the old one will fight you for weeks.",
          [("Rapid scales", 0.6), ("Melody over accompaniment", 0.5)]),
     ],
     "Sonata No. 14, Moonlight, I": [
-        ("The C-sharp minor return", 32, 38, 4.8,
+        ("The C-sharp minor return", 32, 38, 3.4,
          "The melody returns over a bass that has moved, and the triplets must stay perfectly level while "
          "the top line carries all the expression.",
          "Practise the triplets alone, absolutely flat, until they need no attention at all.",
          [("Melody over accompaniment", 0.9), ("Half pedalling", 0.6)]),
-        ("The final descent", 60, 69, 4.5,
+        ("The final descent", 60, 69, 3.2,
          "The texture thins to almost nothing and the pedal has to clear the changing harmony without "
          "breaking the line.",
          "Change the pedal on the ear, not the beat: listen for the bass note clouding.",
          [("Half pedalling", 0.8)]),
     ],
     "Sonata No. 14, Moonlight, III": [
-        ("Opening arpeggio assault", 1, 8, 8.2,
+        ("Opening arpeggio assault", 1, 8, 7.0,
          "Four-octave arpeggios launched from nothing straight into sforzando chords, with no bar to settle "
          "into the tempo.",
          "Start the arpeggio from the arm, not the fingers, and aim the hand at the top chord rather than "
          "at each note on the way.",
          [("Arpeggio figuration", 0.95), ("Wide leaps", 0.6)]),
-        ("Second subject Alberti", 21, 32, 7.8,
+        ("Second subject Alberti", 21, 32, 6.6,
          "The left hand holds a fast Alberti pattern for twelve bars while the right plays a detached "
          "melody that must not be rushed by it.",
          "Practise the left hand alone until it can run at tempo without attention, then add the right.",
          [("Arpeggio figuration", 0.8), ("Sustained endurance", 0.7)]),
-        ("Coda trill and cadenza", 187, 200, 8.6,
+        ("Coda trill and cadenza", 187, 200, 7.3,
          "A long trill under a moving line, then descending arpeggios at full speed into the final chords "
          "with the arm already tired.",
          "Work the coda first in every session, so it is learned on a fresh arm rather than a spent one.",
          [("Trills", 0.8), ("Arpeggio figuration", 0.9), ("Sustained endurance", 0.9)]),
     ],
     "Nocturne in E-flat major": [
-        ("Third ornamented return", 25, 28, 6.0,
+        ("Third ornamented return", 25, 28, 5.0,
          "The melody comes back buried under its heaviest decoration, and the ornaments have to sound "
          "improvised rather than measured.",
          "Learn the plain melody first and add the decoration on top, never the other way round.",
          [("Melody over accompaniment", 0.9)]),
-        ("The senza tempo cadenza", 33, 34, 6.4,
+        ("The senza tempo cadenza", 33, 34, 5.4,
          "An unmeasured run over the whole keyboard with no rhythmic support from the left hand at all.",
          "Decide where the run breathes before practising it, or it will come out different every time.",
          [("Rapid scales", 0.7), ("Wide leaps", 0.5)]),
     ],
     "Etude in C minor, Revolutionary": [
-        ("Opening left-hand descent", 1, 8, 8.0,
+        ("Opening left-hand descent", 1, 8, 6.6,
          "A full-keyboard cascade in the left hand from the first beat, before the arm has warmed up at all.",
          "Practise it in reverse, from the bottom note upward, to break the habit of falling through it.",
          [("Rapid scales", 0.95), ("Sustained endurance", 0.6)]),
-        ("The central modulation", 29, 40, 8.3,
+        ("The central modulation", 29, 40, 6.8,
          "The left hand keeps its torrent going through a series of key changes that break every fingering "
          "pattern established so far.",
          "Group the run by hand position rather than by beat, and mark the position changes in the score.",
          [("Rapid scales", 0.9), ("Sustained endurance", 0.8)]),
-        ("Coda octaves", 77, 84, 8.1,
+        ("Coda octaves", 77, 84, 6.7,
          "The last page, with the left hand still running while the right adds octaves and the arm is "
          "already fatigued.",
          "This is an endurance problem, not a speed one: build it by adding bars to the end, not the start.",
          [("Sustained endurance", 0.9), ("Blocked octaves", 0.5)]),
     ],
     "Etude in G-sharp minor, Double Thirds": [
-        ("Opening trill in thirds", 1, 4, 9.0,
+        ("Opening trill in thirds", 1, 4, 9.1,
          "The piece opens on a sotto voce trill in thirds, B–D♯ against C♯–E, repeated in even sixteenths "
          "for four bars before anything moves.",
          "Keep the wrist loose and the trill quiet; practise it in dotted rhythms before playing it even.",
          [("Double thirds", 1.0), ("Trills", 0.8)]),
-        ("Chromatic third ascent", 5, 10, 9.2,
+        ("Chromatic third ascent", 5, 10, 9.3,
          "Out of the trill the right hand climbs a chromatic scale in thirds over two octaves, trills again, "
          "then climbs again even higher.",
          "Practise the upper voice legato and the lower staccato, then swap, so neither can hide.",
          [("Double thirds", 1.0)]),
-        ("Final chromatic descent", 57, 60, 9.2,
+        ("Final chromatic descent", 57, 60, 9.3,
          "Near the end the thirds run chromatically down more than three octaves and settle back into the "
          "opening trill, now low in the keyboard.",
          "Build it backwards from the last bar so the ending is the most secure part.",
          [("Double thirds", 1.0), ("Sustained endurance", 0.7)]),
     ],
     "Etude in A minor, Winter Wind": [
-        ("The storm entry", 5, 12, 9.0,
+        ("The storm entry", 5, 12, 8.8,
          "The chromatic figure starts without warning after four calm bars and immediately covers four "
          "octaves.",
          "Learn bars 5 to 12 before you learn bars 1 to 4, so the entry never feels like a surprise.",
          [("Rapid scales", 0.95), ("Wide leaps", 0.5)]),
-        ("Left-hand march under the gale", 29, 44, 9.1,
+        ("Left-hand march under the gale", 29, 44, 8.9,
          "The left hand has to keep an audible march rhythm while the right hand's figuration is at its "
          "densest.",
          "Practise the left hand alone at performance dynamic; it disappears first under pressure.",
          [("Rapid scales", 0.9), ("Sustained endurance", 0.8)]),
-        ("Coda to the final octaves", 81, 96, 9.4,
+        ("Coda to the final octaves", 81, 96, 9.2,
          "The last fifteen bars run without pause into double-octave chords, arriving when the forearm is "
          "at its most tired.",
          "Treat the coda as a separate piece and practise it first in every session.",
          [("Sustained endurance", 0.95), ("Rapid scales", 0.8)]),
     ],
     "Ballade No. 1 in G minor": [
-        ("Second theme with leaps", 68, 82, 8.2,
+        ("Second theme with leaps", 68, 82, 6.5,
          "The left hand spans over a tenth repeatedly while the right shapes a long melody that must not "
          "be disturbed by the jumps.",
          "Practise the left hand blocked as chords first, so the hand learns the shapes before the distances.",
          [("Wide leaps", 0.8), ("Melody over accompaniment", 0.6)]),
-        ("The waltz episode", 138, 165, 8.5,
+        ("The waltz episode", 138, 165, 6.8,
          "Fast figuration in both hands with constant position changes, sitting exactly where most players "
          "start to lose rhythmic control.",
          "Set a metronome at the tempo you can hold cleanly and refuse to move it for a week.",
          [("Rapid scales", 0.8), ("Wide leaps", 0.6)]),
-        ("Presto con fuoco coda", 208, 264, 9.3,
+        ("Presto con fuoco coda", 208, 264, 7.4,
          "Fifty-six bars at maximum speed, with double-octave scales, wide leaps and chromatic runs, at the "
          "end of a nine-minute piece.",
          "The coda decides whether the performance succeeds; learn it first and keep it over-rehearsed.",
          [("Blocked octaves", 0.9), ("Rapid scales", 0.9), ("Sustained endurance", 0.95)]),
     ],
     "Liebestraum No. 3": [
-        ("First cadenza", 25, 27, 7.4,
+        ("First cadenza", 25, 27, 5.7,
          "A written-out cadenza on the black keys that has to sound spontaneous while landing exactly on "
          "the return of the theme.",
          "Fix the fingering completely and practise landing on the first note after the cadenza, not the "
          "cadenza itself.",
          [("Rapid scales", 0.8), ("Arpeggio figuration", 0.6)]),
-        ("Melody in the middle voice", 37, 48, 7.6,
+        ("Melody in the middle voice", 37, 48, 5.9,
          "The tune moves into the thumbs while both hands continue arpeggiated accompaniment around it.",
          "Play the melody alone with the thumbs only, then add the surrounding notes at a whisper.",
          [("Inner voice projection", 0.9), ("Wide leaps", 0.6)]),
-        ("Second cadenza into the climax", 58, 62, 7.8,
+        ("Second cadenza into the climax", 58, 62, 6.0,
          "The harder of the two cadenzas, arriving at the emotional peak with the widest leaps in the piece.",
          "Break it into three hand positions and practise the joins between them, not the runs.",
          [("Wide leaps", 0.8), ("Arpeggio figuration", 0.7)]),
     ],
     "Transcendental Etude No. 5, Feux Follets": [
-        ("Opening double-note figure", 7, 20, 9.7,
+        ("Opening double-note figure", 7, 20, 9.5,
          "Double notes with a shifting inner voice, played quietly and fast; the mechanism changes almost "
          "every bar so no pattern ever becomes automatic.",
          "Isolate each two-bar cell and loop it slowly with full release between repetitions.",
          [("Double thirds", 0.95), ("Wide leaps", 0.5)]),
-        ("The leaping section", 45, 60, 9.6,
+        ("The leaping section", 45, 60, 9.4,
          "Double notes combined with leaps of more than an octave, still marked leggiero, so the jumps "
          "cannot be covered with weight.",
          "Practise the leaps silently, hand landing on the keys without sounding them, until the distance "
          "is automatic.",
          [("Wide leaps", 0.9), ("Double thirds", 0.8)]),
-        ("Chromatic close", 82, 96, 9.8,
+        ("Chromatic close", 82, 96, 9.6,
          "Chromatic double notes at the fastest tempo in the piece, after four minutes of continuous "
          "small-muscle work.",
          "Build endurance by practising the last page first, at tempo, in short bursts.",
          [("Double thirds", 0.95), ("Rapid scales", 0.7), ("Trills", 0.5)]),
     ],
     "Transcendental Etude No. 12, Chasse-neige": [
-        ("Opening tremolo", 1, 12, 8.4,
+        ("Opening tremolo", 1, 12, 8.1,
          "A quiet tremolo that must stay completely even while gradually growing; any pulse in it turns the "
          "snow into a motor.",
          "Practise the tremolo alone for two minutes at a time with a metronome ticking on every beat.",
          [("Trills", 0.9), ("Sustained endurance", 0.8)]),
-        ("Melody under the storm", 25, 44, 8.9,
+        ("Melody under the storm", 25, 44, 8.6,
          "The melody moves into the middle of the texture while the tremolo continues above and the bass "
          "walks below, three layers in two hands.",
          "Voice the three layers separately at a whisper before ever playing them at volume.",
          [("Inner voice projection", 0.9), ("Trills", 0.8)]),
-        ("Whiteout climax", 57, 72, 9.1,
+        ("Whiteout climax", 57, 72, 8.8,
          "Chromatic scales in both hands buried inside the tremolo at the loudest point, where the melody "
          "is meant to be almost lost but not quite.",
          "Decide exactly how much melody survives and mark it, or the passage becomes noise.",
          [("Rapid scales", 0.8), ("Sustained endurance", 0.9), ("Trills", 0.7)]),
     ],
     "Hungarian Rhapsody No. 2": [
-        ("Lassan octave descents", 13, 26, 8.6,
+        ("Lassan octave descents", 13, 26, 7.8,
          "Heavy blocked octaves at a slow tempo, where every octave is exposed and there is no speed to "
          "hide behind.",
          "Drop from the shoulder and release fully between each one; slow octaves are harder than fast ones.",
          [("Blocked octaves", 0.9)]),
-        ("Friska acceleration", 128, 180, 9.1,
+        ("Friska acceleration", 128, 180, 8.3,
          "The fast section accelerates continuously for over fifty bars while the octaves get denser.",
          "Practise at the final tempo first and work backwards, so the acceleration has somewhere to land.",
          [("Blocked octaves", 0.95), ("Repeated notes", 0.7)]),
-        ("Final octave run", 300, 320, 9.4,
+        ("Final octave run", 300, 320, 8.6,
          "A full-keyboard octave glissando-style run into the closing chords, at the end of ten minutes of "
          "octave playing.",
          "This is pure endurance; if the forearm is tight by bar 200 the ending will not happen.",
          [("Blocked octaves", 0.95), ("Sustained endurance", 0.95)]),
     ],
     "Rhapsody in G minor": [
-        ("Opening cross-rhythm", 1, 12, 7.6,
+        ("Opening cross-rhythm", 1, 12, 6.0,
          "Three against two from the first bar, with the conflict built into the main theme rather than "
          "used as an effect.",
          "Learn each hand at tempo separately until neither needs the other to keep time.",
          [("Three against two", 0.9)]),
-        ("Development octaves", 33, 52, 7.9,
+        ("Development octaves", 33, 52, 6.3,
          "Octaves in the left hand under a right hand still holding the cross-rhythm, with inner voices "
          "carrying the theme.",
          "Play the inner voice alone and memorise where it sits before adding the octaves.",
          [("Blocked octaves", 0.7), ("Inner voice projection", 0.8), ("Three against two", 0.7)]),
     ],
     "Intermezzo in A major": [
-        ("The inner-voice opening", 1, 16, 6.8,
+        ("The inner-voice opening", 1, 16, 5.2,
          "The melody sits in the top of the right hand while the real movement happens in the thumb line "
          "underneath it, which must be heard without being pushed.",
          "Play the thumb line as a solo melody, then add the top voice at half its volume.",
          [("Inner voice projection", 0.9), ("Melody over accompaniment", 0.7)]),
-        ("The F-sharp minor middle section", 49, 76, 7.2,
+        ("The F-sharp minor middle section", 49, 76, 5.5,
          "Canonic writing where both hands carry independent lines and the pedal has to clear one without "
          "cutting the other.",
          "Practise without pedal entirely until the fingers can sustain the line on their own.",
          [("Inner voice projection", 0.9), ("Half pedalling", 0.7)]),
     ],
     "Clair de lune": [
-        ("The arpeggiated central section", 27, 42, 6.6,
+        ("The arpeggiated central section", 27, 42, 4.9,
          "Continuous broken chords under a melody that must float; the pedal changes constantly and the "
          "harmony is ambiguous enough that clean changes are hard to hear.",
          "Change pedal on the harmony, not the bar line, and check each change by stopping the sound "
          "completely first.",
          [("Half pedalling", 0.9), ("Arpeggio figuration", 0.7)]),
-        ("The return over rolled chords", 51, 58, 6.4,
+        ("The return over rolled chords", 51, 58, 4.7,
          "The opening theme returns with rolled chords beneath it that must not disturb the melody's pulse.",
          "Roll from the bottom and land the top note exactly on the beat, never before it.",
          [("Melody over accompaniment", 0.8), ("Half pedalling", 0.7)]),
     ],
     "Arabesque No. 1": [
-        ("Opening three against two", 6, 16, 5.6,
+        ("Opening three against two", 6, 16, 4.1,
          "The cross-rhythm runs continuously and has to sound unforced, as though neither hand is aware of "
          "the other.",
          "Learn each hand separately at tempo, then play them together without counting at all.",
          [("Three against two", 0.9)]),
-        ("The E minor middle", 39, 54, 5.8,
+        ("The E minor middle", 39, 54, 4.2,
          "The texture thickens and the cross-rhythm continues while the melody moves between the hands.",
          "Mark which hand owns the melody bar by bar before practising it.",
          [("Three against two", 0.8), ("Arpeggio figuration", 0.6)]),
     ],
     "Prelude in C-sharp minor": [
-        ("The agitato middle", 14, 44, 7.4,
+        ("The agitato middle", 14, 44, 5.8,
          "Continuous triplet figuration in both hands at speed, with the opening bell motif buried inside "
          "it and required to stay audible.",
          "Practise the triplets as blocked chords first so the hand learns the positions before the notes.",
          [("Repeated chords", 0.7), ("Sustained endurance", 0.7)]),
-        ("Four-stave return", 45, 56, 7.6,
+        ("Four-stave return", 45, 56, 6.0,
          "Rachmaninoff writes on four staves here: huge chords in both hands, many of them tenths, at "
          "maximum volume.",
          "Roll what you cannot reach, decide which note of each chord carries the tone, and lean the arm "
@@ -749,36 +749,36 @@ PASSAGES = {
          [("Tenth stretches", 0.9), ("Repeated chords", 0.8), ("Blocked octaves", 0.6)]),
     ],
     "Prelude in G minor": [
-        ("The march", 1, 33, 8.2,
+        ("The march", 1, 33, 6.8,
          "Repeated chords in strict rhythm for thirty-three bars, which exhausts the forearm long before "
          "the middle section arrives.",
          "Bounce from the wrist and keep the hand shape fixed; re-gripping each chord is what causes "
          "the burnout.",
          [("Repeated chords", 0.9), ("Sustained endurance", 0.8)]),
-        ("The central melody", 34, 60, 8.0,
+        ("The central melody", 34, 60, 6.6,
          "A long singing line over wide left-hand arpeggios with frequent tenths, at the opposite extreme "
          "of touch from the march either side of it.",
          "Practise the left hand alone with the pedal, listening for the top of each arpeggio to line up "
          "with the melody.",
          [("Tenth stretches", 0.8), ("Melody over accompaniment", 0.8)]),
-        ("March return and coda", 61, 88, 8.6,
+        ("March return and coda", 61, 88, 7.1,
          "The march comes back louder, with added octaves, on an arm that has already done both previous "
          "sections.",
          "Build stamina by practising the return immediately after the march, skipping the middle entirely.",
          [("Repeated chords", 0.9), ("Blocked octaves", 0.8), ("Sustained endurance", 0.9)]),
     ],
     "Jeux d'eau": [
-        ("Opening cascade", 1, 18, 8.4,
+        ("Opening cascade", 1, 18, 7.6,
          "Wide arpeggiated figuration high on the keyboard, marked pianissimo, where every note must sound "
          "but none may be heavy.",
          "Practise with an absurdly light touch and no pedal to find which notes are not speaking.",
          [("Arpeggio figuration", 0.95), ("Wide leaps", 0.5)]),
-        ("Double-note glissando section", 38, 50, 8.9,
+        ("Double-note glissando section", 38, 50, 8.1,
          "Double notes in both hands at speed, combined with black-key runs that change hand position "
          "almost every beat.",
          "Map the hand positions first and practise moving between them silently.",
          [("Double thirds", 0.8), ("Wide leaps", 0.7)]),
-        ("The cadenza", 62, 72, 9.0,
+        ("The cadenza", 62, 72, 8.2,
          "A two-hand cadenza across the full keyboard with both hands interlocking, at the loudest point "
          "of an otherwise delicate piece.",
          "Learn hands separately and mark exactly where they cross; the interlocking is the hard part, "
@@ -786,49 +786,49 @@ PASSAGES = {
          [("Arpeggio figuration", 0.9), ("Wide leaps", 0.8), ("Double thirds", 0.6)]),
     ],
     "Piano Concerto No. 2 in C minor, Moderato": [
-        ("The opening chords", 1, 9, 9.0,
+        ("The opening chords", 1, 9, 8.3,
          "Eight chords spanning a tenth or more, built from pianissimo to fortissimo, alone and completely "
          "exposed before the orchestra enters.",
          "If you cannot reach a tenth, roll from the bottom and land the top note on the beat; decide the "
          "roll speed now and keep it identical in all eight.",
          [("Tenth stretches", 0.9), ("Blocked octaves", 0.6)]),
-        ("The development climax", 161, 190, 9.4,
+        ("The development climax", 161, 190, 8.7,
          "Octaves and full chords at maximum volume against the full orchestra, with no let-up for thirty "
          "bars.",
          "Practise with a recording of the orchestral part so you learn how much sound you actually need.",
          [("Blocked octaves", 0.9), ("Sustained endurance", 0.9)]),
-        ("The march coda", 234, 260, 9.2,
+        ("The march coda", 234, 260, 8.5,
          "A march figure in the left hand under right-hand chords, arriving after ten minutes of "
          "continuous playing.",
          "Build this on a tired arm deliberately: run the development first, then straight into the coda.",
          [("Repeated chords", 0.8), ("Sustained endurance", 0.95), ("Tenth stretches", 0.7)]),
     ],
     "Piano Concerto No. 2 in C minor, Adagio sostenuto": [
-        ("The triplet accompaniment", 5, 28, 8.0,
+        ("The triplet accompaniment", 5, 28, 7.0,
          "Unbroken triplet figuration under a wind melody, which must stay completely level and quiet for "
          "twenty-four bars while giving the impression of floating.",
          "Practise it as blocked chords first, then release into the triplets without changing the hand "
          "positions.",
          [("Four against three", 0.7), ("Melody over accompaniment", 0.8), ("Half pedalling", 0.6)]),
-        ("The cadenza", 145, 160, 8.6,
+        ("The cadenza", 145, 160, 7.6,
          "A fast cadenza that breaks the movement's stillness, with wide leaps at speed before the calm "
          "returns.",
          "Learn the landing chord first and work backwards; arriving cleanly matters more than the run.",
          [("Wide leaps", 0.8), ("Blocked octaves", 0.6)]),
     ],
     "Piano Concerto No. 2 in C minor, Allegro scherzando": [
-        ("The scherzo figuration", 24, 60, 9.0,
+        ("The scherzo figuration", 24, 60, 8.8,
          "Fast scalar and chromatic work in both hands against a shifting orchestral accompaniment, where "
          "ensemble matters as much as the notes.",
          "Practise with a metronome at the conductor's tempo, not yours; this passage is where soloists "
          "and orchestras part company.",
          [("Rapid scales", 0.9), ("Sustained endurance", 0.7)]),
-        ("The fugato", 133, 176, 9.2,
+        ("The fugato", 133, 176, 9.0,
          "A fugal section where the piano carries several independent lines at speed while the orchestra "
          "answers.",
          "Voice each entry deliberately; without that the whole passage turns into undifferentiated noise.",
          [("Rapid scales", 0.8), ("Inner voice projection", 0.8)]),
-        ("The final statement", 268, 310, 9.3,
+        ("The final statement", 268, 310, 9.1,
          "The big theme returns in full chords in C major, at maximum volume, at the end of a "
          "thirty-five-minute concerto.",
          "This is the moment the whole performance is judged on and the arm is at its most tired; "
@@ -836,12 +836,12 @@ PASSAGES = {
          [("Blocked octaves", 0.9), ("Tenth stretches", 0.8), ("Sustained endurance", 0.95)]),
     ],
     "Etude in D-sharp minor": [
-        ("Opening left-hand leaps", 1, 12, 8.6,
+        ("Opening left-hand leaps", 1, 12, 7.7,
          "The left hand leaps more than two octaves repeatedly while the right plays octaves above it, "
          "from the first bar.",
          "Practise the left hand alone with eyes closed; if it needs looking at, it is not learned.",
          [("Wide leaps", 0.9), ("Blocked octaves", 0.7)]),
-        ("The climax", 25, 38, 9.0,
+        ("The climax", 25, 38, 8.1,
          "Right-hand octaves at full volume over left-hand leaps at their widest, with no let-up in the "
          "two and a half minutes the piece lasts.",
          "Release completely between every octave group, or the hand will not survive to the end.",

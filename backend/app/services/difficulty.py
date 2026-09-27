@@ -35,9 +35,14 @@ def clamp100(value: float) -> Decimal:
 
 
 def compute_mechanical_load(
-    links: Iterable[tuple[str, float]], load_factor_by_name: dict[str, float]
+    links: Iterable[tuple[str, float]],
+    load_factor_by_name: dict[str, float],
+    difficulty: Optional[Decimal] = None,
 ) -> Decimal:
     weighted = [weight * float(load_factor_by_name.get(name, 1.2)) for name, weight in links]
+    if difficulty is not None:
+        profile = min(max(weighted, default=0.9) / 1.8, 1.0)
+        return clamp100(float(difficulty) * (0.55 + 0.45 * profile))
     if not weighted:
         return Decimal("40.0")
     peak = max(weighted)
@@ -57,15 +62,15 @@ def difficulty_band(score: Optional[Decimal]) -> str:
     if score is None:
         return "unrated"
     value = float(score)
-    if value < 30:
+    if value < 15:
         return "beginner"
-    if value < 50:
+    if value < 30:
         return "early intermediate"
-    if value < 65:
+    if value < 45:
         return "intermediate"
-    if value < 80:
+    if value < 60:
         return "late intermediate"
-    if value < 90:
+    if value < 78:
         return "advanced"
     return "virtuoso"
 

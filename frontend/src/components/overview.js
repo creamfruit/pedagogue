@@ -18,11 +18,17 @@ const CATEGORY_LABELS = {
   endurance: "endurance",
 };
 
-// Strings made only of null/None/undefined (e.g. "nullnullnull") are data junk
-// that slipped past the API. Hide them, but say which field so it can be traced.
 const PLACEHOLDER_JUNK = /^(?:\s|null|none|undefined)+$/i;
+const FILLER = [/^This metadata was generated automatically/i, /sits within the .* repertoire.*hands-separate study/i];
+
+const BASIS_NOTES = {
+  reference: "Placed on Pedagogue's reference ladder, where Für Elise is 30, Chopin's first Ballade 70 and Islamey 98.",
+  estimate: "Estimated from the composer and the form. It will move once the piece is placed on the ladder.",
+  generated: "Rated by the catalogue assistant against the same ladder: Für Elise 30, Ballade No. 1 70, Islamey 98.",
+};
 
 function isJunk(label, value) {
+  if (typeof value === "string" && FILLER.some((pattern) => pattern.test(value))) return true;
   if (typeof value !== "string" || !PLACEHOLDER_JUNK.test(value)) return false;
   console.warn(`[piece overview] "${label}" arrived as placeholder text ${JSON.stringify(value)}; hiding it.`);
   return true;
@@ -46,8 +52,6 @@ function formatScore(value) {
   return String(Math.round(number * 10) / 10);
 }
 
-// Personalised ("for you") difficulty in the pink accent beside the neutral
-// catalogue baseline. Both are always shown; "--" stands in for a missing value.
 export function difficultyPair(personalized, baseline, { band } = {}) {
   const forYou = formatScore(personalized);
   const base = formatScore(baseline);
@@ -285,33 +289,41 @@ function keyFactsSection(overview, { showDifficulty = true } = {}) {
     el(
       "div",
       { class: "meta-grid" },
+      metaRow("Composer", overview.composer ? overview.composer.name : null),
       metaRow("Catalogue", overview.catalog_number),
-      metaRow("Era", overview.era),
       metaRow("Key", overview.key_signature),
+      metaRow("Composed", overview.year_composed),
+      metaRow("Era", overview.era),
       metaRow("Marking", overview.tempo_marking),
-      metaRow("Duration", overview.duration_label),
+      metaRow("Duration", overview.duration_sec ? overview.duration_label : null),
+      metaRow("Level", overview.syllabus_grade && overview.syllabus_grade !== "Unrated" ? overview.syllabus_grade : null),
       metaRow("Difficulty", difficulty, { wide: true })
     ),
+    overview.difficulty_score != null && BASIS_NOTES[overview.difficulty_basis] ? el("p", { class: "basis-note faint" }, BASIS_NOTES[overview.difficulty_basis]) : null,
     mood
   );
 }
 
 function storyBody(overview) {
-  const composer = overview.composer;
   const facts = el(
     "div",
     { class: "meta-grid" },
-    metaRow("Composer", composer ? composer.name : null),
-    metaRow("Composed", overview.year_composed),
     metaRow("Genre", overview.genre),
-    metaRow("Syllabus grade", overview.syllabus_grade),
     metaRow("Mechanical load", overview.mechanical_load)
   );
-  const blocks = [
-    prose("What it depicts", overview.scene),
-    prose("History", overview.historical_note),
-    prose("Worth knowing", overview.fun_fact),
-  ].filter(Boolean);
+  const history = prose("History", overview.historical_note);
+  if (history && overview.reference_url) {
+    history.append(
+      el(
+        "p",
+        { class: "lore-source faint" },
+        "Source: ",
+        el("a", { href: overview.reference_url, target: "_blank", rel: "noopener" }, overview.reference_label || "Wikipedia"),
+        " · CC BY-SA"
+      )
+    );
+  }
+  const blocks = [prose("What it depicts", overview.scene), history, prose("Worth knowing", overview.fun_fact)].filter(Boolean);
   if (!blocks.length && !facts.children.length) return null;
   return el("div", { class: "lore-panel" }, facts.children.length ? facts : null, ...blocks);
 }

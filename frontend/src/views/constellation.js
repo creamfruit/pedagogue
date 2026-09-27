@@ -20,8 +20,6 @@ import {
 } from "../lib/drift.js";
 import { ERA_STYLE, difficultyTone, eraGlyph, palette } from "../lib/palette.js";
 
-// Link type is carried by accent and dash pattern together, so the three types
-// stay distinct in the legend and on the canvas even where hues sit close.
 const LINK_STYLES = {
   composer: { tone: "accent", dash: null },
   technique: { tone: "tide", dash: [7, 4] },
@@ -34,10 +32,6 @@ const LINK_LABELS = {
   era_genre: "era / genre",
 };
 
-// Star size grows exponentially with difficulty (0-100). The catalogue clusters
-// between roughly 75 and 95, so a linear ramp left most stars looking alike.
-// radius feeds mass and wall padding in lib/drift.js, so it scales with the same
-// curve: a star that looks twice as big is also heavier to throw.
 const DOT_MIN = 1.6;
 const DOT_MAX = 9.5;
 const RADIUS_PER_DOT = 2.8;
@@ -74,7 +68,7 @@ export async function constellationView(outlet, context = {}) {
   const canvas = el("canvas");
   const detail = el("div", { class: "panel", style: "margin-top:16px" });
   const drawerBody = el("div", { class: "sky-drawer-body" });
-  const drawerClose = el("button", { type: "button", class: "sky-drawer-close", "aria-label": "Close details" }, "×");
+  const drawerClose = el("button", { type: "button", class: "back-btn sky-drawer-close", "aria-label": "Back to the sky" }, el("span", { "aria-hidden": "true" }, "←"), "Back");
   const drawer = el("aside", { class: "sky-drawer", hidden: true, "aria-label": "Selected star or connection", tabindex: "-1" }, drawerClose, drawerBody);
 
   function showDrawer(...content) {
@@ -620,7 +614,6 @@ export async function constellationView(outlet, context = {}) {
       const base = Math.min((0.1 + link.strength * 0.32) * (linkStyle.alpha ?? 1), 1);
       ctx.globalAlpha = lit ? Math.min(base + 0.55, 1) : base;
       ctx.lineWidth = ((0.5 + link.strength * 1.1) * (linkStyle.width ?? 1) * (lit ? 2.6 : 1)) / transform.k;
-      // A type's own pattern always wins; the cosmetic dash only restyles solid types.
       const typeDash = LINK_STYLES[link.link_type]?.dash;
       const dash = typeDash || (lit ? null : linkStyle.dash);
       ctx.lineCap = typeDash ? "round" : "butt";
@@ -694,8 +687,6 @@ export async function constellationView(outlet, context = {}) {
     }
   }
 
-  // Exactly one drag or pan is live at a time, owned by activePointer. Ending it
-  // releases that star's grab, so no star can be left pulled toward a stale point.
   function finishInteraction({ open = false } = {}) {
     const pointerId = activePointer;
     activePointer = null;
@@ -718,8 +709,6 @@ export async function constellationView(outlet, context = {}) {
   }
 
   canvas.addEventListener("pointerdown", (event) => {
-    // A second finger, or a new press after a pointerup that never arrived (the
-    // mouse always reuses pointerId 1), must not strand the star already held.
     if (dragging || panning) finishInteraction();
     const point = toWorld(event);
     const found = nodeAt(point);
@@ -798,8 +787,6 @@ export async function constellationView(outlet, context = {}) {
     }
   });
 
-  // Only the pointer that owns the live interaction can end it; a stray up or
-  // cancel from another finger leaves the current drag alone.
   function endPointer(event) {
     if (activePointer === null || event.pointerId !== activePointer) return;
     finishInteraction({ open: event.type === "pointerup" });

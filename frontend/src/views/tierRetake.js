@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { el, empty, skeletonBlock } from "../lib/dom.js";
+import { backButton, el, empty, skeletonBlock } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
@@ -8,6 +8,7 @@ import { savedTiers, tierQuizStep } from "./onboarding.js";
 export async function tierRetakeView(outlet) {
   const host = el("div", {}, skeletonBlock(6));
   outlet.append(
+    backButton("/settings"),
     el(
       "div",
       { class: "page-head" },
@@ -20,8 +21,7 @@ export async function tierRetakeView(outlet) {
           { class: "muted", style: "margin:4px 0 0" },
           "Your current tiers are filled in. Change any you've outgrown; saving updates them in place and re-personalises every piece's difficulty."
         )
-      ),
-      el("a", { class: "btn btn-ghost btn-small", href: "/settings", "data-link": true }, "Back to settings")
+      )
     ),
     el("div", { class: "onboarding" }, host)
   );

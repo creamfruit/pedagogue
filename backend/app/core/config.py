@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     job_queue: Literal["background", "redis", "inline"] = "background"
     musicbrainz_contact: str = "https://github.com/creamfruit/pedagogue"
+    wiki_facts_enabled: bool = True
     embedding_dim: int = 64
 
     max_upload_mb: int = 50

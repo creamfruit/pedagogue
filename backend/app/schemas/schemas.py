@@ -1013,6 +1013,9 @@ class PieceOverview(BaseModel):
     scene: Optional[str] = None
     historical_note: Optional[str] = None
     fun_fact: Optional[str] = None
+    reference_url: Optional[str] = None
+    reference_label: Optional[str] = None
+    difficulty_basis: str = "catalogue"
     composer: Optional[ComposerProfile] = None
     sections: list[SectionRead] = Field(default_factory=list)
     techniques: list[TechniqueBreakdown] = Field(default_factory=list)

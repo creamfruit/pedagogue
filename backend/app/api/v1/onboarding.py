@@ -217,11 +217,15 @@ async def get_piece(piece_id: int, session: SessionDep) -> PieceDetail:
 
 
 @catalog_router.get("/pieces/{piece_id}/overview", response_model=PieceOverview)
-async def piece_overview(piece_id: int, session: SessionDep, user: OptionalUser) -> PieceOverview:
+async def piece_overview(
+    piece_id: int, session: SessionDep, user: OptionalUser, background_tasks: BackgroundTasks
+) -> PieceOverview:
     try:
         data = await PieceOverviewService(session).overview(piece_id, user=user)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if data.pop("wants_facts", False):
+        await get_queue(background_tasks).enqueue("enrich_piece_facts", piece_id)
     return PieceOverview(**data)
 
 

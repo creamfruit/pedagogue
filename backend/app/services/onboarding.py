@@ -104,6 +104,9 @@ class CatalogService(BaseService):
         composer = await self.find_composer(name)
         if composer is None:
             composer = Composer(name=name)
+            from app.services.piece_knowledge import fill_composer
+
+            await fill_composer(self.session, composer)
             self.session.add(composer)
             await self.session.flush()
         return composer
@@ -188,6 +191,11 @@ class CatalogService(BaseService):
             external_source=source,
             external_ref=payload.external_ref,
         )
+        from app.services.piece_knowledge import apply_title_facts
+
+        reference = apply_title_facts(piece, composer.name if composer else payload.composer_name, rename=True)
+        if reference is not None:
+            piece.difficulty_score = reference.score
         self.session.add(piece)
         await self.session.flush()
         return piece

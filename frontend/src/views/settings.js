@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { el, reveal, sectionBlock } from "../lib/dom.js";
+import { backButton, el, reveal, sectionBlock } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 
@@ -273,6 +273,7 @@ function accountSection() {
 export async function settingsView(outlet) {
   const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), dataSection(), accountSection()];
   outlet.append(
+    backButton("/"),
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),
     el("div", { class: "settings-stack" }, ...sections.filter(Boolean))
   );

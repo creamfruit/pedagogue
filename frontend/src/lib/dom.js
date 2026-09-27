@@ -1,3 +1,4 @@
+import { goBack } from "../router.js";
 export function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
   Object.entries(attrs || {}).forEach(([key, value]) => {
@@ -154,9 +155,9 @@ export function openModal(contentNode, { title } = {}) {
     { class: "modal" },
     el(
       "div",
-      { class: "row", style: "justify-content:space-between;margin-bottom:14px" },
-      el("h2", { style: "margin:0" }, title || ""),
-      el("button", { type: "button", class: "btn btn-small btn-ghost", onclick: () => close() }, "Close")
+      { class: "modal-head" },
+      el("button", { type: "button", class: "back-btn", "aria-label": "Back", onclick: () => close() }, el("span", { "aria-hidden": "true" }, "←"), "Back"),
+      el("h2", { class: "modal-title" }, title || "")
     ),
     contentNode
   );
@@ -191,4 +192,13 @@ export function toneForSeverity(severity) {
   if (severity === "rest") return "pill-bad";
   if (severity === "caution") return "pill-warn";
   return "pill-ok";
+}
+
+export function backButton(fallback = "/", label = "Back") {
+  return el(
+    "button",
+    { type: "button", class: "back-btn", onclick: () => (typeof fallback === "function" ? fallback() : goBack(fallback)) },
+    el("span", { "aria-hidden": "true" }, "←"),
+    label
+  );
 }

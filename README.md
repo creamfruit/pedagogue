@@ -351,7 +351,17 @@ genuinely clean run, and an entry that clears that bar is promoted to
 average.
 
 
+## Difficulty ladder
+
+Every difficulty is on one 0 to 100 ladder. The anchors live in `backend/app/services/repertoire_reference.py`: Für Elise sits at 30, Chopin's first Ballade at 70, Harmonies du soir at 84, La Campanella at 90 and Islamey at 98. Edit a number there and run `python -m app.seed` to push it to every matching piece, including ones already imported from MusicBrainz or OpenOpus.
+
+Pieces that are not on the ladder get an estimate from the composer and the form, marked as an estimate on the piece page. The offline metadata step no longer invents hard bars or filler text. Imported pieces take their catalogue number, key and nickname from the title, and the backend looks up a short history on Wikipedia through the work's MusicBrainz and Wikidata links (set `WIKI_FACTS_ENABLED=false` to turn that off).
+
+Bands: under 15 beginner, 15 to 30 early intermediate, 30 to 45 intermediate, 45 to 60 late intermediate, 60 to 78 advanced (graded run and verification take required from 60), 78 and up concert repertoire.
+
 ## Credits
+
+Piece histories fetched from Wikipedia are shown with a link to the article and are available under CC BY-SA 4.0.
 
 Piano playback uses the Salamander Grand Piano V3 samples by Alexander Holm (CC BY 3.0).
 Technique examples in onboarding are real passages from the First Editions of Fryderyk Chopin's

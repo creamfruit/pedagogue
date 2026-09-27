@@ -2,6 +2,7 @@ import "./styles.css";
 import { api, onUnauthorized } from "./api/client.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
+import { startCosmos } from "./lib/cosmos.js";
 import { navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
 import { loginView, registerView } from "./views/auth.js";
 import { onboardingView } from "./views/onboarding.js";
@@ -62,8 +63,6 @@ function setWallet() {
   level.className = "wallet-level";
   level.textContent = `LV ${wallet.level}`;
 
-  // The level pill's own XP bar: progress through the current level, with the
-  // numbers beside it, rather than a second bar repeating the same quantity.
   const into = Math.max(wallet.xp_into_level || 0, 0);
   const span = into + Math.max(wallet.xp_for_next_level || 0, 0);
   const percent = Math.round(Math.min(Math.max(wallet.level_progress || 0, 0), 1) * 100);
@@ -206,6 +205,7 @@ async function registerServiceWorker() {
 }
 
 async function boot() {
+  startCosmos();
   wireNetworkStatus();
   wireMenu();
   wireAccountMenu();

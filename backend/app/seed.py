@@ -24,6 +24,7 @@ from app.models.models import (
     TechniqueCategory,
 )
 from app.seed_lore import COMPOSER_LORE, LINK_NOTES, PASSAGES, PIECE_LORE, TECHNIQUE_LORE
+from app.services.piece_knowledge import refresh_catalog_knowledge
 from app.services.difficulty import compute_mechanical_load, scale100
 
 ERAS = [
@@ -90,13 +91,13 @@ MOVEMENT_WORKS = [
         "Op. 18",
         "C minor",
         "Concerto",
-        9.4,
+        8.8,
         [
-            ("Moderato", 1, 9.5, 660,
+            ("Moderato", 1, 8.8, 660,
              [("Blocked octaves", 0.8), ("Tenth stretches", 0.8), ("Sustained endurance", 0.9)]),
-            ("Adagio sostenuto", 2, 8.2, 690,
+            ("Adagio sostenuto", 2, 7.2, 690,
              [("Melody over accompaniment", 0.8), ("Four against three", 0.6), ("Half pedalling", 0.6)]),
-            ("Allegro scherzando", 3, 9.2, 700,
+            ("Allegro scherzando", 3, 9.0, 700,
              [("Rapid scales", 0.8), ("Blocked octaves", 0.7), ("Sustained endurance", 0.8)]),
         ],
     ),
@@ -113,55 +114,55 @@ LOAD_PROFILES = [
 PIECES = [
     ("Invention No. 1 in C major", "Johann Sebastian Bach", "BWV 772", "C major", "Prelude", 3.0, 90,
      [("Rapid scales", 0.4), ("Inner voice projection", 0.6)]),
-    ("Prelude in C major, WTC I", "Johann Sebastian Bach", "BWV 846", "C major", "Prelude", 3.5, 130,
+    ("Prelude in C major, WTC I", "Johann Sebastian Bach", "BWV 846", "C major", "Prelude", 2.4, 130,
      [("Arpeggio figuration", 0.8)]),
-    ("Sonata in C major, K. 545, I", "Wolfgang Amadeus Mozart", "K. 545", "C major", "Sonata", 4.0, 240,
+    ("Sonata in C major, K. 545, I", "Wolfgang Amadeus Mozart", "K. 545", "C major", "Sonata", 3.0, 240,
      [("Rapid scales", 0.7), ("Melody over accompaniment", 0.5)]),
-    ("Fur Elise", "Ludwig van Beethoven", "WoO 59", "A minor", "Prelude", 4.0, 180,
+    ("Fur Elise", "Ludwig van Beethoven", "WoO 59", "A minor", "Prelude", 3.0, 180,
      [("Arpeggio figuration", 0.5), ("Repeated notes", 0.4)]),
-    ("Sonata No. 14, Moonlight, I", "Ludwig van Beethoven", "Op. 27 No. 2", "C-sharp minor", "Sonata", 4.5, 330,
+    ("Sonata No. 14, Moonlight, I", "Ludwig van Beethoven", "Op. 27 No. 2", "C-sharp minor", "Sonata", 3.2, 330,
      [("Melody over accompaniment", 0.7), ("Arpeggio figuration", 0.6), ("Half pedalling", 0.5)]),
-    ("Sonata No. 14, Moonlight, III", "Ludwig van Beethoven", "Op. 27 No. 2", "C-sharp minor", "Sonata", 8.0, 420,
+    ("Sonata No. 14, Moonlight, III", "Ludwig van Beethoven", "Op. 27 No. 2", "C-sharp minor", "Sonata", 6.8, 420,
      [("Arpeggio figuration", 0.9), ("Repeated chords", 0.6), ("Sustained endurance", 0.7)]),
-    ("Nocturne in E-flat major", "Frederic Chopin", "Op. 9 No. 2", "E-flat major", "Nocturne", 5.5, 270,
+    ("Nocturne in E-flat major", "Frederic Chopin", "Op. 9 No. 2", "E-flat major", "Nocturne", 4.6, 270,
      [("Melody over accompaniment", 0.9), ("Half pedalling", 0.6), ("Wide leaps", 0.4)]),
-    ("Etude in C minor, Revolutionary", "Frederic Chopin", "Op. 10 No. 12", "C minor", "Etude", 8.0, 160,
+    ("Etude in C minor, Revolutionary", "Frederic Chopin", "Op. 10 No. 12", "C minor", "Etude", 6.6, 160,
      [("Rapid scales", 0.9), ("Sustained endurance", 0.7), ("Arpeggio figuration", 0.6)]),
-    ("Etude in G-sharp minor, Double Thirds", "Frederic Chopin", "Op. 25 No. 6", "G-sharp minor", "Etude", 9.2, 120,
+    ("Etude in G-sharp minor, Double Thirds", "Frederic Chopin", "Op. 25 No. 6", "G-sharp minor", "Etude", 9.3, 120,
      [("Double thirds", 1.0), ("Trills", 0.6), ("Sustained endurance", 0.5)]),
-    ("Etude in A minor, Winter Wind", "Frederic Chopin", "Op. 25 No. 11", "A minor", "Etude", 9.3, 220,
+    ("Etude in A minor, Winter Wind", "Frederic Chopin", "Op. 25 No. 11", "A minor", "Etude", 9.1, 220,
      [("Rapid scales", 0.9), ("Sustained endurance", 0.8), ("Wide leaps", 0.5)]),
-    ("Ballade No. 1 in G minor", "Frederic Chopin", "Op. 23", "G minor", "Ballade", 8.8, 570,
+    ("Ballade No. 1 in G minor", "Frederic Chopin", "Op. 23", "G minor", "Ballade", 7.0, 570,
      [("Wide leaps", 0.7), ("Blocked octaves", 0.6), ("Sustained endurance", 0.8), ("Rapid scales", 0.7)]),
-    ("Liebestraum No. 3", "Franz Liszt", "S. 541", "A-flat major", "Nocturne", 7.5, 280,
+    ("Liebestraum No. 3", "Franz Liszt", "S. 541", "A-flat major", "Nocturne", 5.8, 280,
      [("Melody over accompaniment", 0.8), ("Wide leaps", 0.6), ("Arpeggio figuration", 0.7)]),
-    ("Transcendental Etude No. 5, Feux Follets", "Franz Liszt", "S. 139 No. 5", "B-flat major", "Etude", 9.8, 230,
+    ("Transcendental Etude No. 5, Feux Follets", "Franz Liszt", "S. 139 No. 5", "B-flat major", "Etude", 9.6, 230,
      [("Double thirds", 0.9), ("Wide leaps", 0.8), ("Rapid scales", 0.7), ("Trills", 0.5)]),
-    ("Hungarian Rhapsody No. 2", "Franz Liszt", "S. 244 No. 2", "C-sharp minor", "Ballade", 9.0, 600,
+    ("Hungarian Rhapsody No. 2", "Franz Liszt", "S. 244 No. 2", "C-sharp minor", "Ballade", 8.2, 600,
      [("Blocked octaves", 0.9), ("Repeated notes", 0.6), ("Wide leaps", 0.7)]),
-    ("Transcendental Etude No. 12, Chasse-neige", "Franz Liszt", "S. 139 No. 12", "B-flat minor", "Etude", 9.1, 300,
+    ("Transcendental Etude No. 12, Chasse-neige", "Franz Liszt", "S. 139 No. 12", "B-flat minor", "Etude", 8.8, 300,
      [("Trills", 0.9), ("Inner voice projection", 0.8), ("Sustained endurance", 0.9), ("Rapid scales", 0.6)]),
-    ("Rhapsody in G minor", "Johannes Brahms", "Op. 79 No. 2", "G minor", "Ballade", 7.8, 340,
+    ("Rhapsody in G minor", "Johannes Brahms", "Op. 79 No. 2", "G minor", "Ballade", 6.2, 340,
      [("Three against two", 0.8), ("Blocked octaves", 0.5), ("Inner voice projection", 0.6)]),
-    ("Intermezzo in A major", "Johannes Brahms", "Op. 118 No. 2", "A major", "Nocturne", 6.8, 330,
+    ("Intermezzo in A major", "Johannes Brahms", "Op. 118 No. 2", "A major", "Nocturne", 5.2, 330,
      [("Inner voice projection", 0.9), ("Melody over accompaniment", 0.7), ("Half pedalling", 0.6),
       ("Three against two", 0.4)]),
-    ("Clair de lune", "Claude Debussy", "L. 75 No. 3", "D-flat major", "Prelude", 6.5, 300,
+    ("Clair de lune", "Claude Debussy", "L. 75 No. 3", "D-flat major", "Prelude", 4.8, 300,
      [("Half pedalling", 0.8), ("Melody over accompaniment", 0.7), ("Four against three", 0.5)]),
-    ("Arabesque No. 1", "Claude Debussy", "L. 66 No. 1", "E major", "Prelude", 5.5, 250,
+    ("Arabesque No. 1", "Claude Debussy", "L. 66 No. 1", "E major", "Prelude", 4.0, 250,
      [("Three against two", 0.8), ("Arpeggio figuration", 0.6)]),
-    ("Prelude in C-sharp minor", "Sergei Rachmaninoff", "Op. 3 No. 2", "C-sharp minor", "Prelude", 7.0, 250,
+    ("Prelude in C-sharp minor", "Sergei Rachmaninoff", "Op. 3 No. 2", "C-sharp minor", "Prelude", 5.5, 250,
      [("Repeated chords", 0.9), ("Tenth stretches", 0.7), ("Sustained endurance", 0.6)]),
-    ("Prelude in G minor", "Sergei Rachmaninoff", "Op. 23 No. 5", "G minor", "Prelude", 8.5, 260,
+    ("Prelude in G minor", "Sergei Rachmaninoff", "Op. 23 No. 5", "G minor", "Prelude", 7.0, 260,
      [("Repeated chords", 0.8), ("Blocked octaves", 0.7), ("Tenth stretches", 0.6)]),
-    ("Jeux d'eau", "Maurice Ravel", "M. 30", "E major", "Prelude", 8.8, 300,
+    ("Jeux d'eau", "Maurice Ravel", "M. 30", "E major", "Prelude", 8.0, 300,
      [("Double thirds", 0.6), ("Arpeggio figuration", 0.9), ("Wide leaps", 0.6)]),
-    ("Etude in D-sharp minor", "Alexander Scriabin", "Op. 8 No. 12", "D-sharp minor", "Etude", 8.9, 150,
+    ("Etude in D-sharp minor", "Alexander Scriabin", "Op. 8 No. 12", "D-sharp minor", "Etude", 8.0, 150,
      [("Blocked octaves", 0.8), ("Wide leaps", 0.8), ("Sustained endurance", 0.7)]),
     ("Pas de deux, The Nutcracker", "Pyotr Ilyich Tchaikovsky", "Op. 71", "G major", "Ballet", 8.8, 330,
      [("Double sixths", 0.9), ("Blocked octaves", 0.7), ("Melody over accompaniment", 0.7),
       ("Sustained endurance", 0.6)]),
-    ("Mephisto Waltz No. 1", "Franz Liszt", "S. 514", "A major", "Waltz", 9.5, 660,
+    ("Mephisto Waltz No. 1", "Franz Liszt", "S. 514", "A major", "Waltz", 9.3, 660,
      [("Wide leaps", 0.9), ("Blocked octaves", 0.8), ("Repeated chords", 0.6), ("Sustained endurance", 0.8)]),
 ]
 
@@ -175,8 +176,8 @@ ACHIEVEMENTS = [
     ("first_pass", "Graded", "Pass a graded run-through at 80 or above.", 300, 500, 6),
     ("grade_ninety", "Ninety club", "Score 90 or above on a graded run-through.", 600, 900, 7),
     ("flawless", "Flawless", "Score 98 or above on a graded run-through.", 1800, 2600, 8),
-    ("grade_eight_club", "Grade eight club", "Learn a piece rated 8 or harder.", 700, 650, 9),
-    ("virtuoso", "Virtuoso", "Learn a piece rated 9.5 or harder.", 2600, 3200, 10),
+    ("grade_eight_club", "Grade eight club", "Learn a piece rated 45 or harder, about grade eight.", 700, 650, 9),
+    ("virtuoso", "Virtuoso", "Learn a piece rated 90 or harder.", 2600, 3200, 10),
     ("polyrhythm_steady", "Two against three", "Hit 90 percent accuracy on a polyrhythm drill.", 250, 200, 11),
     ("level_five", "Rising", "Reach level five.", 0, 400, 12),
     ("level_ten", "Seasoned", "Reach level ten.", 0, 1200, 13),
@@ -294,7 +295,7 @@ async def seed_catalog_detail() -> None:
                 catalog_number=catalog,
                 key_signature=key,
                 difficulty_score=scale100(difficulty),
-                mechanical_load=compute_mechanical_load(links, load_factors),
+                mechanical_load=compute_mechanical_load(links, load_factors, scale100(difficulty)),
                 duration_sec=duration,
             )
             session.add(piece)
@@ -388,6 +389,12 @@ async def seed_catalog_detail() -> None:
                 record.headline = headline
                 record.summary = summary
             written += 1
+
+        knowledge = await refresh_catalog_knowledge(session)
+        print(
+            f"difficulty ladder: {knowledge['ladder']} pieces placed, {knowledge['estimated']} estimated, "
+            f"{knowledge['cleaned']} with filler text replaced"
+        )
 
         print(
             f"catalog detail: {lored} pieces given context, {sections} marked sections, "
@@ -491,7 +498,7 @@ async def seed() -> None:
                 catalog_number=catalog,
                 key_signature=key,
                 difficulty_score=scale100(difficulty),
-                mechanical_load=compute_mechanical_load(links, load_factors),
+                mechanical_load=compute_mechanical_load(links, load_factors, scale100(difficulty)),
                 duration_sec=duration,
             )
             session.add(piece)
@@ -511,7 +518,7 @@ async def seed() -> None:
                 catalog_number=catalog,
                 key_signature=key,
                 difficulty_score=scale100(difficulty),
-                mechanical_load=compute_mechanical_load(all_links, load_factors),
+                mechanical_load=compute_mechanical_load(all_links, load_factors, scale100(difficulty)),
             )
             session.add(parent)
             await session.flush()
@@ -523,7 +530,7 @@ async def seed() -> None:
                     catalog_number=catalog,
                     key_signature=key,
                     difficulty_score=scale100(mv_difficulty),
-                    mechanical_load=compute_mechanical_load(links, load_factors),
+                    mechanical_load=compute_mechanical_load(links, load_factors, scale100(mv_difficulty)),
                     duration_sec=duration,
                     parent_piece_id=parent.id,
                     movement_number=number,

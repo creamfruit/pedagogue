@@ -20,6 +20,7 @@ from app.models.models import (
     Technique,
 )
 from app.services.difficulty import difficulty_band, mastery_for, personalize_difficulty
+from app.services.repertoire_reference import lookup as ladder_lookup
 from app.services.onboarding import BaseService
 
 PIECE_LOADERS = (
@@ -80,6 +81,18 @@ class TechniqueExampleService(BaseService):
         ]
 
 
+def difficulty_basis(piece) -> str:
+    composer = getattr(piece, "composer", None)
+    if ladder_lookup(piece.title, composer.name if composer else None, getattr(piece, "catalog_number", None)):
+        return "reference"
+    model = getattr(piece, "metadata_generation_model", None) or ""
+    if model.startswith("heuristic"):
+        return "estimate"
+    if getattr(piece, "external_source", None) and model:
+        return "generated"
+    return "catalogue"
+
+
 class PieceOverviewService(BaseService):
     async def load(self, piece_id: int) -> Piece:
         stmt = select(Piece).options(*PIECE_LOADERS).where(Piece.id == piece_id)
@@ -130,6 +143,14 @@ class PieceOverviewService(BaseService):
             "scene": piece.scene,
             "historical_note": piece.historical_note,
             "fun_fact": piece.fun_fact,
+            "reference_url": getattr(piece, "reference_url", None),
+            "reference_label": getattr(piece, "reference_label", None),
+            "difficulty_basis": difficulty_basis(piece),
+            "wants_facts": bool(
+                getattr(piece, "external_source", None)
+                and getattr(piece, "facts_checked_at", None) is None
+                and piece.metadata_generated_at is not None
+            ),
             "composer": self.composer(composer) if composer else None,
             "sections": sections,
             "techniques": techniques,

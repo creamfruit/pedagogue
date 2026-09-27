@@ -1,9 +1,12 @@
+import { stopAllPlayback } from "./lib/piano.js";
+
 const routes = [];
 let outlet = null;
 let notFound = null;
 let guard = null;
 let current = null;
 let disposeCurrent = null;
+let depth = 0;
 
 function compile(pattern) {
   const keys = [];
@@ -35,8 +38,11 @@ export function navigate(path, { replace = false } = {}) {
   if (path === window.location.pathname + window.location.search) {
     return resolve();
   }
-  if (replace) window.history.replaceState({}, "", path);
-  else window.history.pushState({}, "", path);
+  if (replace) window.history.replaceState({ depth }, "", path);
+  else {
+    depth += 1;
+    window.history.pushState({ depth }, "", path);
+  }
   return resolve();
 }
 
@@ -86,6 +92,7 @@ export async function resolve() {
     }
   }
   disposeCurrent = null;
+  stopAllPlayback();
 
   const context = { params: found ? found.params : {}, query, pathname };
   const handler = found ? found.entry.handler : notFound;
@@ -122,10 +129,18 @@ function onClick(event) {
 export function startRouter(outletNode) {
   outlet = outletNode;
   document.addEventListener("click", onClick);
-  window.addEventListener("popstate", resolve);
+  window.addEventListener("popstate", (event) => {
+    depth = event.state && typeof event.state.depth === "number" ? event.state.depth : 0;
+    resolve();
+  });
   return resolve();
 }
 
 export function currentPath() {
   return current;
+}
+
+export function goBack(fallback = "/") {
+  if (depth > 0) window.history.back();
+  else navigate(fallback);
 }

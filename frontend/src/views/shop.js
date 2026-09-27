@@ -21,7 +21,6 @@ function preview(cosmetic) {
     if (payload.mode === "era") {
       return el("div", { class: "swatch-row", style: "gap:10px" }, ...Object.keys(ERA_STYLE).map((era) => eraGlyph(era)));
     }
-    // Fixed colours are the cosmetic's own purchased data, not app accents.
     const colors =
       payload.mode === "difficulty"
         ? ["var(--mauve)", "var(--accent)", "var(--tide)", "var(--starlight)"]
@@ -133,9 +132,6 @@ export async function shopView(outlet, context = {}) {
     panel
   );
 
-  // The wallet comes from the same store.wallet the header reads, so the two can
-  // never disagree. drawWallet only renders; the store subscription below calls
-  // it on every change, and renderWallet asks the store to refetch.
   let drawnWallet = null;
 
   function drawWallet(wallet) {

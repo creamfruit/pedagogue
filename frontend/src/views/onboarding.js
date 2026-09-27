@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { disclosure, el, empty, skeletonBlock } from "../lib/dom.js";
+import { backButton, disclosure, el, empty, skeletonBlock } from "../lib/dom.js";
 import { excerptPanel, excerptsFor } from "../lib/excerpts.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
@@ -24,8 +24,6 @@ const TIER_LABEL = {
 const STEPS = ["profile", "tier_quiz", "top_ten", "tastes"];
 const SEARCH_DEBOUNCE_MS = 280;
 
-// Saving is shown differently from "not ready yet": aria-busy drives the
-// striped busy treatment in styles.css, plain disabled is the dashed one.
 function setBusy(button, busy) {
   if (busy) {
     button.dataset.idleLabel = button.textContent;
@@ -39,9 +37,6 @@ function setBusy(button, busy) {
   button.disabled = false;
 }
 
-// Debounced search that Enter can short-circuit. Enter runs the search at once,
-// or picks the first result when results for the current text are already up.
-// Responses that arrive after a newer search started are dropped.
 function wireSearch(input, results, search) {
   let debounce;
   let sequence = 0;
@@ -189,10 +184,12 @@ export async function onboardingView(outlet) {
       draw(summary, allTechniques);
     };
 
+    const previous = STEPS[STEPS.indexOf(step) - 1];
     outlet.replaceChildren(
       el(
         "div",
         { class: "onboarding" },
+        previous ? backButton(() => select(previous), `Back to ${previous.replace(/_/g, " ")}`) : null,
         el("h1", {}, "Set up your studio"),
         el("p", { class: "muted" }, "A few quick steps so the constellation and difficulty math can personalise to you. Finished steps stay editable: select one to change it."),
         stepper(step, completedSteps(summary.status), select),

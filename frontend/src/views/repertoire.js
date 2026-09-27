@@ -1,6 +1,6 @@
 import { api, pollSubmission } from "../api/client.js";
 import { difficultyPair, pieceOverview } from "../components/overview.js";
-import { el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
+import { backButton, el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
 import { STATUS_LABEL, STATUS_ORDER, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { navigate } from "../router.js";
@@ -543,6 +543,7 @@ export async function newEntryView(outlet) {
   );
 
   outlet.append(
+    backButton("/repertoire"),
     el("h1", {}, "Add a piece"),
     el(
       "div",
@@ -625,7 +626,7 @@ function requirementItems(entry, gate) {
         : `Pieces at difficulty ${gate.threshold} or above count as learnt only after a graded run.${best}`,
     });
   }
-  if (entry.needs_verification || (entry.is_verified && entry.piece.difficulty_score >= 70)) {
+  if (entry.needs_verification || (entry.is_verified && entry.piece.difficulty_score >= 60)) {
     items.push({
       done: !entry.needs_verification,
       title: entry.needs_verification ? "Submit a verification take" : "Verification take submitted",
@@ -1173,6 +1174,7 @@ export async function entryDetailView(outlet, context) {
     );
 
     const sections = [
+      backButton("/repertoire"),
       el(
         "div",
         { class: "page-head" },
@@ -1180,8 +1182,7 @@ export async function entryDetailView(outlet, context) {
         el(
           "div",
           { class: "row" },
-          el("button", { type: "button", class: "btn btn-small", onclick: () => openPracticeModal() }, "Practice this piece"),
-          el("a", { class: "btn btn-ghost btn-small", href: "/repertoire", "data-link": true }, "Back")
+          el("button", { type: "button", class: "btn btn-small", onclick: () => openPracticeModal() }, "Practice this piece")
         )
       ),
       summary,
