@@ -1,6 +1,94 @@
 # RUN_NOTES — ui-ux-overhaul overnight run
 
-## Read this first — consolidated summary (2026-09-26)
+## Run 3 (Phases 13–26, 2026-09-26/27) — read this first
+
+**Status:**
+- Every phase is done. Each was built and tested, then committed and pushed to `origin/ui-ux-overhaul`. It is
+  still unmerged, so this run stayed on that branch, and `main` wasn't touched.
+- Phase 25 is a memo only, as asked.
+- **Tests:** the backend suite is **114 passed, 5 skipped** by default. With `PIANO_TEST_DATABASE_URL` pointing at
+  a migrated scratch DB, all **119 pass**; the five skipped ones are opt-in DB tests.
+- `npm run build` was clean at every gate.
+- **Verification:** everything was checked against a real backend (scratch DBs `piano_uitest` and
+  `piano_migtest`) in headless Chrome at 1280 and 390px.
+
+### ⚠ First: your `piano` dev database is empty, and one account in it is gone
+
+In Phase 23 I ran `alembic downgrade -1`, meaning to target a scratch DB. But I set only `ALEMBIC_DATABASE_URL`,
+and `alembic/env.py` actually uses `DATABASE_URL`.
+- It hit `piano`, which was at the Run 2 head, and downgraded past its first migration, **dropping every table**.
+- It had held **1 user account and 1 repertoire entry**, plus the seed catalogue. There's no backup, so that
+  account can't be recovered.
+- Rebuilding it was blocked by a permission check, so it's still empty.
+- **To restore it:** export both `DATABASE_URL` and `ALEMBIC_DATABASE_URL` for `piano`, run
+  `alembic upgrade head`, run the seed, then re-register. The full commands are under "Incident during Phase 23"
+  below.
+
+I'm sorry. I'd also suggest making `env.py` honour `ALEMBIC_DATABASE_URL` (`settings.sync_dsn`), so a scratch
+command can't silently fall through to the default DB. I didn't change that without asking.
+
+### Other things that need you
+
+1. **Set `ADMIN_EMAILS`** (a comma-separated list) to create meteor showers through `POST /admin/meteor-showers`.
+   The weekly automatic shower (Fridays, 18:00 UTC) runs only under the redis/arq worker.
+2. **Set `ANTHROPIC_API_KEY`** for the three AI features (Phase 15): import descriptions, difficulty and
+   technique scoring, and coach notes. Without it they fall back to heuristics, which are labelled as such.
+   - The default model is `claude-opus-5` (`ANTHROPIC_MODEL`), replacing a retired Sonnet 4.5 ID.
+   - A failed paid call is **not** retried automatically (Phase 13 policy notes).
+3. **Give the metronome and ambient room a listen** (Phase 19). Headless Chrome can't hear, so the audio graph
+   was verified but the sound wasn't.
+4. **The placeholder passages are still placeholders:** Pas de deux bars 1–8 and Mephisto bars 111–142 (from Run 2).
+5. **`tableauhyperapi` is a new, large dependency** (a native Hyper binary) in `requirements.txt`, so the Docker
+   image grows. If the package is missing, the export returns a clean 503. The file was validated by reading it
+   back through Hyper, **not by opening it in Tableau** (not installed here).
+6. **Roulette days are UTC**, so everyone gets the same snippet on the same day. It rolls over mid-afternoon or
+   evening in the Americas. That was a deliberate trade-off.
+
+### What was built
+
+| Phase | Commit | One line |
+|---|---|---|
+| 13 AI foundation | `2697926` | `ai_generations` ledger: once per subject, queued, persisted, and the spend record; one Claude client with a server-side fallback |
+| 14 MusicBrainz | `62783ad` | Second catalogue source (User-Agent, 1 req/s, classical piano only), merged and deduped with OpenOpus |
+| 15 AI features | `64e1be1` | Import prose, difficulty and technique scoring off the request path; once-per-recording coach notes that never claim to have heard the audio |
+| 16 Redesign | `f7bc9da` `690a8c4` `2dac676` `0f97b59` `51f00df` `51d8dc2` `17693bc` | One header, six destinations plus Settings; `reveal()` / "?" / tabs as the only disclosure patterns; one commit per page. See `DESIGN_NOTES.md` |
+| 17 Progress | `3465b49` | Local-day streaks with a capped daily XP bonus; progress towards the next achievement tier; a validated difficulty-over-time chart |
+| 18 Re-engagement | `f49c36c` | In-app nudge after N days (push and email ruled out, reasoning logged); standalone tier retake that updates in place |
+| 19 Practice tools | `33bde76` | Look-ahead metronome (visual and audio tick, tap tempo, piece tempo); ambient room, off by default and toggle-only |
+| 20 Social | `7f8b417` | One leaderboard service with two boards: friends' practice week, and daily sight-reading roulette (shared UTC snippet, objective scoring, one attempt a day); opt-in with a private rank |
+| 21 Insights | `cba7b1b` | Practice DNA (the shape of your tiers correlated against each composer's technique emphasis); catalogue-wide family tree (constellation cosine plus era/genre) |
+| 22 Sky achievements | `1bb2139` | 18 hand-drawn figures, a fixed shape and place per code, on their own parallax layer; one-time bloom when new |
+| 23 Meteor showers | `312d226` | Admin or weekly-cron bonus pieces for a window; catch = +40 XP / +25 gold and 1.5× when learnt; caught pieces stay, uncaught ones return to the plain catalogue |
+| 24 Tableau export | `ec2a045` | `GET /export/tableau`: six tables (sessions, items, submissions and scores, repertoire, mastery, wallet history), with a Settings button |
+| 25 Duet memo | `cabec70` | Options for part source (other hand / authored / algorithmic / Claude) × sync (fixed / tap / score-follow / post-hoc), with recommendations |
+
+### Decisions I made without you (details in each phase)
+
+- **Migrations:** `ai_generations`, `timezone`, `nudge_after_days`, leaderboards and roulette, and meteor showers.
+  Every one round-tripped on the scratch DB, and `alembic check` reports no drift.
+- **The judgment calls:**
+  - Nudges are in-app only.
+  - Leaderboards are opt-in, and scores are still recorded for private ranks.
+  - Friend requests don't reveal whether an email has an account.
+  - Practice DNA uses correlation of shape, not tier level, so an all-S profile doesn't "match" everyone.
+  - The family tree scores the same composer as a reason, not as a boost.
+  - The meteor learn bonus persists after the window.
+  - Admins are an allowlist setting rather than a role column.
+  - The export's running totals are anchored to the wallet.
+- **Not built:**
+  - A page for viewing a friend's constellation. The API has existed since before this run; there's no view for
+    it, so friends' sky figures aren't shown anywhere.
+  - The duet itself (Phase 25, by design).
+
+### Housekeeping
+
+- **Scratch servers:** the API on `:8001` and Vite on `:5174` were stopped at the end.
+- **Scratch databases:** `piano_uitest` and `piano_migtest` remain on your Postgres container. They hold test
+  accounts only (`ui-*@example.com`); drop them whenever you like.
+
+---
+
+## Run 1 (Phases 0–6) — consolidated summary (2026-09-26)
 
 **Status:** all six phases are done, each built and tested, then committed and pushed to
 `origin/ui-ux-overhaul`. **No phase was reverted.** No build or test failed at any phase gate.

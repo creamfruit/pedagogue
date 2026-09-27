@@ -1,5 +1,7 @@
 # Design notes — Phase 10 declutter
 
+> **Contents:** Phase 10 declutter (this section) · **Phase 16 full redesign** (IA, disclosure standard, navigation, per-page structure) · Phases 17, 19–23 additions · *Where Phase 16's slots ended up* (the final layout of every page, at the end).
+
 Written while doing the work, so each decision can be reviewed rather than discovered. Scope:
 dashboard, repertoire, piece detail, constellation, onboarding, observatory. **No functionality or
 data was removed.** Anything that left the default view moved behind a click-to-reveal, and every
@@ -422,3 +424,21 @@ were missing). Nothing told you what to do.
 - **The banner goes above the canvas, not inside it.** A countdown you have to find isn't a countdown. The canvas repeats it next to the cluster so the two are connected.
 - **Meteors are static**, unlike pieces. They're visitors, not part of your sky yet: once caught, they join the physics as a star.
 - **A list alternative** ("Catch from a list") sits in the banner, for keyboard and screen-reader users and for an empty sky.
+
+## Where Phase 16's slots ended up (checked at the end of Run 3)
+
+Phase 16 reserved homes for Phases 17–24. After building them, this is where everything actually lives. Each one
+landed where Phase 16 said it would, so no page needed restructuring later.
+
+| Destination | Contents at the end of Run 3 |
+|---|---|
+| Today | Nudge banner (only when due) · Next up · This week (with the compact streak) · In progress · ☄ meteor shower card (while one is live) · Daily roulette · Needs attention · stats strip |
+| Constellation | Tabs **Your sky · Family tree**. The sky's drawer serves pieces, connections, achievement figures (Phase 22) and meteors (Phase 23); the meteor banner sits above the canvas |
+| Practice | Session card + metronome side by side; ambient-room toggle in the header |
+| Progress | Tabs **Growth · Pathways · Practice DNA · Leaderboards · Performances**; `/roulette` is its own page, linked from Today and Leaderboards |
+| Observatory | Tabs **Sky shop · Achievements** (the latter links to the sky figures) |
+| Settings | Profile · Technique tiers (retake) · Reminders (nudge interval) · Friends & leaderboards · **Your data** (Tableau export) · Account |
+
+The three disclosure patterns (`reveal()`, "?", tabs) held for every later phase. Tabs were used only for peer
+views (Progress, Constellation, Observatory, the leaderboard scope switch). Everything secondary is a `reveal()`:
+the chart tables, "What's in the file", "Catch from a list", "Read the tree as a list".
