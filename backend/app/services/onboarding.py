@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional, Sequence
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -53,10 +53,20 @@ class BaseService:
 
 class CatalogService(BaseService):
     async def search_pieces(self, query: str, limit: int = 20) -> Sequence[Piece]:
+        terms = [term for term in query.split() if term][:6]
+        conditions = [
+            or_(
+                Piece.title.ilike(f"%{term}%"),
+                Piece.catalog_number.ilike(f"%{term}%"),
+                Composer.name.ilike(f"%{term}%"),
+            )
+            for term in terms
+        ]
         stmt = (
             select(Piece)
+            .outerjoin(Composer, Piece.composer_id == Composer.id)
             .options(selectinload(Piece.composer), selectinload(Piece.genre))
-            .where(Piece.title.ilike(f"%{query}%"))
+            .where(*conditions)
             .order_by(Piece.title)
             .limit(limit)
         )
@@ -343,6 +353,12 @@ class OnboardingService(BaseService):
         result = await self.session.execute(stmt)
         return int(result.scalar_one())
 
+    async def finish(self, user: User) -> OnboardingStatus:
+        if user.tastes_completed_at is None:
+            user.tastes_completed_at = datetime.now(timezone.utc)
+            await self.session.flush()
+        return await self.status(user)
+
     async def status(self, user: User) -> OnboardingStatus:
         genres = await self.count(UserGenrePreference, UserGenrePreference.user_id == user.id)
         composers = await self.count(UserComposerPreference, UserComposerPreference.user_id == user.id)
@@ -352,6 +368,7 @@ class OnboardingService(BaseService):
         )
         profile_complete = user.self_level is not None and user.years_playing is not None
         tier_quiz_complete = user.tier_quiz_completed_at is not None
+        tastes_complete = user.tastes_completed_at is not None or genres > 0 or composers > 0
         return OnboardingStatus(
             profile_complete=profile_complete,
             genres_chosen=genres,
@@ -359,5 +376,6 @@ class OnboardingService(BaseService):
             techniques_rated=techniques,
             top_ten_logged=top_ten,
             tier_quiz_complete=tier_quiz_complete,
-            complete=profile_complete and top_ten > 0 and techniques > 0 and tier_quiz_complete,
+            tastes_complete=tastes_complete,
+            complete=profile_complete and top_ten > 0 and techniques > 0 and tier_quiz_complete and tastes_complete,
         )

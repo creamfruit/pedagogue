@@ -184,6 +184,7 @@ class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         server_default=ProfileVisibility.FRIENDS.value,
     )
     tier_quiz_completed_at: Mapped[Optional[datetime]]
+    tastes_completed_at: Mapped[Optional[datetime]]
 
     sent_friend_requests: Mapped[list[Friendship]] = relationship(
         back_populates="requester",

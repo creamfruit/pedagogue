@@ -47,6 +47,11 @@ async def onboarding_status(user: CurrentUser, session: SessionDep) -> Onboardin
     return await OnboardingService(session).status(user)
 
 
+@router.post("/finish", response_model=OnboardingStatus)
+async def finish_onboarding(user: CurrentUser, session: SessionDep) -> OnboardingStatus:
+    return await OnboardingService(session).finish(user)
+
+
 @router.get("/summary", response_model=OnboardingSummary)
 async def onboarding_summary(user: CurrentUser, session: SessionDep) -> OnboardingSummary:
     service = OnboardingService(session)

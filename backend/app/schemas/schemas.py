@@ -74,6 +74,7 @@ class UserRead(ORMModel):
     nudge_after_days: int = 3
     leaderboard_opt_in: bool = False
     tier_quiz_completed_at: Optional[datetime] = None
+    tastes_completed_at: Optional[datetime] = None
     created_at: datetime
 
 
@@ -310,6 +311,7 @@ class OnboardingStatus(BaseModel):
     techniques_rated: int
     top_ten_logged: int
     tier_quiz_complete: bool
+    tastes_complete: bool = False
     complete: bool
 
     @computed_field
@@ -321,7 +323,7 @@ class OnboardingStatus(BaseModel):
             return "tier_quiz"
         if self.top_ten_logged == 0:
             return "top_ten"
-        if self.genres_chosen == 0 or self.composers_chosen == 0:
+        if not self.tastes_complete:
             return "tastes"
         return "done"
 
