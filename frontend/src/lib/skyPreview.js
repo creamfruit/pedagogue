@@ -62,7 +62,7 @@ export function drawSkyPreview(canvas, loadout) {
 
   const link = loadout.link_style || { width: 1, alpha: 1, dash: null };
   ctx.lineWidth = link.width || 1;
-  ctx.strokeStyle = colors.orange;
+  ctx.strokeStyle = colors.accent;
   ctx.globalAlpha = Math.min(0.5 * (link.alpha ?? 1), 1);
   ctx.setLineDash(link.dash || []);
   SAMPLE_LINKS.forEach(([a, b]) => {

@@ -45,7 +45,7 @@ export function drawMeteors(ctx, meteors, { colors, clock, reduceMotion, hovered
     const shimmer = reduceMotion ? 1 : 0.8 + 0.2 * Math.sin(clock * 0.07 + meteor.phase);
     const length = (TAIL * shimmer * (active ? 1.25 : 1)) / Math.sqrt(k);
     const tail = ctx.createLinearGradient(meteor.x, meteor.y, meteor.x + direction.x * length, meteor.y + direction.y * length);
-    tail.addColorStop(0, colors.orange);
+    tail.addColorStop(0, colors.accent);
     tail.addColorStop(1, "rgba(0,0,0,0)");
     ctx.strokeStyle = tail;
     ctx.lineCap = "round";
@@ -57,7 +57,7 @@ export function drawMeteors(ctx, meteors, { colors, clock, reduceMotion, hovered
     ctx.stroke();
 
     const glow = ctx.createRadialGradient(meteor.x, meteor.y, 0, meteor.x, meteor.y, HEAD * 4);
-    glow.addColorStop(0, colors.orange);
+    glow.addColorStop(0, colors.accent);
     glow.addColorStop(1, "rgba(0,0,0,0)");
     ctx.globalAlpha = (active ? 0.5 : 0.3) * shimmer;
     ctx.fillStyle = glow;
@@ -83,7 +83,7 @@ export function drawMeteors(ctx, meteors, { colors, clock, reduceMotion, hovered
     const top = Math.min(...meteors.map((meteor) => meteor.y));
     ctx.globalAlpha = 0.9;
     ctx.font = `${10.5 / k}px 'JetBrains Mono', monospace`;
-    ctx.fillStyle = colors.orange;
+    ctx.fillStyle = colors.accent;
     ctx.textAlign = "center";
     const half = ctx.measureText(label).width / 2 + 8 / k;
     const x = bounds ? Math.min(Math.max(centre.x, bounds.left + half), bounds.right - half) : centre.x;

@@ -5,20 +5,20 @@ import { el } from "./dom.js";
 // fallbacks only matter if the stylesheet has not loaded; keep them in sync.
 const FALLBACK = {
   yellow: "#ffd08a",
-  orange: "#f0a13c",
-  pink: "#e05a78",
+  accent: "#ff4fa3",
+  violet: "#a78bfa",
   starlight: "#e8ecf5",
-  bgSunk: "#050506",
-  text: "#ddd9d3",
-  textDim: "#9a958d",
-  textFaint: "#63605a",
-  lineStrong: "#2b2e33",
+  bgSunk: "#04050c",
+  text: "#e4e3ef",
+  textDim: "#9d9eb6",
+  textFaint: "#666982",
+  lineStrong: "#2a2f4a",
 };
 
 const TOKENS = {
   yellow: "--yellow",
-  orange: "--orange",
-  pink: "--pink",
+  accent: "--accent",
+  violet: "--violet",
   starlight: "--starlight",
   bgSunk: "--bg-sunk",
   text: "--text",
@@ -44,10 +44,10 @@ export function palette() {
 export const ERA_STYLE = {
   Baroque: { tone: "yellow", spiked: false },
   Classical: { tone: "yellow", spiked: true },
-  Romantic: { tone: "orange", spiked: false },
-  Impressionist: { tone: "orange", spiked: true },
-  Modern: { tone: "pink", spiked: false },
-  Contemporary: { tone: "pink", spiked: true },
+  Romantic: { tone: "accent", spiked: false },
+  Impressionist: { tone: "accent", spiked: true },
+  Modern: { tone: "violet", spiked: false },
+  Contemporary: { tone: "violet", spiked: true },
 };
 
 export function eraGlyph(era) {
@@ -60,11 +60,11 @@ export function eraGlyph(era) {
   });
 }
 
-// Heat ramp for the "difficulty" star cosmetic: pink for the easiest pieces,
-// then orange, yellow, and starlight for the hardest.
+// Heat ramp for the "difficulty" star cosmetic: violet for the easiest pieces,
+// then pink, yellow, and starlight for the hardest.
 export function difficultyTone(difficulty) {
   if (difficulty >= 90) return "starlight";
   if (difficulty >= 75) return "yellow";
-  if (difficulty >= 55) return "orange";
-  return "pink";
+  if (difficulty >= 55) return "accent";
+  return "violet";
 }

@@ -158,7 +158,7 @@ function attentionRow(entry) {
 }
 
 function meteorCard() {
-  const host = el("div", {});
+  const host = el("div", { hidden: true });
   api
     .meteorShower()
     .then((view) => {
@@ -252,30 +252,36 @@ export async function dashboardView(outlet) {
   const next = pickNextUp(entries);
   const attention = entries.filter((entry) => entry.decay_level > 0.35 || entry.needs_verification);
 
-  const inProgress = sectionBlock(
-    "In progress",
-    {
-      caption: active.length ? `${active.length} piece${active.length === 1 ? "" : "s"} you're working on` : null,
-      action: el("a", { class: "reveal-link", href: "/repertoire", "data-link": true }, "All repertoire"),
-    },
-    active.length
-      ? el("ul", { class: "flat-list" }, ...active.filter((entry) => entry !== next).slice(0, 6).map(entryRow))
-      : empty("Nothing in progress.", el("a", { class: "btn", href: "/repertoire/new", "data-link": true }, "Add a piece"))
-  );
+  const others = active.filter((entry) => entry !== next);
+  const inProgress = others.length
+    ? sectionBlock(
+        "Also in progress",
+        {
+          caption: `${active.length} piece${active.length === 1 ? "" : "s"} you're working on`,
+          action: el("a", { class: "reveal-link", href: "/repertoire", "data-link": true }, "All repertoire"),
+        },
+        el("ul", { class: "flat-list" }, ...others.slice(0, 6).map(entryRow))
+      )
+    : null;
 
   body.replaceChildren(
-    nudgeBanner(store.nudge),
-    el("div", { class: "today-hero" }, nextUpCard(next), weekCard(loadResult.status === "fulfilled" ? loadResult.value : null)),
-    el(
-      "div",
-      { class: "today-lists" },
-      inProgress,
-      meteorCard(),
-      rouletteCard(),
-      attention.length
-        ? sectionBlock("Needs attention", { caption: "Pieces fading from your sky or waiting on a verification take." }, el("ul", { class: "flat-list" }, ...attention.slice(0, 6).map(attentionRow)))
-        : null
-    ),
-    statsResult.status === "fulfilled" ? statsStrip(statsResult.value) : empty("Could not load your stats.")
+    ...[
+      nudgeBanner(store.nudge),
+      statsResult.status === "fulfilled" ? statsStrip(statsResult.value) : null,
+      el(
+        "div",
+        { class: "today-columns" },
+        el(
+          "div",
+          { class: "today-col" },
+          nextUpCard(next),
+          inProgress,
+          attention.length
+            ? sectionBlock("Needs attention", { caption: "Pieces fading from your sky or waiting on a verification take." }, el("ul", { class: "flat-list" }, ...attention.slice(0, 6).map(attentionRow)))
+            : null
+        ),
+        el("div", { class: "today-col today-side" }, weekCard(loadResult.status === "fulfilled" ? loadResult.value : null), rouletteCard(), meteorCard())
+      ),
+    ].filter(Boolean)
   );
 }

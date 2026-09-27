@@ -1,7 +1,7 @@
 import { el, reveal } from "./dom.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const LINE_COLOR = "rgba(var(--orange-rgb), 0.8)";
+const LINE_COLOR = "rgba(var(--accent-rgb), 0.8)";
 const MARGIN = { top: 16, right: 44, bottom: 28, left: 34 };
 
 function svg(tag, attrs = {}) {

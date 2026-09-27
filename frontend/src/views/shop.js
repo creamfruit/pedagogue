@@ -24,8 +24,8 @@ function preview(cosmetic) {
     // Fixed colours are the cosmetic's own purchased data, not app accents.
     const colors =
       payload.mode === "difficulty"
-        ? ["var(--pink)", "var(--orange)", "var(--yellow)", "var(--starlight)"]
-        : [payload.color || "var(--orange)"];
+        ? ["var(--violet)", "var(--accent)", "var(--yellow)", "var(--starlight)"]
+        : [payload.color || "var(--accent)"];
     return el(
       "div",
       { class: "swatch-row" },
@@ -44,9 +44,9 @@ function preview(cosmetic) {
       { class: "swatch-row" },
       el("span", {
         class: "swatch-dot",
-        style: `background:var(--orange);box-shadow:0 0 ${Math.round(4 + scale * 12)}px ${Math.round(
+        style: `background:var(--accent);box-shadow:0 0 ${Math.round(4 + scale * 12)}px ${Math.round(
           1 + scale * 5
-        )}px rgba(var(--orange-rgb),${0.15 + scale * 0.18})`,
+        )}px rgba(var(--accent-rgb),${0.15 + scale * 0.18})`,
       })
     );
   }
@@ -68,8 +68,8 @@ function preview(cosmetic) {
     });
   }
   const dash = payload.dash
-    ? "repeating-linear-gradient(90deg,var(--orange) 0 5px,transparent 5px 10px)"
-    : "var(--orange)";
+    ? "repeating-linear-gradient(90deg,var(--accent) 0 5px,transparent 5px 10px)"
+    : "var(--accent)";
   return el(
     "div",
     { class: "swatch-row" },

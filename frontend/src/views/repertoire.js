@@ -606,14 +606,14 @@ function tapTempoWidget() {
 }
 
 function openRecordingForm() {
-  const toggle = document.querySelector("#practice-recordings .reveal-btn");
+  const toggle = document.querySelector("#practice-recordings .add-recording-btn");
   if (!toggle) return;
   if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
   toggle.scrollIntoView({ behavior: "smooth", block: "center" });
   document.querySelector("#practice-recordings input[type=file]")?.focus({ preventScroll: true });
 }
 
-function requirementsChecklist(entry, gate) {
+function requirementItems(entry, gate) {
   const items = [];
   if (gate && gate.requires_grading) {
     const best = gate.best_score != null ? ` Your best so far is ${gate.best_score}.` : " No graded run yet.";
@@ -634,10 +634,14 @@ function requirementsChecklist(entry, gate) {
         : "Your star is lit in the constellation.",
     });
   }
+  return items;
+}
+
+function requirementsChecklist(items) {
   if (!items.length) return null;
   const remaining = items.filter((item) => !item.done).length;
   return el(
-    "section",
+    "div",
     { class: `requirements ${remaining ? "requirements-open" : "requirements-done"}`, "aria-label": "Before this counts as learnt" },
     el(
       "div",
@@ -656,10 +660,7 @@ function requirementsChecklist(entry, gate) {
           el("div", {}, el("div", { class: "requirement-title" }, item.title), el("div", { class: "requirement-detail" }, item.detail))
         )
       )
-    ),
-    remaining
-      ? el("button", { type: "button", class: "btn btn-small", style: "margin-top:var(--space-3)", onclick: openRecordingForm }, "Add a recording")
-      : null
+    )
   );
 }
 
@@ -914,9 +915,9 @@ function submissionList(items, emptyText) {
   return el("ul", { class: "flat-list" }, ...(items.length ? items.map(submissionCard) : [el("li", { class: "faint", style: "font-size:13px" }, emptyText)]));
 }
 
-function recordingPanel(entry, recordings, onChange, { openForm = false } = {}) {
+function recordingPanel(entry, recordings, onChange, { openForm = false, requirements = [], gate = null } = {}) {
   const audioInput = el("input", { type: "file", accept: "audio/*" });
-  const fullRun = el("input", { type: "checkbox" });
+  const fullRun = el("input", { type: "checkbox", checked: (gate && gate.requires_grading && !gate.unlocked) || null });
   const asVerification = el("input", { type: "checkbox", checked: entry.needs_verification || null, disabled: entry.needs_verification || null });
   const tap = tapTempoWidget();
   const audioSubmit = el(
@@ -965,13 +966,16 @@ function recordingPanel(entry, recordings, onChange, { openForm = false } = {}) 
     { open: openForm }
   );
 
+  form.button.classList.add("add-recording-btn");
+
   return sectionBlock(
     "Practice recordings",
     {
-      caption: "Audio takes, scored for tempo and interpretation. Verification takes and graded run-throughs go here.",
+      caption: "Every take goes here: ordinary practice, the verification take and graded run-throughs are all recordings.",
       className: "submission-panel submission-panel-recording",
       id: "practice-recordings",
     },
+    requirementsChecklist(requirements),
     submissionList(recordings, "No recordings yet."),
     form.button,
     form.region
@@ -1048,11 +1052,11 @@ function writtenSubmissionPanel(entry, written, onChange) {
   );
 }
 
-function submissionSections(entry, submissions, onChange, { recordingFirst = false } = {}) {
+function submissionSections(entry, submissions, onChange, { requirements = [], gate = null } = {}) {
   const recordings = submissions.filter((submission) => submission.submission_type === "audio");
   const written = submissions.filter((submission) => submission.submission_type !== "audio");
   return [
-    recordingPanel(entry, recordings, onChange, { openForm: recordingFirst && recordings.length === 0 }),
+    recordingPanel(entry, recordings, onChange, { requirements, gate }),
     writtenSubmissionPanel(entry, written, onChange),
   ];
 }
@@ -1110,8 +1114,9 @@ export async function entryDetailView(outlet, context) {
       overview?.key_signature,
     ].filter(Boolean).join(" · ");
 
-    const notices = [requirementsChecklist(entry, gate), decayBanner(entry, render)].filter(Boolean);
-    const needsTake = Boolean(entry.needs_verification || (gate && gate.requires_grading && !gate.unlocked));
+    const requirements = requirementItems(entry, gate);
+    const remaining = requirements.filter((item) => !item.done).length;
+    const notices = [decayBanner(entry, render)].filter(Boolean);
 
     const summary = el(
       "section",
@@ -1120,7 +1125,14 @@ export async function entryDetailView(outlet, context) {
         "div",
         { class: "summary-cell" },
         el("div", { class: "stat-label" }, "Status"),
-        el("div", { class: "row summary-status" }, statusSelect, statusSave)
+        el("div", { class: "row summary-status" }, statusSelect, statusSave),
+        remaining
+          ? el(
+              "button",
+              { type: "button", class: "reveal-link summary-steps", onclick: openRecordingForm },
+              `${remaining} step${remaining === 1 ? "" : "s"} before it counts as learnt`
+            )
+          : null
       ),
       el(
         "div",
@@ -1177,7 +1189,7 @@ export async function entryDetailView(outlet, context) {
       el(
         "div",
         { class: "detail-layout" },
-        el("div", { class: "detail-aside" }, plan, ...submissionSections(entry, submissions, render, { recordingFirst: needsTake })),
+        el("div", { class: "detail-aside" }, plan, ...submissionSections(entry, submissions, render, { requirements, gate })),
         el("div", { class: "detail-main" }, overview ? pieceOverview(overview, { heading: false, difficulty: false }) : null)
       ),
     ];

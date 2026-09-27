@@ -23,9 +23,9 @@ import { ERA_STYLE, difficultyTone, eraGlyph, palette } from "../lib/palette.js"
 // Link type is carried by accent and dash pattern together, so the three types
 // stay distinct in the legend and on the canvas even where hues sit close.
 const LINK_STYLES = {
-  composer: { tone: "orange", dash: null },
+  composer: { tone: "accent", dash: null },
   technique: { tone: "yellow", dash: [7, 4] },
-  era_genre: { tone: "pink", dash: [1.5, 4] },
+  era_genre: { tone: "violet", dash: [1.5, 4] },
 };
 
 const LINK_LABELS = {
@@ -101,7 +101,7 @@ export async function constellationView(outlet, context = {}) {
       el(
         "ul",
         { class: "chart-guide" },
-        item("Lines", "join pieces that share a composer (solid orange), a technique (dashed yellow) or an era or genre (dotted pink). Tap a type in the legend to hide it."),
+        item("Lines", "join pieces that share a composer (solid pink), a technique (dashed yellow) or an era or genre (dotted violet). Tap a type in the legend to hide it."),
         item("Colour", "is the star's era: eras that follow each other share a hue, and the later one carries a cross of spikes. An equipped star colour from the Observatory replaces this."),
         item("Size", "is difficulty. Harder pieces are bigger stars, and heavier to throw."),
         item("Bright core", "marks a top-ten piece or the star you're holding."),
@@ -488,7 +488,7 @@ export async function constellationView(outlet, context = {}) {
       const radius = (1 - ripple.life) * 58 * ripple.energy + 4;
       ctx.beginPath();
       ctx.arc(ripple.x, ripple.y, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = colors.orange;
+      ctx.strokeStyle = colors.accent;
       ctx.globalAlpha = ripple.life * 0.22 * ripple.energy;
       ctx.lineWidth = 1 / transform.k;
       ctx.stroke();
@@ -846,7 +846,7 @@ export async function constellationView(outlet, context = {}) {
       "Catch it"
     );
     showDrawer(
-      el("div", { class: "stat-label", style: "color:var(--orange)" }, `Meteor shower · ${shower.name}`),
+      el("div", { class: "stat-label", style: "color:var(--accent)" }, `Meteor shower · ${shower.name}`),
       el("h2", { style: "margin:6px 0 4px" }, piece.title),
       el("p", { class: "muted", style: "margin:0 0 var(--space-3)" }, [piece.composer, piece.era, piece.difficulty !== null ? `difficulty ${Math.round(piece.difficulty)}` : null].filter(Boolean).join(" · ")),
       el("p", { style: "margin:0 0 var(--space-2);font-size:13.5px" }, `Catch it to add it to your repertoire: ${rewardLine(shower)}.`),
