@@ -186,7 +186,7 @@ export function drawFigures(ctx, figures, { transform, colors, clock, reduceMoti
 
     if (bloom > 0) {
       const halo = ctx.createRadialGradient(figure.cx, figure.cy, 0, figure.cx, figure.cy, figure.radius * (1.4 + (1 - bloom) * 0.8));
-      halo.addColorStop(0, colors.yellow);
+      halo.addColorStop(0, colors.tide);
       halo.addColorStop(1, "rgba(0,0,0,0)");
       ctx.globalAlpha = 0.16 * bloom;
       ctx.fillStyle = halo;
@@ -195,7 +195,7 @@ export function drawFigures(ctx, figures, { transform, colors, clock, reduceMoti
       ctx.fill();
     }
 
-    ctx.strokeStyle = colors.yellow;
+    ctx.strokeStyle = colors.tide;
     ctx.lineWidth = (active ? 1.3 : 0.9) / zoom;
     ctx.globalAlpha = active ? 0.62 : 0.26 + bloom * 0.3;
     ctx.setLineDash([3 / zoom, 3 / zoom]);
@@ -207,7 +207,7 @@ export function drawFigures(ctx, figures, { transform, colors, clock, reduceMoti
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = colors.yellow;
+    ctx.fillStyle = colors.tide;
     figure.stars.forEach((star) => {
       const twinkle = reduceMotion ? 1 : 0.78 + 0.22 * Math.sin(clock * 0.03 + star.phase);
       const reach = (star.lead ? 5.2 : 3.4) * (active ? 1.25 : 1) * (1 + bloom * 0.5);
@@ -219,7 +219,7 @@ export function drawFigures(ctx, figures, { transform, colors, clock, reduceMoti
       ctx.globalAlpha = active ? 1 : bloom;
       ctx.font = `${10.5 / zoom}px ${font}`;
       ctx.textAlign = "center";
-      ctx.fillStyle = colors.yellow;
+      ctx.fillStyle = colors.tide;
       const lowest = Math.max(...figure.stars.map((star) => star.y));
       ctx.fillText(figure.achievement.name.toUpperCase(), figure.cx, lowest + 16 / zoom);
     }

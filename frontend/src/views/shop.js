@@ -24,7 +24,7 @@ function preview(cosmetic) {
     // Fixed colours are the cosmetic's own purchased data, not app accents.
     const colors =
       payload.mode === "difficulty"
-        ? ["var(--violet)", "var(--accent)", "var(--yellow)", "var(--starlight)"]
+        ? ["var(--mauve)", "var(--accent)", "var(--tide)", "var(--starlight)"]
         : [payload.color || "var(--accent)"];
     return el(
       "div",
@@ -167,7 +167,7 @@ export async function shopView(outlet, context = {}) {
           "div",
           { class: "summary-cell" },
           el("div", { class: "stat-label" }, "Gold"),
-          el("div", { class: "stat", style: "color:var(--yellow)" }, wallet.gold.toLocaleString()),
+          el("div", { class: "stat", style: "color:var(--tide)" }, wallet.gold.toLocaleString()),
           el("div", { class: "faint mono", style: "font-size:11px" }, `${wallet.lifetime_gold.toLocaleString()} earned in total`)
         ),
         el(

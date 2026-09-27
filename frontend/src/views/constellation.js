@@ -24,8 +24,8 @@ import { ERA_STYLE, difficultyTone, eraGlyph, palette } from "../lib/palette.js"
 // stay distinct in the legend and on the canvas even where hues sit close.
 const LINK_STYLES = {
   composer: { tone: "accent", dash: null },
-  technique: { tone: "yellow", dash: [7, 4] },
-  era_genre: { tone: "violet", dash: [1.5, 4] },
+  technique: { tone: "tide", dash: [7, 4] },
+  era_genre: { tone: "mauve", dash: [1.5, 4] },
 };
 
 const LINK_LABELS = {
@@ -101,7 +101,7 @@ export async function constellationView(outlet, context = {}) {
       el(
         "ul",
         { class: "chart-guide" },
-        item("Lines", "join pieces that share a composer (solid pink), a technique (dashed yellow) or an era or genre (dotted violet). Tap a type in the legend to hide it."),
+        item("Lines", "join pieces that share a composer (solid mint), a technique (dashed teal) or an era or genre (dotted mauve). Tap a type in the legend to hide it."),
         item("Colour", "is the star's era: eras that follow each other share a hue, and the later one carries a cross of spikes. An equipped star colour from the Observatory replaces this."),
         item("Size", "is difficulty. Harder pieces are bigger stars, and heavier to throw."),
         item("Bright core", "marks a top-ten piece or the star you're holding."),
@@ -209,7 +209,7 @@ export async function constellationView(outlet, context = {}) {
       {
         type: "button",
         "aria-pressed": "true",
-        style: `color:${colors.yellow}`,
+        style: `color:${colors.tide}`,
         onclick: () => {
           showFigures = !showFigures;
           figureToggle.setAttribute("aria-pressed", showFigures ? "true" : "false");
@@ -860,7 +860,7 @@ export async function constellationView(outlet, context = {}) {
     const earned = achievement.earned_at ? new Date(achievement.earned_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : null;
     const rewards = [achievement.xp_reward ? `${achievement.xp_reward} XP` : null, achievement.gold_reward ? `${achievement.gold_reward} gold` : null].filter(Boolean).join(" · ");
     showDrawer(
-      el("div", { class: "stat-label", style: "color:var(--yellow)" }, "Achievement constellation"),
+      el("div", { class: "stat-label", style: "color:var(--tide)" }, "Achievement constellation"),
       el("h2", { style: "margin:6px 0 4px" }, achievement.name),
       el("p", { class: "muted", style: "margin:0 0 var(--space-3)" }, achievement.description),
       el("p", { class: "faint", style: "margin:0 0 var(--space-4);font-size:12.5px" }, [earned ? `Earned ${earned}` : null, rewards].filter(Boolean).join(" · ")),

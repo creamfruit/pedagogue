@@ -188,8 +188,8 @@ ACHIEVEMENTS = [
 ]
 
 COSMETICS = [
-    ("star_amber", CosmeticKind.STAR_COLOR, "Rose giant", "The house star. Warm, pink and steady.", 0, 1,
-     {"mode": "fixed", "color": "#ff4fa3"}, 1),
+    ("star_amber", CosmeticKind.STAR_COLOR, "Sea-glass giant", "The house star. Cool, pale and steady.", 0, 1,
+     {"mode": "fixed", "color": "#cee9e2"}, 1),
     ("star_era", CosmeticKind.STAR_COLOR, "Era spectrum", "Stars take the colour of their era.", 0, 1,
      {"mode": "era"}, 2),
     ("star_ice", CosmeticKind.STAR_COLOR, "Ice field", "Cold blue-white supergiants.", 850, 2,

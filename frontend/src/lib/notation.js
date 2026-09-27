@@ -186,7 +186,7 @@ export function renderNotation(notation, { width: requestedWidth, staffGap = 46,
       if (event.highlight && step === Math.max(...event.steps)) {
         track(y - 11);
         track(y + 11);
-        layer.append(svg("circle", { cx: event.x, cy: y, r: 10, fill: "none", stroke: "var(--yellow)", "stroke-width": 2, class: "notation-highlight" }));
+        layer.append(svg("circle", { cx: event.x, cy: y, r: 10, fill: "none", stroke: "var(--tide)", "stroke-width": 2, class: "notation-highlight" }));
       }
       layer.append(
         svg("ellipse", {

@@ -4,21 +4,21 @@ import { el } from "./dom.js";
 // four accent tokens (and the neutrals) from styles.css :root at runtime. The
 // fallbacks only matter if the stylesheet has not loaded; keep them in sync.
 const FALLBACK = {
-  yellow: "#ffd08a",
-  accent: "#ff4fa3",
-  violet: "#a78bfa",
-  starlight: "#e8ecf5",
-  bgSunk: "#04050c",
-  text: "#e4e3ef",
-  textDim: "#9d9eb6",
-  textFaint: "#666982",
-  lineStrong: "#2a2f4a",
+  tide: "#6fb7b3",
+  accent: "#cee9e2",
+  mauve: "#b5a1af",
+  starlight: "#eef5f3",
+  bgSunk: "#060b15",
+  text: "#e4eeee",
+  textDim: "#9fb3b8",
+  textFaint: "#62757f",
+  lineStrong: "#21304f",
 };
 
 const TOKENS = {
-  yellow: "--yellow",
+  tide: "--tide",
   accent: "--accent",
-  violet: "--violet",
+  mauve: "--mauve",
   starlight: "--starlight",
   bgSunk: "--bg-sunk",
   text: "--text",
@@ -42,12 +42,12 @@ export function palette() {
 // era of each pair is drawn with diffraction spikes, so every era stays
 // distinguishable without a fifth colour.
 export const ERA_STYLE = {
-  Baroque: { tone: "yellow", spiked: false },
-  Classical: { tone: "yellow", spiked: true },
+  Baroque: { tone: "tide", spiked: false },
+  Classical: { tone: "tide", spiked: true },
   Romantic: { tone: "accent", spiked: false },
   Impressionist: { tone: "accent", spiked: true },
-  Modern: { tone: "violet", spiked: false },
-  Contemporary: { tone: "violet", spiked: true },
+  Modern: { tone: "mauve", spiked: false },
+  Contemporary: { tone: "mauve", spiked: true },
 };
 
 export function eraGlyph(era) {
@@ -60,11 +60,11 @@ export function eraGlyph(era) {
   });
 }
 
-// Heat ramp for the "difficulty" star cosmetic: violet for the easiest pieces,
-// then pink, yellow, and starlight for the hardest.
+// Heat ramp for the "difficulty" star cosmetic: mauve for the easiest pieces,
+// then mint, tide, and starlight for the hardest.
 export function difficultyTone(difficulty) {
   if (difficulty >= 90) return "starlight";
-  if (difficulty >= 75) return "yellow";
+  if (difficulty >= 75) return "tide";
   if (difficulty >= 55) return "accent";
-  return "violet";
+  return "mauve";
 }

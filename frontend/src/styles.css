@@ -1,44 +1,42 @@
 :root {
-  --bg: #070814;
-  --bg-panel: #0c0e1d;
-  --bg-raised: #131629;
-  --bg-sunk: #04050c;
+  --bg: #0a1120;
+  --bg-panel: #101a2b;
+  --bg-raised: #172338;
+  --bg-sunk: #060b15;
 
-  --line: #1c2036;
-  --line-strong: #2a2f4a;
-  --line-bright: #3b4163;
+  --line: #1b2840;
+  --line-strong: #21304f;
+  --line-bright: #2f4468;
 
-  --text: #e4e3ef;
-  --text-dim: #9d9eb6;
-  --text-faint: #666982;
+  --text: #e4eeee;
+  --text-dim: #9fb3b8;
+  --text-faint: #62757f;
 
-  /* The accent system is exactly four colours. Everything above is a neutral;
-     every tint below is an opacity step of an accent, never a new hue.
-     lib/palette.js reads these for canvas drawing, so rename in both places. */
-  --yellow: #ffd08a;
-  --accent: #ff4fa3;
-  --violet: #a78bfa;
-  --starlight: #e8ecf5;
+  --teal: #11414b;
+  --navy: #21304f;
+  --teal-rgb: 17, 65, 75;
 
-  --yellow-rgb: 255, 208, 138;
-  --accent-rgb: 255, 79, 163;
-  --violet-rgb: 167, 139, 250;
-  --starlight-rgb: 232, 236, 245;
+  --tide: #6fb7b3;
+  --accent: #cee9e2;
+  --mauve: #b5a1af;
+  --starlight: #eef5f3;
+
+  --tide-rgb: 111, 183, 179;
+  --accent-rgb: 206, 233, 226;
+  --mauve-rgb: 181, 161, 175;
+  --starlight-rgb: 238, 245, 243;
 
   --starlight-line: rgba(var(--starlight-rgb), 0.55);
   --starlight-wash: rgba(var(--starlight-rgb), 0.08);
 
   --accent-line: rgba(var(--accent-rgb), 0.5);
   --accent-wash: rgba(var(--accent-rgb), 0.1);
-  --violet-wash: rgba(var(--violet-rgb), 0.1);
+  --mauve-wash: rgba(var(--mauve-rgb), 0.12);
 
-  /* Status: bad is hot pink, warn is yellow, ok is starlight. The pill classes
-     also give each status its own marker shape so it never depends on colour
-     alone. */
   --ok: var(--starlight);
   --ok-fill: var(--starlight-wash);
-  --warn: var(--yellow);
-  --bad: var(--accent);
+  --warn: var(--tide);
+  --bad: var(--mauve);
 
   --glow-soft: 0 0 14px rgba(var(--accent-rgb), 0.16);
   --glow-ring: 0 0 22px rgba(var(--accent-rgb), 0.22);
@@ -97,7 +95,7 @@ body::before {
       transparent 3px
     ),
     radial-gradient(1100px 700px at 12% -8%, rgba(var(--accent-rgb), 0.05), transparent 62%),
-    radial-gradient(800px 560px at 108% 4%, rgba(var(--violet-rgb), 0.035), transparent 60%);
+    radial-gradient(800px 560px at 108% 4%, rgba(var(--mauve-rgb), 0.035), transparent 60%);
 }
 
 .mono,
@@ -210,7 +208,7 @@ p {
   justify-content: space-between;
   gap: 16px;
   padding: 13px var(--shell-pad);
-  background: rgba(7, 8, 20, 0.86);
+  background: rgba(10, 17, 32, 0.86);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -309,7 +307,7 @@ p {
 }
 
 .nav a:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 1px;
 }
 
@@ -569,8 +567,8 @@ p {
 
 .pill-bad {
   color: var(--bad);
-  border-color: var(--violet);
-  background: var(--violet-wash);
+  border-color: var(--mauve);
+  background: var(--mauve-wash);
   font-weight: 600;
 }
 
@@ -698,7 +696,7 @@ p {
 }
 
 .option-card:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
@@ -750,9 +748,9 @@ p {
 
 .tier-btn.btn:active:not(:disabled),
 .tier-btn.tier-btn-active:active:not(:disabled) {
-  background: rgba(var(--yellow-rgb), 0.18);
-  border-color: var(--yellow);
-  color: var(--yellow);
+  background: rgba(var(--tide-rgb), 0.18);
+  border-color: var(--tide);
+  color: var(--tide);
 }
 
 .tier-category {
@@ -794,7 +792,7 @@ p {
 }
 
 .tier-help:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
@@ -859,8 +857,8 @@ p {
   padding: 9px 17px;
   min-height: 40px;
   border-radius: var(--radius);
-  border: 1px solid var(--accent);
-  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid var(--accent-line);
+  background: var(--teal);
   color: var(--accent);
   font-family: var(--font);
   font-size: 13px;
@@ -872,9 +870,9 @@ p {
 }
 
 /* Button states, all from the four accents plus neutrals:
-   hover = brighter pink tint with starlight text, focus-visible = yellow
-   ring, pressed = yellow tint, disabled = dashed and faint, busy (aria-busy)
-   = moving pink stripes. */
+   hover = brighter mint tint with starlight text, focus-visible = tide
+   ring, pressed = tide tint, disabled = dashed and faint, busy (aria-busy)
+   = moving mint stripes. */
 .btn:hover:not(:disabled) {
   background: rgba(var(--accent-rgb), 0.2);
   color: var(--starlight);
@@ -882,14 +880,14 @@ p {
 }
 
 .btn:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
 .btn:active:not(:disabled) {
-  background: rgba(var(--yellow-rgb), 0.24);
-  border-color: var(--yellow);
-  color: var(--yellow);
+  background: rgba(var(--tide-rgb), 0.24);
+  border-color: var(--tide);
+  color: var(--tide);
   box-shadow: none;
   transform: scale(0.97);
 }
@@ -949,21 +947,21 @@ p {
 }
 
 .btn-danger {
-  border-color: var(--violet);
+  border-color: var(--mauve);
   background: transparent;
-  color: var(--violet);
+  color: var(--mauve);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: rgba(var(--violet-rgb), 0.2);
+  background: rgba(var(--mauve-rgb), 0.2);
   color: var(--starlight);
   box-shadow: none;
 }
 
 .btn-danger:active:not(:disabled) {
   background: var(--bg-sunk);
-  border-color: var(--violet);
-  color: var(--violet);
+  border-color: var(--mauve);
+  color: var(--mauve);
 }
 
 button.pill {
@@ -979,7 +977,7 @@ button.pill {
 }
 
 .pill-toggle:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
@@ -1056,7 +1054,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--bg-sunk), 0 0 0 4px var(--yellow);
+  box-shadow: 0 0 0 2px var(--bg-sunk), 0 0 0 4px var(--tide);
 }
 
 select {
@@ -1064,7 +1062,7 @@ select {
 }
 
 select:active:not(:disabled) {
-  border-color: var(--yellow);
+  border-color: var(--tide);
 }
 
 input:disabled,
@@ -1085,7 +1083,7 @@ input[type="date"] {
 }
 
 .field-error {
-  color: var(--violet);
+  color: var(--mauve);
   font-size: 12.5px;
   margin-top: 6px;
   text-transform: none;
@@ -1119,7 +1117,7 @@ input[type="date"] {
 }
 
 .toast-error {
-  border-left-color: var(--violet);
+  border-left-color: var(--mauve);
 }
 
 .toast-success {
@@ -1411,7 +1409,7 @@ input[type="date"] {
 }
 
 .wallet:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
@@ -1443,7 +1441,7 @@ input[type="date"] {
 .wallet-xp-fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--yellow));
+  background: linear-gradient(90deg, var(--accent), var(--tide));
   transition: width var(--dur-slow) var(--ease);
 }
 
@@ -1454,7 +1452,7 @@ input[type="date"] {
 }
 
 .wallet-gold {
-  color: var(--yellow);
+  color: var(--tide);
 }
 
 @media (max-width: 720px) {
@@ -1737,8 +1735,8 @@ input[type="date"] {
 }
 
 .cue-warn {
-  color: var(--violet);
-  border-color: var(--violet);
+  color: var(--mauve);
+  border-color: var(--mauve);
 }
 
 .lore-panel {
@@ -2043,7 +2041,7 @@ input[type="date"] {
 }
 
 .reveal-btn:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -2321,7 +2319,7 @@ input[type="date"] {
   z-index: 3;
   margin: 0 -18px -18px;
   padding: var(--space-3) 18px 18px;
-  background: linear-gradient(to bottom, rgba(12, 14, 29, 0), var(--bg-panel) 30%);
+  background: linear-gradient(to bottom, rgba(16, 26, 43, 0), var(--bg-panel) 30%);
 }
 
 .sticky-actions .btn {
@@ -2419,7 +2417,7 @@ input[type="date"] {
 }
 
 .account-button:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
@@ -2501,7 +2499,7 @@ input[type="date"] {
 }
 
 .tab:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: -2px;
 }
 
@@ -2705,7 +2703,7 @@ input[type="date"] {
   overflow-y: auto;
   padding: var(--space-4);
   padding-top: var(--space-5);
-  background: rgba(12, 14, 29, 0.94);
+  background: rgba(16, 26, 43, 0.94);
   backdrop-filter: blur(8px);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -2718,7 +2716,7 @@ input[type="date"] {
 }
 
 .sky-drawer:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
 }
 
 .sky-drawer-close {
@@ -2742,7 +2740,7 @@ input[type="date"] {
 }
 
 .sky-drawer-close:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
 }
 
 @media (max-width: 899px) {
@@ -2784,7 +2782,7 @@ input[type="date"] {
 }
 
 .stepper-edit:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
 }
 
 .shop-layout {
@@ -2856,9 +2854,9 @@ input[type="date"] {
 }
 
 .streak-live {
-  border-color: var(--yellow);
-  color: var(--yellow);
-  box-shadow: 0 0 16px rgba(var(--yellow-rgb), 0.25);
+  border-color: var(--tide);
+  color: var(--tide);
+  box-shadow: 0 0 16px rgba(var(--tide-rgb), 0.25);
 }
 
 .streak-title {
@@ -2992,9 +2990,9 @@ input[type="date"] {
   gap: var(--space-3);
   flex-wrap: wrap;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid rgba(var(--yellow-rgb), 0.45);
+  border: 1px solid rgba(var(--tide-rgb), 0.45);
   border-radius: var(--radius);
-  background: rgba(var(--yellow-rgb), 0.07);
+  background: rgba(var(--tide-rgb), 0.07);
 }
 
 .nudge-mark {
@@ -3002,8 +3000,8 @@ input[type="date"] {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--yellow);
-  box-shadow: 0 0 12px rgba(var(--yellow-rgb), 0.6);
+  background: var(--tide);
+  box-shadow: 0 0 12px rgba(var(--tide-rgb), 0.6);
 }
 
 .nudge-text {
@@ -3058,8 +3056,8 @@ input[type="date"] {
 }
 
 .metronome-lights .light-accent.on {
-  background: var(--yellow);
-  box-shadow: 0 0 14px rgba(var(--yellow-rgb), 0.7);
+  background: var(--tide);
+  box-shadow: 0 0 14px rgba(var(--tide-rgb), 0.7);
 }
 
 .metronome-slider {
@@ -3147,7 +3145,7 @@ input[type="date"] {
 }
 
 .ambient-toggle:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
@@ -3193,7 +3191,7 @@ input[type="date"] {
 }
 
 .practice-page.ambient .panel {
-  background: rgba(12, 14, 29, 0.72);
+  background: rgba(16, 26, 43, 0.72);
   border-color: rgba(var(--starlight-rgb), 0.08);
   box-shadow: none;
 }
@@ -3339,7 +3337,7 @@ input[type="date"] {
 }
 
 .roulette-review .review-wrong {
-  border-color: rgba(var(--violet-rgb), 0.5);
+  border-color: rgba(var(--mauve-rgb), 0.5);
   color: var(--text-dim);
 }
 
@@ -3805,7 +3803,7 @@ input[type="date"] {
 }
 
 .excerpt-tab:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--tide);
   outline-offset: 2px;
 }
 
