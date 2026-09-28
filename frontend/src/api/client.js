@@ -1,5 +1,7 @@
 import { reportReachable } from "../lib/connectivity.js";
 import { deviceStore } from "../lib/deviceStore.js";
+import { isNative } from "../lib/platform.js";
+import { shareFile } from "../lib/share.js";
 
 const PREFIX = import.meta.env.VITE_API_PREFIX || "/api/v1";
 const ORIGIN = import.meta.env.DEV ? "" : String(import.meta.env.VITE_API_URL).replace(/\/+$/, "");
@@ -182,6 +184,10 @@ export async function download(path, fallbackName) {
   }
   const disposition = response.headers.get("content-disposition") || "";
   const name = disposition.match(/filename="?([^";]+)"?/)?.[1] || fallbackName;
+  if (isNative) {
+    await shareFile(await response.blob(), name);
+    return name;
+  }
   const url = URL.createObjectURL(await response.blob());
   const link = document.createElement("a");
   link.href = url;

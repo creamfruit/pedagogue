@@ -31,6 +31,29 @@ export async function shareLink({ title, text, url }) {
   }
 }
 
+function base64Of(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function shareFile(blob, fileName, { title = fileName } = {}) {
+  const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+    import("@capacitor/filesystem"),
+    import("@capacitor/share"),
+  ]);
+  const written = await Filesystem.writeFile({ path: fileName, data: await base64Of(blob), directory: Directory.Cache });
+  try {
+    await Share.share({ title, files: [written.uri], dialogTitle: title });
+  } catch (error) {
+    if (!cancelled(error)) throw error;
+  }
+  return fileName;
+}
+
 function snapshot(canvas, background) {
   const copy = document.createElement("canvas");
   copy.width = canvas.width;
