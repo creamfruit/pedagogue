@@ -1,5 +1,6 @@
 import { api } from "../api/client.js";
 import { el, empty, skeletonBlock, toneForSeverity } from "../lib/dom.js";
+import { features } from "../lib/features.js";
 import { lightTap } from "../lib/haptics.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
@@ -156,7 +157,7 @@ export async function practiceView(outlet) {
       const modeSelect = el(
         "select",
         { style: "max-width:200px" },
-        ...["free", "live_listening", "forge_drill", "sight_reading", "polyrhythm"].map((mode) =>
+        ...["free", "live_listening", "forge_drill", "sight_reading", "polyrhythm"].filter((mode) => features.audio || mode !== "live_listening").map((mode) =>
           el("option", { value: mode }, mode.replace(/_/g, " "))
         )
       );

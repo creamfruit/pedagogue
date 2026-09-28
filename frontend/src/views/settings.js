@@ -1,5 +1,6 @@
 import { api } from "../api/client.js";
 import { el, openModal, reveal, sectionBlock } from "../lib/dom.js";
+import { DONATION_URL, paidOffer } from "../lib/features.js";
 import {
   DEFAULT_REMINDER_TIME,
   cancelDailyReminder,
@@ -310,6 +311,17 @@ function dataSection() {
   );
 }
 
+function supportSection() {
+  if (!DONATION_URL) return null;
+  return paidOffer(() =>
+    sectionBlock(
+      "Support Pedagogue",
+      { caption: "Pedagogue is free. If it helps your practice, you can chip in towards hosting." },
+      el("a", { class: "btn btn-small btn-ghost", href: DONATION_URL, target: "_blank", rel: "noopener noreferrer" }, "Make a donation")
+    )
+  );
+}
+
 const CONFIRM_WORD = "DELETE";
 
 function openDeleteAccount() {
@@ -402,7 +414,7 @@ function accountSection() {
 }
 
 export async function settingsView(outlet) {
-  const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), dataSection(), accountSection()];
+  const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), dataSection(), supportSection(), accountSection()];
   outlet.append(
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),
     el("div", { class: "settings-stack" }, ...sections.filter(Boolean))

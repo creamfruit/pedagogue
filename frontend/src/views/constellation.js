@@ -1,6 +1,7 @@
 import { api } from "../api/client.js";
 import { linkSummaryPanel } from "../components/overview.js";
 import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
+import { features } from "../lib/features.js";
 import { shareCanvas } from "../lib/share.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
@@ -107,7 +108,10 @@ export async function constellationView(outlet, context = {}) {
         item("Colour", "is the star's era: eras that follow each other share a hue, and the later one carries a cross of spikes. An equipped star colour from the Observatory replaces this."),
         item("Size", "is difficulty. Harder pieces are bigger stars, and heavier to throw."),
         item("Bright core", "marks a top-ten piece or the star you're holding."),
-        item("Hollow, dashed star", "needs a verification take before it lights up."),
+        item(
+          "Hollow, dashed star",
+          features.audio ? "needs a verification take before it lights up." : "lights up after a verification take; recorded takes are coming soon."
+        ),
         item("Faded star", "is drifting from lack of practice; a fine dashed ring around it means it has frozen."),
         item("Dark core with a pale outline", "is a custom piece you added yourself."),
         item("Yellow stick figures", "are achievements you've earned. Each one has its own shape and place in the sky, and sits further back than your pieces. Tap one to read it.")
@@ -898,7 +902,7 @@ export async function constellationView(outlet, context = {}) {
       el("span", { class: "pill" }, node.status.replace(/_/g, " ")),
       node.is_top_ten ? el("span", { class: "pill pill-accent" }, "top ten") : null,
       node.is_custom ? el("span", { class: "pill pill-custom" }, "custom") : null,
-      node.is_verified === false ? el("span", { class: "pill pill-unverified" }, "needs verification") : null,
+      features.audio && node.is_verified === false ? el("span", { class: "pill pill-unverified" }, "needs verification") : null,
       node.decay >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen · needs maintenance") : null,
       node.meteor ? el("span", { class: "pill pill-meteor" }, "☄ caught in a meteor shower") : null,
     ];

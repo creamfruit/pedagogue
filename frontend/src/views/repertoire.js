@@ -3,19 +3,22 @@ import { difficultyPair, pieceOverview } from "../components/overview.js";
 import { el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
 import { pendingNotes, queueNote } from "../lib/outbox.js";
+import { features } from "../lib/features.js";
 import { isScoreFile, scoreAccept } from "../lib/scoreFiles.js";
 import { shareLink, siteUrl } from "../lib/share.js";
 import { STATUS_LABEL, STATUS_ORDER, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
 
-const PRACTICE_MODES = [
+const ALL_PRACTICE_MODES = [
   { mode: "free", icon: "\u{1F3B9}", title: "Free practice", description: "Open-ended time at the keys, logged minutes and load only." },
   { mode: "live_listening", icon: "\u{1F3A7}", title: "Live listening coach", description: "Real-time cues on tempo drift and tension while you play." },
   { mode: "forge_drill", icon: "\u{1F528}", title: "Forge a drill", description: "Targeted repetitions built from your weakest passages." },
   { mode: "sight_reading", icon: "\u{1F3BC}", title: "Sight-reading forge", description: "A freshly generated 8-bar exercise, never the same twice." },
   { mode: "polyrhythm", icon: "\u{1F300}", title: "Polyrhythm trainer", description: "Cross-rhythm practice timed against a click." },
 ];
+
+const PRACTICE_MODES = ALL_PRACTICE_MODES.filter((option) => features.audio || option.mode !== "live_listening");
 
 function openPracticeModal() {
   const cards = el(
@@ -242,7 +245,7 @@ function entryListItem(entry) {
       "div",
       { class: "row entry-meta" },
       entry.is_top_ten ? el("span", { class: "pill pill-accent" }, "top ten") : null,
-      entry.needs_verification ? el("span", { class: "pill pill-warn" }, "unverified") : null,
+      features.audio && entry.needs_verification ? el("span", { class: "pill pill-warn" }, "unverified") : null,
       entry.decay_level >= 0.85 ? el("span", { class: "pill pill-frozen" }, "frozen") : null,
       entry.piece.difficulty_score
         ? el("span", { class: "entry-difficulty mono", title: "Catalogue difficulty (0–100)" }, entry.piece.difficulty_score)
@@ -918,7 +921,21 @@ function submissionList(items, emptyText) {
   return el("ul", { class: "flat-list" }, ...(items.length ? items.map(submissionCard) : [el("li", { class: "faint", style: "font-size:13px" }, emptyText)]));
 }
 
+function recordingsComingSoon(recordings) {
+  return sectionBlock(
+    "Practice recordings",
+    {
+      caption: "Recording uploads, verification takes, graded run-throughs and coach notes on your playing.",
+      className: "submission-panel submission-panel-recording",
+      id: "practice-recordings",
+    },
+    el("p", { class: "row", style: "gap:var(--space-2);margin:0" }, el("span", { class: "pill pill-accent" }, "Coming soon")),
+    recordings.length ? submissionList(recordings, "") : null
+  );
+}
+
 function recordingPanel(entry, recordings, onChange, { openForm = false, requirements = [], gate = null } = {}) {
+  if (!features.audio) return recordingsComingSoon(recordings);
   const audioInput = el("input", { type: "file", accept: "audio/*" });
   const fullRun = el("input", { type: "checkbox", checked: (gate && gate.requires_grading && !gate.unlocked) || null });
   const asVerification = el("input", { type: "checkbox", checked: entry.needs_verification || null, disabled: entry.needs_verification || null });
@@ -1177,7 +1194,7 @@ export async function entryDetailView(outlet, context) {
     ].filter(Boolean).join(" · ");
 
     const requirements = requirementItems(entry, gate);
-    const remaining = requirements.filter((item) => !item.done).length;
+    const remaining = features.audio ? requirements.filter((item) => !item.done).length : 0;
     const notices = [decayBanner(entry, render)].filter(Boolean);
 
     const summary = el(

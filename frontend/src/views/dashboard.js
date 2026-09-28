@@ -2,6 +2,7 @@ import { api } from "../api/client.js";
 import { deadline, formatCountdown, secondsUntil } from "../lib/countdown.js";
 import { el, empty, sectionBlock, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { daysSince, lastPractisedLabel, tempoBar } from "../lib/entries.js";
+import { features } from "../lib/features.js";
 import { store } from "../lib/store.js";
 import { streakSummary } from "./growth.js";
 
@@ -250,7 +251,7 @@ export async function dashboardView(outlet) {
   const entries = entriesResult.status === "fulfilled" ? entriesResult.value.items : [];
   const active = entries.filter((entry) => ACTIVE.has(entry.status));
   const next = pickNextUp(entries);
-  const attention = entries.filter((entry) => entry.decay_level > 0.35 || entry.needs_verification);
+  const attention = entries.filter((entry) => entry.decay_level > 0.35 || (features.audio && entry.needs_verification));
 
   const others = active.filter((entry) => entry !== next);
   const inProgress = others.length
@@ -277,7 +278,7 @@ export async function dashboardView(outlet) {
           nextUpCard(next),
           inProgress,
           attention.length
-            ? sectionBlock("Needs attention", { caption: "Pieces fading from your sky or waiting on a verification take." }, el("ul", { class: "flat-list" }, ...attention.slice(0, 6).map(attentionRow)))
+            ? sectionBlock("Needs attention", { caption: features.audio ? "Pieces fading from your sky or waiting on a verification take." : "Pieces fading from your sky." }, el("ul", { class: "flat-list" }, ...attention.slice(0, 6).map(attentionRow)))
             : null
         ),
         el("div", { class: "today-col today-side" }, weekCard(loadResult.status === "fulfilled" ? loadResult.value : null), rouletteCard(), meteorCard())
