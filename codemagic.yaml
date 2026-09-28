@@ -1,0 +1,131 @@
+definitions:
+  steps:
+    - &install_dependencies
+      name: Install dependencies
+      script: |
+        cd frontend
+        npm ci
+    - &build_web
+      name: Build the web app and copy it into the native projects
+      script: |
+        cd frontend
+        test -n "$VITE_API_URL" || { echo "Set VITE_API_URL in the pedagogue_web group"; exit 1; }
+        npm run build:mobile
+    - &decode_keystore
+      name: Decode the upload keystore
+      script: |
+        for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+          test -n "$(printenv "$name")" || { echo "Set $name in the android_signing group"; exit 1; }
+        done
+        echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$CM_BUILD_DIR/upload-keystore.jks"
+        echo "ANDROID_KEYSTORE_PATH=$CM_BUILD_DIR/upload-keystore.jks" >> "$CM_ENV"
+    - &android_version
+      name: Choose the version code
+      script: |
+        LATEST=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME" 2>/dev/null || echo "")
+        if [ -n "$LATEST" ]; then CODE=$((LATEST + 1)); else CODE=$((BUILD_NUMBER + 1)); fi
+        echo "ANDROID_VERSION_CODE=$CODE" >> "$CM_ENV"
+        echo "Version $APP_VERSION ($CODE)"
+    - &android_bundle
+      name: Build the signed App Bundle
+      script: |
+        cd frontend/android
+        chmod +x gradlew
+        ./gradlew bundleRelease --no-daemon
+
+workflows:
+  ios-testflight:
+    name: iOS to TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      groups:
+        - pedagogue_web
+        - app_store_credentials
+      vars:
+        APP_VERSION: "1.0.0"
+        BUNDLE_ID: com.pedagogue.app
+        XCODE_PROJECT: frontend/ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      node: 22
+      xcode: latest
+    scripts:
+      - *install_dependencies
+      - *build_web
+      - name: Fetch signing files from App Store Connect
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles --project "$XCODE_PROJECT"
+      - name: Set the version and build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          BUILD=$((LATEST + 1))
+          sed -i '' \
+            -e "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD;/g" \
+            -e "s/MARKETING_VERSION = [0-9.]*;/MARKETING_VERSION = $APP_VERSION;/g" \
+            "$XCODE_PROJECT/project.pbxproj"
+          echo "Version $APP_VERSION ($BUILD)"
+      - name: Build the signed IPA
+        script: |
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+
+  android-bundle:
+    name: Android App Bundle (download only)
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      groups:
+        - pedagogue_web
+        - android_signing
+      vars:
+        APP_VERSION: "1.0.0"
+        PACKAGE_NAME: com.pedagogue.app
+      node: 22
+      java: 21
+    scripts:
+      - *install_dependencies
+      - *build_web
+      - *decode_keystore
+      - *android_version
+      - *android_bundle
+    artifacts:
+      - frontend/android/app/build/outputs/bundle/release/*.aab
+
+  android-play:
+    name: Android to Google Play closed testing
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      groups:
+        - pedagogue_web
+        - android_signing
+        - google_play
+      vars:
+        APP_VERSION: "1.0.0"
+        PACKAGE_NAME: com.pedagogue.app
+      node: 22
+      java: 21
+    scripts:
+      - *install_dependencies
+      - *build_web
+      - *decode_keystore
+      - *android_version
+      - *android_bundle
+    artifacts:
+      - frontend/android/app/build/outputs/bundle/release/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: alpha
+        submit_as_draft: true

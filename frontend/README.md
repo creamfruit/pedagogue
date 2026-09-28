@@ -157,3 +157,34 @@ The entry detail page is a stub: submissions upload, practice plans, drills,
 sight-reading and readiness scoring all have working API methods in the client but no UI
 yet. The live-listening view is likewise wired in the client (`liveSocketUrl`) but has
 no screen. Those are the next slice.
+
+## iOS and Android apps
+
+The same code ships as native apps through [Capacitor](https://capacitorjs.com)
+(app id `com.pedagogue.app`). The `android/` and `ios/` folders are the native
+projects; `capacitor.config.json` holds their settings.
+
+| Script | What it does |
+|---|---|
+| `npm run build:mobile` | Production build, then `cap sync` copies `dist/` and the plugins into both native projects. Needs `VITE_API_URL`. |
+| `npm run open:android` | Opens the Android project in Android Studio. |
+| `npm run open:ios` | Opens the iOS project in Xcode (Mac only). |
+| `npm run assets:generate` | Regenerates every icon and splash screen from `assets/logo.png` (1024 x 1024, rendered from `assets/logo.svg`). |
+
+Native-only code is kept behind `lib/platform.js` (`isNative`, `isIOS`,
+`isAndroid`) and loaded with dynamic imports, so the website never downloads it:
+
+| Module | Purpose |
+|---|---|
+| `lib/native.js` | Status bar, splash screen, Android back button, app resume |
+| `lib/connectivity.js` | Online state from the browser and `@capacitor/network` |
+| `lib/deviceStore.js` | Key-value storage: app files in the apps, IndexedDB on the web |
+| `lib/outbox.js` | Practice notes written offline, sent when back online |
+| `lib/reminders.js` | The optional daily practice notification |
+| `lib/share.js` | Share sheet for links, the constellation image and downloads |
+| `lib/haptics.js` | Light tap on streaks, achievements and scores |
+| `lib/features.js` | Feature flags: audio (Coming soon), paid offers (web only) |
+| `lib/purchases.js` | Placeholder for in-app purchases; disabled |
+
+The service worker is only registered on the website. Store releases are
+described in [`../MOBILE_RELEASE.md`](../MOBILE_RELEASE.md).

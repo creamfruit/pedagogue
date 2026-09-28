@@ -4097,3 +4097,7 @@ body {
 .is-offline .update-bar {
   bottom: calc(80px + var(--safe-bottom));
 }
+
+.legal-section {
+  scroll-margin-top: calc(84px + var(--safe-top));
+}

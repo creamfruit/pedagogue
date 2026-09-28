@@ -120,6 +120,8 @@ export function privacyView(outlet) {
       ["/terms", "Terms of use"]
     )
   );
+  const anchor = decodeURIComponent(window.location.hash.slice(1));
+  if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({ block: "start" }));
   return restoreTitle;
 }
 
