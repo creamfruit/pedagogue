@@ -1,5 +1,5 @@
 const PREFIX = import.meta.env.VITE_API_PREFIX || "/api/v1";
-const ORIGIN = import.meta.env.DEV ? "" : import.meta.env.VITE_API_URL || "";
+const ORIGIN = import.meta.env.DEV ? "" : String(import.meta.env.VITE_API_URL).replace(/\/+$/, "");
 const TOKEN_KEY = "pp.token";
 
 export class ApiError extends Error {

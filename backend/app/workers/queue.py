@@ -143,7 +143,16 @@ def _cron_jobs() -> list:
     ]
 
 
+def _redis_settings():
+    try:
+        from arq.connections import RedisSettings
+    except ImportError:
+        return None
+    return RedisSettings.from_dsn(settings.redis_url)
+
+
 class WorkerSettings:
+    redis_settings = _redis_settings()
     functions = [_arq_job(name) for name in JOBS]
     cron_jobs = _cron_jobs()
     max_jobs = 4

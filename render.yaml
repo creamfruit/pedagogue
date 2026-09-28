@@ -1,0 +1,147 @@
+databases:
+  - name: pedagogue-db
+    databaseName: piano
+    user: piano
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+    ipAllowList: []
+
+services:
+  - type: web
+    name: pedagogue-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    healthCheckPath: /health
+    preDeployCommand: scripts/release.sh
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pedagogue-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: pedagogue-redis
+          property: connectionString
+      - key: JOB_QUEUE
+        value: redis
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEBSITE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: STORAGE_ENDPOINT
+        sync: false
+      - key: STORAGE_BUCKET
+        sync: false
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: MAX_UPLOAD_MB
+        value: "50"
+
+  - type: worker
+    name: pedagogue-worker
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: scripts/worker.sh
+    plan: starter
+    region: oregon
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pedagogue-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: pedagogue-redis
+          property: connectionString
+      - key: JOB_QUEUE
+        value: redis
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: SECRET_KEY
+      - key: STORAGE_ENDPOINT
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_ENDPOINT
+      - key: STORAGE_BUCKET
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_BUCKET
+      - key: STORAGE_ACCESS_KEY
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_ACCESS_KEY
+      - key: STORAGE_SECRET_KEY
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_SECRET_KEY
+      - key: ANTHROPIC_API_KEY
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: ANTHROPIC_API_KEY
+
+  - type: keyvalue
+    name: pedagogue-redis
+    plan: starter
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  - type: web
+    name: pedagogue-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_API_URL
+        sync: false
+    headers:
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

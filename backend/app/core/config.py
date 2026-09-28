@@ -1,8 +1,17 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, Field, PostgresDsn
+from pydantic import AliasChoices, Field, PostgresDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+CAPACITOR_ORIGINS = ("capacitor://localhost", "http://localhost", "https://localhost")
+
+
+def with_driver(url: str, driver: str) -> str:
+    scheme, separator, rest = url.partition("://")
+    if not separator or scheme not in {"postgres", "postgresql"} and not scheme.startswith("postgresql+"):
+        return url
+    return f"postgresql+{driver}://{rest}"
 
 
 class Settings(BaseSettings):
@@ -38,6 +47,8 @@ class Settings(BaseSettings):
         default="http://localhost:5173,http://localhost:4173",
         validation_alias=AliasChoices("CORS_ORIGINS", "cors_origins_raw"),
     )
+    website_url: str | None = None
+    allow_capacitor_origins: bool = True
 
     storage_endpoint: str | None = None
     storage_bucket: str = "piano-pedagogue"
@@ -54,9 +65,32 @@ class Settings(BaseSettings):
 
     max_upload_mb: int = 50
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalise_database_urls(cls, values: dict) -> dict:
+        if not isinstance(values, dict):
+            return values
+        lowered = {key.lower(): key for key in values}
+        database_key = lowered.get("database_url")
+        if database_key and values.get(database_key):
+            raw = str(values[database_key])
+            values[database_key] = with_driver(raw, "asyncpg")
+            alembic_key = lowered.get("alembic_database_url")
+            if not alembic_key or not values.get(alembic_key):
+                values["alembic_database_url"] = with_driver(raw, "psycopg")
+        alembic_key = lowered.get("alembic_database_url")
+        if alembic_key and values.get(alembic_key):
+            values[alembic_key] = with_driver(str(values[alembic_key]), "psycopg")
+        return values
+
     @property
     def cors_origins(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
+        origins = [origin.strip().rstrip("/") for origin in self.cors_origins_raw.split(",") if origin.strip()]
+        if self.website_url:
+            origins.append(self.website_url.strip().rstrip("/"))
+        if self.allow_capacitor_origins:
+            origins.extend(CAPACITOR_ORIGINS)
+        return list(dict.fromkeys(origins))
 
     @property
     def admin_emails(self) -> set[str]:

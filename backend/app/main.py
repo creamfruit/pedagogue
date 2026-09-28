@@ -53,6 +53,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
+    expose_headers=["Content-Disposition"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -358,3 +358,8 @@ Technique examples in onboarding are real passages from the First Editions of Fr
 Music (Fryderyk Chopin Institute, CC BY 4.0), the ASAP dataset (CC BY-NC-SA 4.0) and
 Bernd Krueger's Classical Piano MIDI (CC BY-SA 3.0 DE). See `tools/excerpts/README.md` for how
 the library is built and checked, and the licence note before any commercial release.
+
+## Deploying
+
+See [DEPLOY.md](DEPLOY.md) for the backend, database, worker, uploads bucket and website, and
+[MOBILE_RELEASE.md](MOBILE_RELEASE.md) for the iOS and Android apps.
