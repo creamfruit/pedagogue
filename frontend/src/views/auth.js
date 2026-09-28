@@ -42,7 +42,7 @@ export function loginView(outlet) {
           await store.signIn(email.value.trim(), password.value);
           await store.refreshOnboarding();
           notify.success(`Welcome back, ${store.user.display_name || "pianist"}`);
-          navigate("/");
+          navigate("/", { replace: true });
         } catch (error) {
           showError("password-error", error.detail || "Could not sign in");
           submit.disabled = false;
@@ -91,7 +91,7 @@ export function registerView(outlet) {
           });
           await store.refreshOnboarding();
           notify.success("Account created");
-          navigate("/");
+          navigate("/", { replace: true });
         } catch (error) {
           showError("email-error", error.detail || "Could not create the account");
           submit.disabled = false;

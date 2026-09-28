@@ -31,13 +31,33 @@ export function setGuard(handler) {
   guard = handler;
 }
 
+function depth() {
+  return Number(window.history.state?.depth) || 0;
+}
+
 export function navigate(path, { replace = false } = {}) {
   if (path === window.location.pathname + window.location.search) {
     return resolve();
   }
-  if (replace) window.history.replaceState({}, "", path);
-  else window.history.pushState({}, "", path);
+  if (replace) window.history.replaceState({ depth: depth() }, "", path);
+  else window.history.pushState({ depth: depth() + 1 }, "", path);
   return resolve();
+}
+
+export function canGoBack() {
+  return depth() > 0;
+}
+
+export function goBack(fallback = "/") {
+  if (canGoBack()) {
+    window.history.back();
+    return true;
+  }
+  if (window.location.pathname !== fallback) {
+    navigate(fallback, { replace: true });
+    return true;
+  }
+  return false;
 }
 
 export function match(pathname) {
@@ -73,7 +93,7 @@ export async function resolve() {
   if (guard) {
     const redirect = await guard({ pathname, entry: found ? found.entry : null });
     if (redirect && redirect !== pathname) {
-      window.history.replaceState({}, "", redirect);
+      window.history.replaceState({ depth: depth() }, "", redirect);
       return resolve();
     }
   }

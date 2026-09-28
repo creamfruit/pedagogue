@@ -6,14 +6,22 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:mobile": "vite build --mode production && cap sync",
+    "open:android": "cap open android",
+    "open:ios": "cap open ios"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.5",
     "workbox-window": "^7.1.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "d3-drag": "^3.0.0",
     "d3-force": "^3.0.0",
     "d3-selection": "^3.0.0",

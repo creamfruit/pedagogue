@@ -146,6 +146,15 @@ export function formatDuration(seconds) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+const openModals = [];
+
+export function closeTopModal() {
+  const top = openModals[openModals.length - 1];
+  if (!top) return false;
+  top();
+  return true;
+}
+
 export function openModal(contentNode, { title } = {}) {
   let closed = false;
   const overlay = el("div", { class: "modal-overlay" });
@@ -171,9 +180,12 @@ export function openModal(contentNode, { title } = {}) {
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onKey);
+    const index = openModals.indexOf(close);
+    if (index !== -1) openModals.splice(index, 1);
     overlay.remove();
   }
   document.addEventListener("keydown", onKey);
+  openModals.push(close);
   document.body.append(overlay);
   return { close };
 }

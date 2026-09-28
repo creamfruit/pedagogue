@@ -1,8 +1,11 @@
 import "./styles.css";
 import { api, onUnauthorized } from "./api/client.js";
+import { closeTopModal } from "./lib/dom.js";
+import { setupNative } from "./lib/native.js";
+import { isNative } from "./lib/platform.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
-import { navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
+import { canGoBack, goBack, navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
 import { loginView, registerView } from "./views/auth.js";
 import { onboardingView } from "./views/onboarding.js";
 import { dashboardView } from "./views/dashboard.js";
@@ -18,6 +21,7 @@ import { notFoundView } from "./views/notfound.js";
 import { privacyView, termsView } from "./views/legal.js";
 
 const PUBLIC_ROUTES = new Set(["/login", "/register"]);
+const ROOT_ROUTES = new Set(["/", "/login", "/onboarding"]);
 
 route("/", dashboardView);
 route("/onboarding", onboardingView);
@@ -135,7 +139,7 @@ function wireAccountMenu() {
   });
   document.getElementById("sign-out").addEventListener("click", () => {
     store.signOut();
-    navigate("/login");
+    navigate("/login", { replace: true });
   });
 }
 
@@ -185,8 +189,31 @@ function wireMenu() {
   });
 }
 
+function dismissOverlay() {
+  if (closeTopModal()) return true;
+  const menu = document.getElementById("account-menu");
+  if (!menu.hidden) {
+    menu.hidden = true;
+    document.getElementById("account-toggle").setAttribute("aria-expanded", "false");
+    return true;
+  }
+  const nav = document.getElementById("nav");
+  if (nav.classList.contains("open")) {
+    nav.classList.remove("open");
+    document.getElementById("nav-toggle").setAttribute("aria-expanded", "false");
+    return true;
+  }
+  return false;
+}
+
+function handleBack() {
+  if (dismissOverlay()) return true;
+  if (!canGoBack() && ROOT_ROUTES.has(window.location.pathname)) return false;
+  return goBack();
+}
+
 async function registerServiceWorker() {
-  if (!("serviceWorker" in navigator) || import.meta.env.DEV) return;
+  if (isNative || !("serviceWorker" in navigator) || import.meta.env.DEV) return;
   try {
     const { registerSW } = await import("virtual:pwa-register");
     const bar = document.getElementById("update-bar");
@@ -210,6 +237,7 @@ async function registerServiceWorker() {
 }
 
 async function boot() {
+  await setupNative({ onBack: handleBack });
   wireNetworkStatus();
   wireMenu();
   wireAccountMenu();
@@ -218,7 +246,7 @@ async function boot() {
     store.signOut();
     setChrome();
     notify.error("Your session expired. Sign in again.");
-    navigate("/login");
+    navigate("/login", { replace: true });
   });
 
   subscribe(setChrome);

@@ -181,7 +181,7 @@ export async function onboardingView(outlet) {
     const step = override || summary.status.next_step;
     if (step === "done") {
       await store.refreshOnboarding();
-      navigate("/");
+      navigate("/", { replace: true });
       return;
     }
     const select = (next) => {
@@ -551,7 +551,7 @@ function tastesStep(summary, refresh) {
           await api.finishOnboarding();
           await store.refreshOnboarding();
           notify.success("Studio is set up");
-          navigate("/");
+          navigate("/", { replace: true });
         } catch (error) {
           notify.error(error.detail || "Could not save your tastes");
           setBusy(finish, false);

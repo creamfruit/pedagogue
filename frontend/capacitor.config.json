@@ -1,0 +1,27 @@
+{
+  "appId": "com.pedagogue.app",
+  "appName": "Pedagogue",
+  "webDir": "dist",
+  "backgroundColor": "#0a1120",
+  "loggingBehavior": "debug",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": true,
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

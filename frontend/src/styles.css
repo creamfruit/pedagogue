@@ -3988,3 +3988,73 @@ input[type="date"] {
   padding-left: 20px;
   color: var(--text-dim);
 }
+
+:root {
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+}
+
+html,
+body {
+  background-color: var(--bg);
+}
+
+.topbar {
+  padding-top: calc(13px + var(--safe-top));
+  padding-right: calc(var(--shell-pad) + var(--safe-right));
+  padding-left: calc(var(--shell-pad) + var(--safe-left));
+}
+
+.view {
+  padding-right: calc(var(--shell-pad) + var(--safe-right));
+  padding-left: calc(var(--shell-pad) + var(--safe-left));
+}
+
+.footer {
+  padding-right: calc(var(--shell-pad) + var(--safe-right));
+  padding-bottom: calc(26px + var(--safe-bottom));
+  padding-left: calc(var(--shell-pad) + var(--safe-left));
+}
+
+.modal-overlay {
+  padding: calc(20px + var(--safe-top)) calc(20px + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
+}
+
+.modal {
+  max-height: min(86vh, calc(100dvh - 40px - var(--safe-top) - var(--safe-bottom)));
+  overscroll-behavior: contain;
+}
+
+.toasts {
+  right: calc(16px + var(--safe-right));
+  bottom: calc(16px + var(--safe-bottom));
+  max-width: min(370px, calc(100vw - 32px - var(--safe-left) - var(--safe-right)));
+}
+
+.update-bar {
+  bottom: calc(20px + var(--safe-bottom));
+}
+
+.sticky-actions {
+  padding-bottom: calc(18px + var(--safe-bottom));
+}
+
+.boot {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+.is-native body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+.is-native .topbar,
+.is-native .brand,
+.is-native .nav a,
+.is-native .btn,
+.is-native .footer {
+  -webkit-user-select: none;
+  user-select: none;
+}
