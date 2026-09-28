@@ -1,5 +1,7 @@
 import { api } from "../api/client.js";
 import { el, empty, skeletonBlock, toneForSeverity } from "../lib/dom.js";
+import { lightTap } from "../lib/haptics.js";
+import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { renderNotation } from "../lib/notation.js";
 import { playNotation } from "../lib/synth.js";
@@ -69,6 +71,7 @@ function sightReadingForge() {
                   event.target.parentElement.querySelectorAll("button").forEach((b) => (b.disabled = true));
                   try {
                     const updated = await api.scoreSightReading(exercise.id, score);
+                    lightTap();
                     notify.success(score >= 4 ? "Nice reading. That technique is a step closer to green." : "Logged");
                     renderExercise(updated);
                   } catch (error) {
@@ -218,6 +221,7 @@ export async function practiceView(outlet) {
                   repertoire_entry_id: entrySelect.value || null,
                 });
                 notify.success("Logged");
+                store.refreshProfile();
                 await renderSession();
                 await renderLoad();
               } catch (error) {
@@ -244,6 +248,7 @@ export async function practiceView(outlet) {
               try {
                 await api.closeSession(open.id, {});
                 notify.success("Session closed");
+                store.refreshProfile();
                 await renderSession();
                 await renderLoad();
               } catch (error) {

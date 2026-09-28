@@ -199,6 +199,37 @@ AUDIO_TYPES = {
 }
 
 
+SCORE_KINDS = {"pdf": "scores", "musicxml": "musicxml", "mxl": "musicxml", "midi": "midi"}
+SCORE_SUFFIXES = {
+    "pdf": {".pdf"},
+    "musicxml": {".musicxml", ".xml"},
+    "mxl": {".mxl"},
+    "midi": {".mid", ".midi", ".kar"},
+}
+SCORE_LABEL = "a PDF, MusicXML (.musicxml, .xml, .mxl) or MIDI (.mid) score"
+
+
+def sniff_score(head: bytes, filename: Optional[str]) -> str:
+    suffix = Path(filename or "").suffix.lower()
+    if head.startswith(b"%PDF"):
+        return "pdf"
+    if head.startswith(b"MThd"):
+        return "midi"
+    if head.startswith(b"PK\x03\x04") and suffix in SCORE_SUFFIXES["mxl"]:
+        return "mxl"
+    text = head.lstrip(b"\xef\xbb\xbf \t\r\n")
+    if text.startswith(b"<") and (b"<score-partwise" in head or b"<score-timewise" in head):
+        return "musicxml"
+    raise UnsupportedMediaType(f"expected {SCORE_LABEL}, received {filename or 'an unknown file'}")
+
+
+def score_format(stream: BinaryIO, filename: Optional[str]) -> str:
+    position = stream.tell()
+    head = stream.read(8192)
+    stream.seek(position)
+    return sniff_score(head, filename)
+
+
 def ensure_media_type(content_type: Optional[str], allowed: set[str], label: str) -> str:
     normalised = (content_type or "").split(";")[0].strip().lower()
     if normalised not in allowed:

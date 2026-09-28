@@ -1,6 +1,28 @@
+import { reportReachable } from "../lib/connectivity.js";
+import { deviceStore } from "../lib/deviceStore.js";
+
 const PREFIX = import.meta.env.VITE_API_PREFIX || "/api/v1";
 const ORIGIN = import.meta.env.DEV ? "" : String(import.meta.env.VITE_API_URL).replace(/\/+$/, "");
 const TOKEN_KEY = "pp.token";
+const CACHE_PREFIX = "cache:";
+const OFFLINE_READS = [
+  /^\/auth\/me$/,
+  /^\/onboarding\/status$/,
+  /^\/profile\/summary$/,
+  /^\/progress\/streak$/,
+  /^\/practice\/load$/,
+  /^\/repertoire$/,
+  /^\/repertoire\/stats$/,
+  /^\/repertoire\/[0-9a-f-]{36}$/,
+  /^\/repertoire\/[0-9a-f-]{36}\/(submissions|plans|gate)$/,
+  /^\/catalog\/pieces\/\d+(\/overview)?$/,
+  /^\/catalog\/passages\/\d+\/sight-reading$/,
+  /^\/catalog\/(techniques|genres)$/,
+];
+
+function offlineKey(path, url) {
+  return OFFLINE_READS.some((pattern) => pattern.test(path)) ? CACHE_PREFIX + url : null;
+}
 
 export class ApiError extends Error {
   constructor(status, detail, payload) {
@@ -108,13 +130,21 @@ export async function request(path, { method = "GET", body, params, form, signal
     payload = JSON.stringify(body);
   }
 
+  const url = buildUrl(path, params);
+  const cacheKey = method === "GET" && auth && token ? offlineKey(path, url) : null;
   let response;
   try {
-    response = await fetch(buildUrl(path, params), { method, headers, body: payload, signal });
+    response = await fetch(url, { method, headers, body: payload, signal });
   } catch (error) {
     if (error.name === "AbortError") throw error;
+    reportReachable(false);
+    if (cacheKey) {
+      const saved = await deviceStore.get(cacheKey);
+      if (saved !== undefined) return saved;
+    }
     throw new ApiError(0, "you appear to be offline");
   }
+  reportReachable(true);
 
   const data = await parse(response);
   if (!response.ok) {
@@ -124,7 +154,12 @@ export async function request(path, { method = "GET", body, params, form, signal
     }
     throw new ApiError(response.status, extractDetail(data, response.status), data);
   }
+  if (cacheKey) deviceStore.set(cacheKey, data);
   return data;
+}
+
+export function forgetOfflineData() {
+  return deviceStore.clear();
 }
 
 export async function download(path, fallbackName) {
@@ -210,10 +245,10 @@ export const api = {
   submissions: (entryId) => request(`/repertoire/${entryId}/submissions`),
   submitText: (entryId, bodyText) =>
     request(`/repertoire/${entryId}/submissions/text`, { method: "POST", body: { body: bodyText } }),
-  submitPdf: (entryId, file) => {
+  submitScore: (entryId, file) => {
     const form = new FormData();
-    form.append("file", file);
-    return request(`/repertoire/${entryId}/submissions/pdf`, { method: "POST", form });
+    form.append("file", file, file.name || "score");
+    return request(`/repertoire/${entryId}/submissions/score`, { method: "POST", form });
   },
   submitAudio: (entryId, file, { durationSec, isFullRunThrough, isVerification } = {}) => {
     const form = new FormData();

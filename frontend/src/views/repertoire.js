@@ -2,6 +2,9 @@ import { api, pollSubmission } from "../api/client.js";
 import { difficultyPair, pieceOverview } from "../components/overview.js";
 import { el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
+import { pendingNotes, queueNote } from "../lib/outbox.js";
+import { isScoreFile, scoreAccept } from "../lib/scoreFiles.js";
+import { shareLink, siteUrl } from "../lib/share.js";
 import { STATUS_LABEL, STATUS_ORDER, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
@@ -756,7 +759,7 @@ function planPanel(entryId, plan, onBuild, onAdvance) {
   );
 }
 
-const SUBMISSION_LABELS = { audio: "Recording", text: "Practice notes", pdf: "Scanned score" };
+const SUBMISSION_LABELS = { audio: "Recording", text: "Practice notes", pdf: "Score" };
 
 function submissionDate(submission) {
   if (!submission.created_at) return null;
@@ -982,22 +985,74 @@ function recordingPanel(entry, recordings, onChange, { openForm = false, require
   );
 }
 
+const SHARE_STATUS = {
+  wishlist: "I want to learn",
+  learning: "I'm learning",
+  polishing: "I'm polishing",
+  performance_ready: "I can perform",
+  retired: "I've played",
+};
+
+async function sharePiece(entry) {
+  const composer = entry.piece.composer?.name;
+  const lead = SHARE_STATUS[entry.status] || "I'm playing";
+  const text = `${lead} ${entry.piece.title}${composer ? ` by ${composer}` : ""} on Pedagogue.`;
+  try {
+    const result = await shareLink({ title: entry.piece.title, text, url: siteUrl("/") });
+    if (result === "copied") notify.success("Copied to the clipboard");
+  } catch (error) {
+    notify.error(error.message || "Could not share this piece");
+  }
+}
+
+function pendingNoteItem(note) {
+  return el(
+    "li",
+    { class: "flat-row flat-row-stack" },
+    el(
+      "div",
+      { class: "row", style: "justify-content:space-between" },
+      el("strong", {}, "Practice notes"),
+      el("span", { class: "pill pill-warn" }, "waiting to send")
+    ),
+    el("p", { class: "faint", style: "font-size:12.5px;margin:6px 0 0" }, note.body.slice(0, 220))
+  );
+}
+
 function writtenSubmissionPanel(entry, written, onChange) {
+  const pendingList = el("ul", { class: "flat-list pending-notes" });
+  const savedList = submissionList(written, "No notes or scores yet.");
+  const showPending = () =>
+    pendingNotes(entry.id).then((notes) => {
+      pendingList.replaceChildren(...notes.map(pendingNoteItem));
+      pendingList.hidden = !notes.length;
+      savedList.hidden = !written.length && notes.length > 0;
+    });
+  showPending();
+
   const textBody = el("textarea", { rows: "3", placeholder: "Notes from this practice session…" });
   const textSubmit = el(
     "button",
     {
       class: "btn btn-small",
       onclick: async () => {
-        if (!textBody.value.trim()) return;
+        const body = textBody.value.trim();
+        if (!body) return;
         textSubmit.disabled = true;
         try {
-          await api.submitText(entry.id, textBody.value.trim());
+          await api.submitText(entry.id, body);
           textBody.value = "";
           notify.success("Notes submitted");
           await onChange();
         } catch (error) {
-          notify.error(error.detail || "Could not submit those notes");
+          if (error.isOffline) {
+            await queueNote(entry.id, body);
+            textBody.value = "";
+            notify.info("You're offline. The note is saved on this device and will be sent when you're back online.");
+            await showPending();
+          } else {
+            notify.error(error.detail || "Could not submit those notes");
+          }
         } finally {
           textSubmit.disabled = false;
         }
@@ -1006,24 +1061,25 @@ function writtenSubmissionPanel(entry, written, onChange) {
     "Submit notes"
   );
 
-  const pdfInput = el("input", { type: "file", accept: "application/pdf" });
-  const pdfSubmit = el(
+  const scoreInput = el("input", { type: "file", accept: scoreAccept() });
+  const scoreSubmit = el(
     "button",
     {
       class: "btn btn-small",
       onclick: async () => {
-        const file = pdfInput.files[0];
-        if (!file) return notify.error("Choose a PDF first");
-        pdfSubmit.disabled = true;
+        const file = scoreInput.files[0];
+        if (!file) return notify.error("Choose a score first");
+        if (!isScoreFile(file)) return notify.error("Choose a PDF, MusicXML (.musicxml, .xml, .mxl) or MIDI (.mid) file");
+        scoreSubmit.disabled = true;
         try {
-          await api.submitPdf(entry.id, file);
+          await api.submitScore(entry.id, file);
           notify.success("Score submitted");
-          pdfInput.value = "";
+          scoreInput.value = "";
           await onChange();
         } catch (error) {
-          notify.error(error.detail || "Could not submit that PDF");
+          notify.error(error.isOffline ? "Scores can only be uploaded while you're online" : error.detail || "Could not submit that score");
         } finally {
-          pdfSubmit.disabled = false;
+          scoreSubmit.disabled = false;
         }
       },
     },
@@ -1036,17 +1092,23 @@ function writtenSubmissionPanel(entry, written, onChange) {
       "div",
       { class: "submission-form" },
       el("div", { class: "field" }, el("label", {}, "Practice notes"), textBody, el("div", { style: "margin-top:8px" }, textSubmit)),
-      el("div", { class: "field", style: "margin-bottom:0" }, el("label", {}, "Scanned score (PDF)"), el("div", { class: "row" }, pdfInput, pdfSubmit))
+      el(
+        "div",
+        { class: "field", style: "margin-bottom:0" },
+        el("label", {}, "Score (PDF, MusicXML or MIDI)"),
+        el("div", { class: "row" }, scoreInput, scoreSubmit)
+      )
     )
   );
 
   return sectionBlock(
     "Notes & scores",
     {
-      caption: "Written practice notes and scanned sheet music, read for bar numbers and techniques.",
+      caption: "Written practice notes and sheet music, read for bar numbers and techniques.",
       className: "submission-panel",
     },
-    submissionList(written, "No notes or scores yet."),
+    pendingList,
+    savedList,
     form.button,
     form.region
   );
@@ -1181,6 +1243,7 @@ export async function entryDetailView(outlet, context) {
           "div",
           { class: "row" },
           el("button", { type: "button", class: "btn btn-small", onclick: () => openPracticeModal() }, "Practice this piece"),
+          el("button", { type: "button", class: "btn btn-ghost btn-small", onclick: () => sharePiece(entry) }, "Share"),
           el("a", { class: "btn btn-ghost btn-small", href: "/repertoire", "data-link": true }, "Back")
         )
       ),

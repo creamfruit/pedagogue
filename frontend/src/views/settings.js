@@ -1,5 +1,12 @@
 import { api } from "../api/client.js";
 import { el, openModal, reveal, sectionBlock } from "../lib/dom.js";
+import {
+  DEFAULT_REMINDER_TIME,
+  cancelDailyReminder,
+  enableDailyReminder,
+  reminderSettings,
+  remindersSupported,
+} from "../lib/reminders.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
@@ -106,7 +113,55 @@ function remindersSection() {
   return sectionBlock(
     "Practice reminders",
     { caption: "A reminder on Today when you haven't logged a practice session for a while. It only appears in the app." },
-    field("Remind me", select)
+    field("Remind me", select),
+    remindersSupported ? dailyReminderControls() : null
+  );
+}
+
+function dailyReminderControls() {
+  const saved = reminderSettings();
+  const toggle = el("input", { type: "checkbox", checked: saved.enabled || null });
+  const time = el("input", { type: "time", value: saved.time, step: "300", "aria-label": "Reminder time", disabled: !saved.enabled || null });
+
+  async function apply(enable) {
+    toggle.disabled = true;
+    time.disabled = true;
+    try {
+      if (!enable) {
+        await cancelDailyReminder();
+        notify.success("Daily reminder turned off");
+        return;
+      }
+      const result = await enableDailyReminder(time.value || DEFAULT_REMINDER_TIME);
+      if (result.ok) {
+        notify.success(`You'll get a reminder every day at ${time.value || DEFAULT_REMINDER_TIME}`);
+      } else {
+        toggle.checked = false;
+        notify.error(
+          result.reason === "denied"
+            ? "Notifications are off for Pedagogue. Allow them in your phone's Settings, then try again."
+            : "Choose a time for the reminder"
+        );
+      }
+    } catch (error) {
+      toggle.checked = false;
+      notify.error(error.message || "Could not set the reminder");
+    } finally {
+      toggle.disabled = false;
+      time.disabled = !toggle.checked;
+    }
+  }
+
+  toggle.addEventListener("change", () => apply(toggle.checked));
+  time.addEventListener("change", () => {
+    if (toggle.checked) apply(true);
+  });
+  return el(
+    "div",
+    { class: "daily-reminder" },
+    el("label", { class: "check-label" }, toggle, "Daily practice reminder on this phone"),
+    el("div", { class: "field", style: "margin:var(--space-3) 0 0" }, el("label", {}, "Time"), time),
+    el("p", { class: "field-hint" }, "Off until you turn it on. Pedagogue asks for permission to send notifications only then.")
   );
 }
 

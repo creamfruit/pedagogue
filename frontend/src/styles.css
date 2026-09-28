@@ -4058,3 +4058,42 @@ body {
   -webkit-user-select: none;
   user-select: none;
 }
+
+.offline-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+  padding: 10px calc(var(--shell-pad) + var(--safe-right)) calc(10px + var(--safe-bottom)) calc(var(--shell-pad) + var(--safe-left));
+  background: var(--bg-panel);
+  border-top: 1px solid var(--accent-line);
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.offline-banner[hidden] {
+  display: none;
+}
+
+.offline-banner strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.is-offline .app {
+  padding-bottom: 64px;
+}
+
+.is-offline .toasts {
+  bottom: calc(76px + var(--safe-bottom));
+}
+
+.is-offline .update-bar {
+  bottom: calc(80px + var(--safe-bottom));
+}

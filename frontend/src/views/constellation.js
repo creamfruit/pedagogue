@@ -1,7 +1,9 @@
 import { api } from "../api/client.js";
 import { linkSummaryPanel } from "../components/overview.js";
 import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
+import { shareCanvas } from "../lib/share.js";
 import { store } from "../lib/store.js";
+import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
 import { familyTreeView } from "./familyTree.js";
 import { drawFigures, figureAt, layoutFigures, markNewFigures, toFigureSpace } from "../lib/achievementSky.js";
@@ -235,6 +237,27 @@ export async function constellationView(outlet, context = {}) {
         },
       },
       "recentre"
+    ),
+    el(
+      "button",
+      {
+        type: "button",
+        class: "legend-reset",
+        onclick: async () => {
+          try {
+            const result = await shareCanvas(canvas, {
+              title: "My constellation",
+              text: `My piano repertoire as a constellation: ${graph.nodes.length} star${graph.nodes.length === 1 ? "" : "s"} on Pedagogue.`,
+              fileName: "pedagogue-constellation.png",
+              background: colors.bgSunk,
+            });
+            if (result === "downloaded") notify.success("Saved the sky as an image");
+          } catch (error) {
+            notify.error(error.message || "Could not share the sky");
+          }
+        },
+      },
+      "share"
     )
   );
 

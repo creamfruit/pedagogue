@@ -11,9 +11,10 @@ from sqlalchemy.orm import selectin_polymorphic, selectinload
 
 from app.core.storage import (
     AUDIO_TYPES,
-    PDF_TYPES,
+    SCORE_KINDS,
     Storage,
     ensure_media_type,
+    score_format,
     storage as default_storage,
 )
 from app.models.models import (
@@ -325,10 +326,15 @@ class SubmissionService(BaseService):
         content_type: Optional[str],
     ) -> PdfSubmission:
         await self.repertoire.get(user, entry_id)
-        ensure_media_type(content_type, PDF_TYPES, "a PDF")
-        key = self.storage.build_key(user.id, "scores", filename or "score.pdf")
+        kind = score_format(stream, filename)
+        default_name = {"pdf": "score.pdf", "musicxml": "score.musicxml", "mxl": "score.mxl", "midi": "score.mid"}[kind]
+        key = self.storage.build_key(user.id, SCORE_KINDS[kind], filename or default_name)
         self.storage.save(stream, key)
-        submission = PdfSubmission(repertoire_entry_id=entry_id, storage_key=key)
+        submission = PdfSubmission(
+            repertoire_entry_id=entry_id,
+            storage_key=key,
+            musicxml_key=key if kind in {"musicxml", "mxl"} else None,
+        )
         self.session.add(submission)
         await self.session.flush()
         return submission

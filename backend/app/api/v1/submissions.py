@@ -81,6 +81,11 @@ async def submit_text(
 
 
 @router.post(
+    "/repertoire/{entry_id}/submissions/score",
+    response_model=SubmissionAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+@router.post(
     "/repertoire/{entry_id}/submissions/pdf",
     response_model=SubmissionAccepted,
     status_code=status.HTTP_202_ACCEPTED,
@@ -95,7 +100,7 @@ async def submit_pdf(
     service = SubmissionService(session)
     try:
         submission = await service.add_pdf(
-            user, entry_id, file.file, file.filename or "score.pdf", file.content_type
+            user, entry_id, file.file, file.filename or "", file.content_type
         )
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

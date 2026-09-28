@@ -1,7 +1,9 @@
 import "./styles.css";
 import { api, onUnauthorized } from "./api/client.js";
 import { closeTopModal } from "./lib/dom.js";
-import { setupNative } from "./lib/native.js";
+import { isOnline, onConnectivity, watchConnectivity } from "./lib/connectivity.js";
+import { hideSplash, setupNative } from "./lib/native.js";
+import { flushNotes, onOutboxChange, pendingNotes } from "./lib/outbox.js";
 import { isNative } from "./lib/platform.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
@@ -158,20 +160,40 @@ async function syncTimezone() {
   }
 }
 
+async function sendQueuedNotes() {
+  if (!store.isAuthenticated || !isOnline()) return;
+  const { sent, dropped } = await flushNotes();
+  if (sent) notify.success(`Sent ${sent} practice note${sent === 1 ? "" : "s"} written offline`);
+  if (dropped) {
+    notify.error(`${dropped} note${dropped === 1 ? "" : "s"} written offline couldn't be sent because the piece is no longer in your repertoire`);
+  }
+}
+
 function wireNetworkStatus() {
   const pill = document.getElementById("net-status");
-  const update = () => {
-    pill.hidden = navigator.onLine;
+  const banner = document.getElementById("offline-banner");
+  const waiting = document.getElementById("offline-waiting");
+  let wasOnline = isOnline();
+  const render = async () => {
+    const online = isOnline();
+    pill.hidden = online;
+    banner.hidden = online;
+    document.documentElement.classList.toggle("is-offline", !online);
+    const notes = store.isAuthenticated ? await pendingNotes() : [];
+    waiting.textContent = notes.length ? `${notes.length} note${notes.length === 1 ? "" : "s"} waiting to send.` : "";
   };
-  window.addEventListener("online", () => {
-    update();
-    notify.success("Back online");
+  onConnectivity((online) => {
+    render();
+    if (online && !wasOnline) {
+      notify.success("Back online");
+      sendQueuedNotes();
+    }
+    wasOnline = online;
   });
-  window.addEventListener("offline", () => {
-    update();
-    notify.info("Offline. Cached pages still work.");
-  });
-  update();
+  onOutboxChange(render);
+  subscribe(render);
+  render();
+  watchConnectivity();
 }
 
 function wireMenu() {
@@ -237,7 +259,7 @@ async function registerServiceWorker() {
 }
 
 async function boot() {
-  await setupNative({ onBack: handleBack });
+  await setupNative({ onBack: handleBack, onResume: sendQueuedNotes });
   wireNetworkStatus();
   wireMenu();
   wireAccountMenu();
@@ -262,10 +284,12 @@ async function boot() {
   tag.textContent = `Piano Pedagogue · ${import.meta.env.MODE}`;
 
   await startRouter(document.getElementById("view"));
+  hideSplash();
   if (store.isAuthenticated) {
     store.refreshOnboarding();
     store.refreshProfile();
     syncTimezone();
+    sendQueuedNotes();
   }
   registerServiceWorker();
 }

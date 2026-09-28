@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import re
+import zipfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -10,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectin_polymorphic, selectinload
 
-from app.core.storage import Storage, storage as default_storage
+from app.core.storage import Storage, UnsupportedMediaType, sniff_score, storage as default_storage
 from app.models.models import (
     Analysis,
     AudioSubmission,
@@ -253,7 +255,16 @@ class ScoreAnalyzer(Analyzer):
         assert isinstance(submission, PdfSubmission)
         if not self.storage.exists(submission.storage_key):
             raise FileNotFoundError(f"stored score missing: {submission.storage_key}")
-        page_count = submission.page_count or self.count_pages(submission.storage_key)
+        data = self.read(submission.storage_key)
+        try:
+            kind = sniff_score(data[:8192], submission.storage_key)
+        except UnsupportedMediaType:
+            kind = "pdf"
+        if kind in {"musicxml", "mxl"}:
+            return self.musicxml_result(submission, data, kind)
+        if kind == "midi":
+            return self.midi_result(submission, data)
+        page_count = submission.page_count or self.count_pages(data)
         submission.page_count = page_count
         submission.omr_confidence = Decimal("0.00")
         return AnalysisResult(
@@ -263,6 +274,7 @@ class ScoreAnalyzer(Analyzer):
             ),
             raw={
                 "stage": "ingested",
+                "format": "pdf",
                 "page_count": page_count,
                 "storage_key": submission.storage_key,
                 "next_step": "run Audiveris to produce MusicXML, then extract bar features with music21",
@@ -270,18 +282,79 @@ class ScoreAnalyzer(Analyzer):
             findings=[],
         )
 
-    def count_pages(self, key: str) -> int:
+    def read(self, key: str) -> bytes:
+        with self.storage.open(key) as handle:
+            return handle.read()
+
+    def count_pages(self, data: bytes) -> int:
         try:
             try:
                 import pymupdf
             except ImportError:
                 import fitz as pymupdf
 
-            with self.storage.open(key) as handle:
-                document = pymupdf.open(stream=handle.read(), filetype="pdf")
-                return document.page_count
+            return pymupdf.open(stream=data, filetype="pdf").page_count
         except Exception:
             return 0
+
+    def musicxml_text(self, data: bytes, kind: str) -> bytes:
+        if kind != "mxl":
+            return data
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            names = [name for name in archive.namelist() if not name.startswith("META-INF/")]
+            try:
+                container = archive.read("META-INF/container.xml")
+                match = re.search(rb'full-path="([^"]+)"', container)
+                if match:
+                    return archive.read(match.group(1).decode("utf-8"))
+            except KeyError:
+                pass
+            for name in names:
+                if name.lower().endswith((".xml", ".musicxml")):
+                    return archive.read(name)
+        return b""
+
+    def musicxml_result(self, submission: PdfSubmission, data: bytes, kind: str) -> AnalysisResult:
+        try:
+            text = self.musicxml_text(data, kind)
+        except zipfile.BadZipFile:
+            text = b""
+        parts = len(re.findall(rb"<score-part[\s>]", text))
+        measures = len(re.findall(rb"<measure[\s>]", text))
+        bars = measures // parts if parts else measures
+        submission.page_count = None
+        submission.omr_confidence = Decimal("1.00") if bars else Decimal("0.00")
+        return AnalysisResult(
+            summary=f"MusicXML score read: {parts or 1} part(s), {bars} bar(s); no recognition needed",
+            raw={
+                "stage": "parsed" if bars else "ingested",
+                "format": "musicxml",
+                "compressed": kind == "mxl",
+                "parts": parts,
+                "bars": bars,
+                "storage_key": submission.storage_key,
+                "next_step": "extract bar features with music21",
+            },
+            findings=[],
+        )
+
+    def midi_result(self, submission: PdfSubmission, data: bytes) -> AnalysisResult:
+        midi_format = int.from_bytes(data[8:10], "big") if len(data) >= 14 else None
+        tracks = int.from_bytes(data[10:12], "big") if len(data) >= 14 else 0
+        submission.page_count = None
+        submission.omr_confidence = None
+        return AnalysisResult(
+            summary=f"MIDI file read: {tracks} track(s); bar numbers come from the catalogue until it is aligned",
+            raw={
+                "stage": "ingested",
+                "format": "midi",
+                "midi_format": midi_format,
+                "tracks": tracks,
+                "storage_key": submission.storage_key,
+                "next_step": "quantise to a score with music21, then extract bar features",
+            },
+            findings=[],
+        )
 
 
 class AudioAnalyzer(Analyzer):

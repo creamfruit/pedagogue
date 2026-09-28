@@ -22,6 +22,25 @@
       "insetsHandling": "css",
       "initialViewportFitValueHint": "cover",
       "style": "DARK"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": false,
+      "launchFadeOutDuration": 250,
+      "backgroundColor": "#0a1120",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": false,
+      "splashImmersive": false
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#0a1120"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_pedagogue",
+      "iconColor": "#6fb7b3"
     }
   }
 }

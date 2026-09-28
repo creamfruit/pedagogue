@@ -1,5 +1,6 @@
 import { api } from "../api/client.js";
 import { el, empty, sectionBlock, skeletonBlock } from "../lib/dom.js";
+import { lightTap } from "../lib/haptics.js";
 import { renderNotation } from "../lib/notation.js";
 import { notify } from "../lib/toast.js";
 import { standingsTable } from "./leaderboards.js";
@@ -92,6 +93,7 @@ export async function rouletteView(outlet) {
       options.replaceChildren(el("p", { class: "faint" }, "Scoring…"));
       try {
         const attempt = await api.rouletteSubmit(answers);
+        lightTap();
         stage.replaceChildren(el("p", { class: "faint", style: "margin:0 0 var(--space-3)" }, describe(snippet)), resultView(snippet, attempt));
         await renderBoard();
       } catch (error) {
