@@ -25,6 +25,7 @@ from app.models.models import (
 )
 from app.seed_lore import COMPOSER_LORE, LINK_NOTES, PASSAGES, PIECE_LORE, TECHNIQUE_LORE
 from app.services.piece_knowledge import refresh_catalog_knowledge
+from app.services.score_library import seed_score_library
 from app.services.difficulty import compute_mechanical_load, scale100
 
 ERAS = [
@@ -390,6 +391,11 @@ async def seed_catalog_detail() -> None:
                 record.summary = summary
             written += 1
 
+        library = await seed_score_library(session)
+        print(
+            f"score library: {library['created']} pieces added, {library['enriched']} existing pieces given "
+            f"analysed passages, {library['skipped']} already present"
+        )
         knowledge = await refresh_catalog_knowledge(session)
         print(
             f"difficulty ladder: {knowledge['ladder']} pieces placed, {knowledge['estimated']} estimated, "

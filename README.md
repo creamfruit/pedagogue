@@ -351,6 +351,20 @@ genuinely clean run, and an entry that clears that bar is promoted to
 average.
 
 
+## Quick start on Windows
+
+Run `start-pedagogue.ps1` from the project folder (right-click, Run with PowerShell). It starts Postgres and Redis in Docker, migrates and seeds the database, then opens the backend, the frontend and the browser.
+
+Your data survives updates: accounts live in the Docker volume `backend_piano_pgdata`, uploaded scores in `%USERPROFILE%\.pedagogue\storage`, and the sign-in key in `%USERPROFILE%\.pedagogue\secret_key`. Unzipping a new version into a different folder keeps all three.
+
+## Uploading scores
+
+On any piece page, Scores & notes takes a PDF, MusicXML or MIDI file.
+- PDF: pages are read for staves and barlines, bars are counted, and the densest writing is marked as hard passages with a clip of those bars from your copy. If the piece already has checked passages, your pages are matched to them instead. Bar numbers are counted from the page, so they can be a bar or two out.
+- MusicXML and MIDI: read note by note for exact passages and techniques.
+
+Audio recordings, the listening coach, graded run-throughs and verification takes are switched off for now (`AUDIO_FEATURES_ENABLED` on the backend, `VITE_AUDIO_FEATURES` on the frontend).
+
 ## Difficulty ladder
 
 Every difficulty is on one 0 to 100 ladder. The anchors live in `backend/app/services/repertoire_reference.py`: Für Elise sits at 30, Chopin's first Ballade at 70, Harmonies du soir at 84, La Campanella at 90 and Islamey at 98. Edit a number there and run `python -m app.seed` to push it to every matching piece, including ones already imported from MusicBrainz or OpenOpus.

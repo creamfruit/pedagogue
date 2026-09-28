@@ -91,6 +91,23 @@ function prose(title, body) {
   );
 }
 
+function scoreCrop(section) {
+  const figure = el(
+    "figure",
+    { class: "score-crop" },
+    el("div", { class: "score-crop-frame" }, el("span", { class: "faint" }, "Loading your score…")),
+    el("figcaption", { class: "faint" }, `From your uploaded score${section.score_page ? `, page ${section.score_page}` : ""}`)
+  );
+  api
+    .blob(section.score_crop)
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      figure.firstChild.replaceChildren(el("img", { src: url, alt: `Bars ${section.start_measure} to ${section.end_measure} from your score`, loading: "lazy" }));
+    })
+    .catch(() => figure.remove());
+  return figure;
+}
+
 function sectionCard(section, index) {
   const stage = el("div", { style: "display:none" });
   let activePlayback = null;
@@ -167,13 +184,15 @@ function sectionCard(section, index) {
         "div",
         {},
         barButton,
-        el("strong", { class: "section-label" }, section.label || "Marked passage")
+        el("strong", { class: "section-label" }, section.label || "Marked passage"),
+        section.source === "analyzer" ? el("span", { class: "section-origin faint" }, "found in an uploaded score") : section.source === "catalog" ? el("span", { class: "section-origin faint" }, "checked against the score") : null
       ),
       section.difficulty_score != null
         ? el("span", { class: "pill pill-accent mono" }, section.difficulty_score)
         : null
     ),
     section.description ? el("p", { class: "section-text" }, section.description) : null,
+    section.score_crop ? scoreCrop(section) : null,
     section.practice_cue
       ? el(
           "p",
@@ -304,6 +323,18 @@ function keyFactsSection(overview, { showDifficulty = true } = {}) {
   );
 }
 
+function glance(overview) {
+  const parts = [];
+  if (overview.duration_sec) parts.push(`About ${overview.duration_label} long`);
+  const top = (overview.techniques || []).slice(0, 3).map((t) => t.name.toLowerCase());
+  if (top.length) parts.push(`the main demands are ${top.length > 1 ? `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}` : top[0]}`);
+  const hardest = (overview.sections || [])[0];
+  if (hardest) parts.push(`the hardest stretch is ${hardest.measure_span}${hardest.label ? ` (${hardest.label.toLowerCase()})` : ""}`);
+  if (!parts.length) return null;
+  const text = parts.join("; ");
+  return prose("At a glance", `${text[0].toUpperCase()}${text.slice(1)}.`);
+}
+
 function storyBody(overview) {
   const facts = el(
     "div",
@@ -323,7 +354,7 @@ function storyBody(overview) {
       )
     );
   }
-  const blocks = [prose("What it depicts", overview.scene), history, prose("Worth knowing", overview.fun_fact)].filter(Boolean);
+  const blocks = [glance(overview), prose("What it depicts", overview.scene), history, prose("Worth knowing", overview.fun_fact)].filter(Boolean);
   if (!blocks.length && !facts.children.length) return null;
   return el("div", { class: "lore-panel" }, facts.children.length ? facts : null, ...blocks);
 }

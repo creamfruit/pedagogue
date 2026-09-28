@@ -953,6 +953,9 @@ class SectionRead(BaseModel):
     description: Optional[str] = None
     practice_cue: Optional[str] = None
     techniques: list[str] = Field(default_factory=list)
+    source: Optional[str] = None
+    score_crop: Optional[str] = None
+    score_page: Optional[int] = None
 
 
 class TechniqueBreakdown(BaseModel):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
@@ -145,6 +147,7 @@ class EconomyService(BaseService):
             detail=detail,
             ref_type=ref_type,
             ref_id=str(ref_id) if ref_id is not None else None,
+            created_at=datetime.now(timezone.utc),
         )
         self.session.add(entry)
         await self.session.flush()
@@ -163,6 +166,7 @@ class EconomyService(BaseService):
             detail=detail,
             ref_type="cosmetic",
             ref_id=str(ref_id) if ref_id is not None else None,
+            created_at=datetime.now(timezone.utc),
         )
         self.session.add(entry)
         await self.session.flush()

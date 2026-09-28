@@ -202,6 +202,7 @@ class PieceOverviewService(BaseService):
             "description": passage.description,
             "practice_cue": passage.practice_cue,
             "techniques": [link.technique.name for link in ranked],
+            "source": getattr(getattr(passage, "source", None), "value", None),
         }
 
     @staticmethod

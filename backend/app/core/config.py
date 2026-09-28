@@ -1,7 +1,9 @@
+import secrets
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, PostgresDsn
+from pydantic import AliasChoices, Field, PostgresDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,7 +33,7 @@ class Settings(BaseSettings):
 
     secret_key: str = "change_me"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60 * 24 * 7
+    access_token_expire_minutes: int = 60 * 24 * 90
 
     admin_emails_raw: str = Field(default="", validation_alias=AliasChoices("ADMIN_EMAILS", "admin_emails_raw"))
     cors_origins_raw: str = Field(
@@ -51,6 +53,8 @@ class Settings(BaseSettings):
     job_queue: Literal["background", "redis", "inline"] = "background"
     musicbrainz_contact: str = "https://github.com/creamfruit/pedagogue"
     wiki_facts_enabled: bool = True
+    local_storage_dir: str = ""
+    audio_features_enabled: bool = False
     embedding_dim: int = 64
 
     max_upload_mb: int = 50
@@ -78,6 +82,28 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024
+
+    @model_validator(mode="after")
+    def persistent_secret(self) -> "Settings":
+        if self.secret_key not in PLACEHOLDER_SECRETS:
+            return self
+        path = Path.home() / ".pedagogue" / "secret_key"
+        try:
+            if path.exists():
+                stored = path.read_text(encoding="utf-8").strip()
+                if stored:
+                    self.secret_key = stored
+                    return self
+            path.parent.mkdir(parents=True, exist_ok=True)
+            generated = secrets.token_urlsafe(48)
+            path.write_text(generated, encoding="utf-8")
+            self.secret_key = generated
+        except OSError:
+            pass
+        return self
+
+
+PLACEHOLDER_SECRETS = {"change_me", "replace_this_with_a_long_random_string", ""}
 
 
 @lru_cache

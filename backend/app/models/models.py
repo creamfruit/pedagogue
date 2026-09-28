@@ -449,6 +449,10 @@ class Piece(IntPrimaryKeyMixin, Base):
 
     @property
     def requires_verification(self) -> bool:
+        from app.core.config import settings
+
+        if not settings.audio_features_enabled:
+            return False
         return self.difficulty_score is not None and self.difficulty_score >= VERIFICATION_DIFFICULTY_THRESHOLD
 
     @property

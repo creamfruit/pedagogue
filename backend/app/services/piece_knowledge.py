@@ -135,6 +135,7 @@ async def refresh_catalog_knowledge(session: AsyncSession) -> dict[str, int]:
         )
     ).scalars().all()
     names_by_id = {technique.id: name for name, technique in techniques.items()}
+    pieces_by_id = {piece.id: piece for piece in pieces}
     factors = {name: float(technique.load_factor) for name, technique in techniques.items()}
     counts = {"ladder": 0, "estimated": 0, "cleaned": 0}
     for piece in pieces:
@@ -144,6 +145,10 @@ async def refresh_catalog_knowledge(session: AsyncSession) -> dict[str, int]:
         imported = piece.external_source is not None
         offline = is_offline_generated(piece)
         reference = apply_title_facts(piece, composer_name, rename=imported and offline)
+        if reference is not None and piece.parent_piece_id in pieces_by_id:
+            parent = pieces_by_id[piece.parent_piece_id]
+            if lookup(parent.title, composer_name, parent.catalog_number) is reference:
+                reference = None
         if reference:
             piece.difficulty_score = reference.score
             counts["ladder"] += 1
@@ -151,9 +156,20 @@ async def refresh_catalog_knowledge(session: AsyncSession) -> dict[str, int]:
                 await replace_techniques(session, piece, list(reference.techniques), techniques)
                 piece.metadata_generation_model = LADDER_VERSION
         elif offline:
-            piece.difficulty_score = estimate_difficulty(piece.title, composer_name)
-            await replace_techniques(session, piece, heuristic_techniques(piece.title, composer_name), techniques)
-            piece.metadata_generation_model = METADATA_MODEL_HEURISTIC
+            from app.services.score_library import LIBRARY_MODEL, attach_library, find_entries, library_difficulty, merged_techniques
+
+            library = find_entries(piece.title, composer_name, piece.catalog_number)
+            if library:
+                piece.difficulty_score = library_difficulty(library)
+                await replace_techniques(session, piece, merged_techniques(library), techniques)
+                piece.metadata_generation_model = LIBRARY_MODEL
+                await drop_invented_bars(session, piece)
+                await attach_library(session, piece, composer_name, replace_techniques=False)
+                offline = False
+            else:
+                piece.difficulty_score = estimate_difficulty(piece.title, composer_name)
+                await replace_techniques(session, piece, heuristic_techniques(piece.title, composer_name), techniques)
+                piece.metadata_generation_model = METADATA_MODEL_HEURISTIC
             counts["estimated"] += 1
         if offline:
             await drop_invented_bars(session, piece)
@@ -178,6 +194,12 @@ async def enrich_piece_facts(piece_id: int) -> Optional[str]:
         if piece is None or piece.facts_checked_at is not None:
             return None
         title, composer_name, external_ref = piece.title, piece.composer.name if piece.composer else None, piece.external_ref
+        if piece.parent_piece_id:
+            parent = await session.get(Piece, piece.parent_piece_id)
+            if parent is not None:
+                title = parent.title
+        if piece.external_source != "musicbrainz":
+            external_ref = None
         piece.facts_checked_at = datetime.now(timezone.utc)
         await session.commit()
 

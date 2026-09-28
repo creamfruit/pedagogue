@@ -515,6 +515,8 @@ COMPOSER_FACTS = {
     "franck": (1822, 1890, "Belgian-French", "Romantic"),
     "dvorak": (1841, 1904, "Czech", "Romantic"),
     "kabalevsky": (1904, 1987, "Russian", "Modern"),
+    "hummel": (1778, 1837, "Austrian", "Classical"),
+    "glinka": (1804, 1857, "Russian", "Romantic"),
 }
 
 

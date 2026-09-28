@@ -155,6 +155,28 @@ class S3Storage(Storage):
 
 
 PDF_TYPES = {"application/pdf"}
+SCORE_SUFFIXES = {".pdf", ".musicxml", ".xml", ".mxl", ".mid", ".midi"}
+SCORE_MEDIA = {
+    ".pdf": "application/pdf",
+    ".musicxml": "application/vnd.recordare.musicxml+xml",
+    ".xml": "application/vnd.recordare.musicxml+xml",
+    ".mxl": "application/vnd.recordare.musicxml",
+    ".mid": "audio/midi",
+    ".midi": "audio/midi",
+}
+
+
+def sniff_score(head: bytes, suffix: str) -> bool:
+    if suffix == ".pdf":
+        return head.startswith(b"%PDF")
+    if suffix == ".mxl":
+        return head.startswith(b"PK")
+    if suffix in (".mid", ".midi"):
+        return head.startswith(b"MThd")
+    if suffix in (".musicxml", ".xml"):
+        text = head.decode("utf-8", errors="ignore")
+        return "<score-partwise" in text or "<score-timewise" in text or "musicxml" in text.lower()
+    return False
 AUDIO_TYPES = {
     "audio/mpeg",
     "audio/mp3",
@@ -182,7 +204,14 @@ def ensure_media_type(content_type: Optional[str], allowed: set[str], label: str
 def get_storage() -> Storage:
     if settings.storage_endpoint:
         return S3Storage()
-    return LocalStorage()
+    root = Path(settings.local_storage_dir or Path.home() / ".pedagogue" / "storage")
+    legacy = Path("storage").resolve()
+    if not root.exists() and legacy.is_dir() and legacy != root.resolve():
+        try:
+            shutil.copytree(legacy, root)
+        except OSError:
+            pass
+    return LocalStorage(root=str(root))
 
 
 storage = get_storage()

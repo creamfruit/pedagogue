@@ -4079,3 +4079,87 @@ input[type="date"] {
     animation: none;
   }
 }
+
+.soon-pill {
+  margin-left: 8px;
+  border-color: rgba(var(--mauve-rgb), 0.55);
+  color: var(--mauve);
+  background: rgba(var(--mauve-rgb), 0.1);
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.option-card-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.option-card-locked:hover {
+  transform: none;
+  border-color: var(--line);
+}
+
+.submission-panel-locked {
+  border-style: dashed;
+}
+
+.score-viewer {
+  min-height: 120px;
+}
+
+.score-pdf {
+  width: 100%;
+  height: min(72vh, 900px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.score-render {
+  background: var(--bg-sunk);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.modal:has(.score-viewer) {
+  width: min(1100px, 100%);
+}
+
+.section-origin {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+.score-crop {
+  margin: 10px 0 0;
+}
+
+.score-crop-frame {
+  background: #f4f1ea;
+  border-radius: var(--radius);
+  padding: 6px;
+  min-height: 60px;
+  display: grid;
+  place-items: center;
+  overflow-x: auto;
+}
+
+.score-crop-frame img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.score-crop-frame .faint {
+  color: #6b6b6b;
+  font-size: 12px;
+}
+
+.score-crop figcaption {
+  font-size: 11px;
+  margin-top: 4px;
+}

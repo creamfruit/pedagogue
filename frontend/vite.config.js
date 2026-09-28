@@ -6,8 +6,13 @@ export default defineConfig(({ mode }) => {
   const apiTarget = env.VITE_API_URL || "http://localhost:8000";
 
   return {
+    preview: {
+      port: 4173,
+      strictPort: true,
+    },
     server: {
       port: 5173,
+      strictPort: true,
       proxy: {
         "/api": { target: apiTarget, changeOrigin: true },
         "/health": { target: apiTarget, changeOrigin: true },

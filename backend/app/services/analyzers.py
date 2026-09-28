@@ -20,7 +20,9 @@ from app.models.models import (
     PassageTechnique,
     PdfSubmission,
     Piece,
+    PieceTechnique,
     ProcessingStatus,
+    RepertoireEntry,
     Submission,
     SubmissionType,
     Technique,
@@ -69,6 +71,7 @@ class PassageFinding:
     voicing_balance: Optional[float] = None
     restarts: int = 0
     memory_slip: bool = False
+    practice_cue: Optional[str] = None
 
 
 @dataclass
@@ -158,11 +161,19 @@ class Analyzer(ABC):
                 difficulty_score=self.to_decimal(finding.difficulty, 1),
                 source=PassageSource.ANALYZER,
                 description=finding.description,
+                practice_cue=finding.practice_cue,
             )
             self.session.add(passage)
             await self.session.flush()
-        elif finding.description and not passage.description:
-            passage.description = finding.description
+        else:
+            if finding.description and (not passage.description or passage.source == PassageSource.ANALYZER):
+                passage.description = finding.description
+            if finding.practice_cue and not passage.practice_cue:
+                passage.practice_cue = finding.practice_cue
+            if passage.source == PassageSource.ANALYZER and finding.label:
+                passage.label = finding.label
+            if passage.difficulty_score is None and finding.difficulty is not None:
+                passage.difficulty_score = self.to_decimal(finding.difficulty, 1)
         await self.link_techniques(passage, finding.techniques)
         return passage
 
@@ -245,41 +256,277 @@ class TextAnalyzer(Analyzer):
         )
 
 
+PDF_PASSAGE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "readable": {"type": "boolean"},
+        "passages": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "start_bar": {"type": "integer"},
+                    "end_bar": {"type": "integer"},
+                    "label": {"type": "string"},
+                    "description": {"type": "string"},
+                    "techniques": {"type": "array", "items": {"type": "string", "enum": list(TECHNIQUE_KEYWORDS)}},
+                },
+                "required": ["start_bar", "end_bar", "label", "description", "techniques"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["readable", "passages"],
+    "additionalProperties": False,
+}
+
+PDF_PROMPT = (
+    "This PDF is piano sheet music for {title}. Find the three to five hardest passages. "
+    "Use the bar numbers printed in the score; if bars are not numbered, count from the first full bar. "
+    "Only report a passage when you can actually read it on the page. For each one give the bar range, a short label, "
+    "one sentence on what makes it hard, and the techniques involved. Set readable to false if this is not piano music "
+    "or you cannot read it."
+)
+
+
 class ScoreAnalyzer(Analyzer):
-    name = "score-omr"
+    name = "score"
     handles = SubmissionType.PDF
 
     async def analyze(self, submission: Submission) -> AnalysisResult:
         assert isinstance(submission, PdfSubmission)
         if not self.storage.exists(submission.storage_key):
             raise FileNotFoundError(f"stored score missing: {submission.storage_key}")
-        page_count = submission.page_count or self.count_pages(submission.storage_key)
-        submission.page_count = page_count
-        submission.omr_confidence = Decimal("0.00")
+        suffix = "." + submission.storage_key.rsplit(".", 1)[-1].lower() if "." in submission.storage_key else ".pdf"
+        with self.storage.open(submission.storage_key) as handle:
+            data = handle.read()
+        if suffix == ".pdf":
+            return await self.analyze_pdf(submission, data)
+        return await self.analyze_digital(submission, data, suffix)
+
+    async def analyze_digital(self, submission: PdfSubmission, data: bytes, suffix: str) -> AnalysisResult:
+        import asyncio
+
+        from app.services.score_analysis import analyse_file
+
+        report = await asyncio.to_thread(analyse_file, data, f"score{suffix}")
+        submission.omr_confidence = Decimal("1.00")
+        piece = submission.repertoire_entry.piece
+        await self.update_difficulty(piece, report)
+        base = float(piece.difficulty_score) / 10 if piece.difficulty_score is not None else report.estimated_difficulty / 10
+        findings = [
+            PassageFinding(
+                start_measure=passage.start,
+                end_measure=passage.end,
+                label=passage.label,
+                description=passage.description,
+                techniques=passage.techniques,
+                difficulty=round(min(10.0, base * (0.82 + 0.22 * passage.difficulty)), 1),
+                practice_cue=passage.cue,
+            )
+            for passage in report.passages
+        ]
+        await self.update_piece(piece, report)
         return AnalysisResult(
             summary=(
-                f"score ingested across {page_count} page(s); "
-                "optical music recognition not yet wired, no passages extracted"
+                f"read {report.measures} bars and {report.notes} notes; "
+                f"marked {len(findings)} hard passage(s) on the piece page"
             ),
             raw={
-                "stage": "ingested",
-                "page_count": page_count,
-                "storage_key": submission.storage_key,
-                "next_step": "run Audiveris to produce MusicXML, then extract bar features with music21",
+                "stage": "analysed",
+                "bars": report.measures,
+                "notes": report.notes,
+                "duration_sec": report.duration_sec,
+                "techniques": report.techniques,
+                "estimated_difficulty": report.estimated_difficulty,
             },
-            findings=[],
+            findings=findings,
         )
+
+    async def update_difficulty(self, piece: Piece, report) -> None:
+        from app.services.score_library import calibrated_difficulty
+
+        model = piece.metadata_generation_model or ""
+        if not (piece.is_user_created or model.startswith("heuristic")):
+            return
+        value = calibrated_difficulty(report.features)
+        if value is not None:
+            piece.difficulty_score = value
+
+    async def update_piece(self, piece: Piece, report) -> None:
+        from app.services.piece_knowledge import is_offline_generated, replace_techniques
+
+        if piece.duration_sec is None and report.duration_sec:
+            piece.duration_sec = int(report.duration_sec)
+        linked = await self.session.execute(select(PieceTechnique.technique_id).where(PieceTechnique.piece_id == piece.id))
+        if is_offline_generated(piece) or not linked.scalars().first():
+            techniques = {t.name: t for t in (await self.session.execute(select(Technique))).scalars().all()}
+            await replace_techniques(self.session, piece, list(report.techniques), techniques)
+
+    async def analyze_pdf(self, submission: PdfSubmission, data: bytes) -> AnalysisResult:
+        import asyncio
+
+        from app.services import ai
+        from app.services.pdf_layout import analyse_pdf
+
+        piece = submission.repertoire_entry.piece
+        try:
+            layout = await asyncio.to_thread(analyse_pdf, data)
+        except Exception:
+            layout = None
+        page_count = submission.page_count or (layout.pages if layout else self.count_pages(submission.storage_key))
+        submission.page_count = page_count
+
+        if ai.ai_enabled():
+            try:
+                findings, model = await self.read_with_ai(piece, data)
+            except Exception:
+                findings, model = [], None
+            if findings:
+                crops = await self.save_crops(submission, layout, [(f.start_measure, f.end_measure) for f in findings])
+                submission.omr_confidence = Decimal("0.70")
+                return AnalysisResult(
+                    summary=f"read {page_count} page(s) and marked {len(findings)} hard passage(s)",
+                    raw={"stage": "read", "page_count": page_count, "model": model, "crops": crops, "bars": layout.bar_count if layout else None},
+                    findings=findings,
+                )
+
+        if layout is None or not layout.readable:
+            submission.omr_confidence = Decimal("0.00")
+            return AnalysisResult(
+                summary=(
+                    f"score saved ({page_count} page(s)), but the staves could not be read from it. "
+                    "A clean digital PDF works best; MusicXML or MIDI gives exact passages"
+                ),
+                raw={"stage": "stored", "page_count": page_count},
+                findings=[],
+            )
+
+        existing = (
+            await self.session.execute(
+                select(Passage).where(Passage.piece_id == piece.id, Passage.source == PassageSource.CATALOG)
+            )
+        ).scalars().all()
+        spans: list[tuple[int, int]] = [(p.start_measure, p.end_measure) for p in existing if p.start_measure <= layout.bar_count]
+        findings: list[PassageFinding] = []
+        if not existing:
+            profile = await self.piece_profile(piece)
+            base = float(piece.difficulty_score) / 10 if piece.difficulty_score is not None else 6.0
+            for dense in layout.passages:
+                top = [name for name, _ in profile[:2]]
+                findings.append(
+                    PassageFinding(
+                        start_measure=dense.start,
+                        end_measure=dense.end,
+                        label=f"Dense writing, page {dense.page}",
+                        description=(
+                            f"Around bars {dense.start}\u2013{dense.end} on page {dense.page}, the busiest writing in your score: "
+                            f"about {dense.relative:g} times the ink of a typical bar. Bar numbers are counted from the page, "
+                            "so check them against your copy."
+                        ),
+                        techniques={name: weight for name, weight in profile[:2]},
+                        difficulty=round(min(10.0, base * (0.8 + 0.12 * dense.relative)), 1),
+                        practice_cue=(
+                            f"Slow this section right down and work on {top[0].lower()} first." if top else "Slow this section right down and learn it hands separately first."
+                        ),
+                    )
+                )
+            spans = [(f.start_measure, f.end_measure) for f in findings]
+        crops = await self.save_crops(submission, layout, spans)
+        submission.omr_confidence = Decimal("0.45")
+        marked = f"marked {len(findings)} dense passage(s)" if findings else f"matched {len(crops)} known hard passage(s) to your pages"
+        return AnalysisResult(
+            summary=f"read {page_count} page(s), counted about {layout.bar_count} bars and {marked}",
+            raw={"stage": "layout", "page_count": page_count, "bars": layout.bar_count, "systems": len(layout.systems), "crops": crops},
+            findings=findings,
+        )
+
+    async def piece_profile(self, piece: Piece) -> list[tuple[str, float]]:
+        rows = (
+            await self.session.execute(
+                select(Technique.name, PieceTechnique.weight)
+                .join(PieceTechnique, PieceTechnique.technique_id == Technique.id)
+                .where(PieceTechnique.piece_id == piece.id)
+                .order_by(PieceTechnique.weight.desc())
+            )
+        ).all()
+        if rows:
+            return [(name, float(weight)) for name, weight in rows]
+        from app.models.models import Composer
+        from app.services.repertoire_reference import heuristic_techniques
+
+        name = None
+        if piece.composer_id:
+            name = (await self.session.execute(select(Composer.name).where(Composer.id == piece.composer_id))).scalar_one_or_none()
+        return heuristic_techniques(piece.title, name)
+
+    async def save_crops(self, submission: PdfSubmission, layout, spans: list[tuple[int, int]]) -> list[dict]:
+        import asyncio
+        import io
+
+        from app.services.pdf_layout import DensePassage, crop_png
+
+        if layout is None or not layout.readable:
+            return []
+        crops = []
+        by_number = {bar.number: bar for bar in layout.bars}
+        for index, (start, end) in enumerate(spans[:12]):
+            bars = [by_number[n] for n in range(start, end + 1) if n in by_number]
+            if not bars:
+                continue
+            boxes: dict[int, list[int]] = {}
+            for bar in bars:
+                if bar.system not in boxes and len(boxes) >= 3:
+                    break
+                box = boxes.setdefault(bar.system, [bar.page, bar.x0, bar.y0, bar.x1, bar.y1])
+                box[1] = min(box[1], bar.x0)
+                box[3] = max(box[3], bar.x1)
+            region = DensePassage(start, end, bars[0].page + 1, 1.0, [tuple(box) for box in boxes.values()])
+            png = await asyncio.to_thread(crop_png, layout, region)
+            key = submission.storage_key.rsplit(".", 1)[0] + f".crop{index}.png"
+            self.storage.save(io.BytesIO(png), key)
+            crops.append({"start": start, "end": end, "page": region.page, "key": key})
+        return crops
+
+    async def read_with_ai(self, piece: Piece, data: bytes) -> tuple[list[PassageFinding], Optional[str]]:
+        import base64
+
+        from app.services import ai
+
+        completion = await ai.complete_json(
+            PDF_PROMPT.format(title=piece.title),
+            PDF_PASSAGE_SCHEMA,
+            max_tokens=3000,
+            pdf_base64=base64.b64encode(data).decode(),
+        )
+        output = completion.data
+        passages = output.get("passages") or [] if output.get("readable") else []
+        findings = []
+        for item in passages[:6]:
+            start, end = int(item.get("start_bar") or 0), int(item.get("end_bar") or 0)
+            if start < 1 or end < start or end - start > 64:
+                continue
+            findings.append(
+                PassageFinding(
+                    start_measure=start,
+                    end_measure=end,
+                    label=str(item.get("label") or "Hard passage")[:80],
+                    description=str(item.get("description") or "")[:500] or None,
+                    techniques={name: 0.8 for name in item.get("techniques") or [] if name in TECHNIQUE_KEYWORDS},
+                    difficulty=None,
+                )
+            )
+        return findings, completion.model
 
     def count_pages(self, key: str) -> int:
         try:
-            try:
-                import pymupdf
-            except ImportError:
-                import fitz as pymupdf
+            import pypdfium2 as pdfium
 
             with self.storage.open(key) as handle:
-                document = pymupdf.open(stream=handle.read(), filetype="pdf")
-                return document.page_count
+                document = pdfium.PdfDocument(handle.read())
+                count = len(document)
+                document.close()
+                return count
         except Exception:
             return 0
 
@@ -345,7 +592,7 @@ async def load_submission(session: AsyncSession, submission_id) -> Optional[Subm
         select(Submission)
         .options(
             selectin_polymorphic(Submission, [TextSubmission, PdfSubmission, AudioSubmission]),
-            selectinload(Submission.repertoire_entry),
+            selectinload(Submission.repertoire_entry).selectinload(RepertoireEntry.piece),
         )
         .where(Submission.id == submission_id)
     )

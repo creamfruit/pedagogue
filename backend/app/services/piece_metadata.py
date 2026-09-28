@@ -22,6 +22,7 @@ from app.services.difficulty import compute_mechanical_load, difficulty_band
 from app.services.metadata_generator import GRADE_BY_BAND, MetadataGenerator
 from app.services.piece_knowledge import apply_title_facts, fill_story
 from app.services.repertoire_reference import Reference, estimate_difficulty
+from app.services.score_library import attach_library, find_entries
 
 logger = logging.getLogger("piano.metadata")
 
@@ -121,6 +122,7 @@ async def _generate(piece_id: int) -> Optional[str]:
         generator = MetadataGenerator(techniques)
         composer_name = piece.composer.name if piece.composer else None
         reference = apply_title_facts(piece, composer_name, rename=piece.external_source is not None)
+        library = find_entries(piece.title, composer_name, piece.catalog_number)
         await session.flush()
         args = (
             piece.title,
@@ -141,7 +143,7 @@ async def _generate(piece_id: int) -> Optional[str]:
             return "claimed elsewhere"
 
         if not ai.ai_enabled():
-            generated = generator.generate_heuristic(*args, reference=reference)
+            generated = generator.generate_heuristic(*args, reference=reference, library=library)
             ai.finish(generation, output=None, model=generated["model"])
             await apply_metadata(session, piece_id, generated, techniques, **extra)
             return generated["model"]
@@ -151,7 +153,7 @@ async def _generate(piece_id: int) -> Optional[str]:
         except Exception as error:
             logger.exception("metadata generation failed for piece %s", piece_id)
             ai.fail(generation, error)
-            fallback = generator.generate_heuristic(*args, reference=reference)
+            fallback = generator.generate_heuristic(*args, reference=reference, library=library)
             await apply_metadata(session, piece_id, fallback, techniques, **extra)
             return "failed"
         ai.finish(generation, completion)
@@ -164,8 +166,10 @@ async def generate_piece_metadata(piece_id: int) -> Optional[str]:
 
     result = await _generate(piece_id)
     async with session_scope() as session:
-        piece = await session.get(Piece, piece_id)
+        piece = await load_piece(session, piece_id)
         wants_facts = piece is not None and piece.external_source is not None and piece.facts_checked_at is None
+        if piece is not None:
+            await attach_library(session, piece, piece.composer.name if piece.composer else None, replace_techniques=False)
     if wants_facts:
         await enrich_piece_facts(piece_id)
     return result

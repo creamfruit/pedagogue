@@ -1,4 +1,5 @@
 import { api } from "../api/client.js";
+import { COMING_SOON, features } from "../lib/features.js";
 import { el, empty, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
 import { renderNotation } from "../lib/notation.js";
@@ -154,7 +155,9 @@ export async function practiceView(outlet) {
         "select",
         { style: "max-width:200px" },
         ...["free", "live_listening", "forge_drill", "sight_reading", "polyrhythm"].map((mode) =>
-          el("option", { value: mode }, mode.replace(/_/g, " "))
+          mode === "live_listening" && !features.audio
+            ? el("option", { value: mode, disabled: true }, `live listening (${COMING_SOON.toLowerCase()})`)
+            : el("option", { value: mode }, mode.replace(/_/g, " "))
         )
       );
       sessionHost.replaceChildren(

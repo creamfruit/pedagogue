@@ -226,7 +226,35 @@ async def piece_overview(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     if data.pop("wants_facts", False):
         await get_queue(background_tasks).enqueue("enrich_piece_facts", piece_id)
+    if user is not None and data.get("sections"):
+        await attach_score_crops(session, user, piece_id, data["sections"])
     return PieceOverview(**data)
+
+
+async def attach_score_crops(session, user, piece_id: int, sections: list[dict]) -> None:
+    from app.models.models import Analysis, PdfSubmission, RepertoireEntry
+
+    rows = (
+        await session.execute(
+            select(Analysis.submission_id, Analysis.raw_result)
+            .join(PdfSubmission, PdfSubmission.id == Analysis.submission_id)
+            .join(RepertoireEntry, RepertoireEntry.id == PdfSubmission.repertoire_entry_id)
+            .where(RepertoireEntry.user_id == user.id, RepertoireEntry.piece_id == piece_id)
+            .order_by(Analysis.created_at.desc())
+        )
+    ).all()
+    for submission_id, raw in rows:
+        crops = (raw or {}).get("crops") or []
+        if not crops:
+            continue
+        by_span = {(crop["start"], crop["end"]): (index, crop) for index, crop in enumerate(crops)}
+        for section in sections:
+            found = by_span.get((section["start_measure"], section["end_measure"]))
+            if found and not section.get("score_crop"):
+                index, crop = found
+                section["score_crop"] = f"/submissions/{submission_id}/crops/{index}"
+                section["score_page"] = crop.get("page")
+        break
 
 
 @catalog_router.get("/passages/{passage_id}/sight-reading")

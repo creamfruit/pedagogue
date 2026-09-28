@@ -53,25 +53,43 @@ class BaseService:
 
 class CatalogService(BaseService):
     async def search_pieces(self, query: str, limit: int = 20) -> Sequence[Piece]:
-        terms = [term for term in query.split() if term][:6]
-        conditions = [
-            or_(
-                Piece.title.ilike(f"%{term}%"),
-                Piece.catalog_number.ilike(f"%{term}%"),
-                Composer.name.ilike(f"%{term}%"),
+        from app.services.work_titles import match_text
+
+        terms = match_text(query).split()[:8]
+        if not terms:
+            return []
+        rows = (
+            await self.session.execute(
+                select(Piece.id, Piece.title, Piece.catalog_number, Piece.key_signature, Piece.parent_piece_id, Composer.name)
+                .outerjoin(Composer, Piece.composer_id == Composer.id)
             )
-            for term in terms
-        ]
-        stmt = (
-            select(Piece)
-            .outerjoin(Composer, Piece.composer_id == Composer.id)
-            .options(selectinload(Piece.composer), selectinload(Piece.genre))
-            .where(*conditions)
-            .order_by(Piece.title)
-            .limit(limit)
+        ).all()
+        scored = []
+        for piece_id, title, catalog, key, parent_id, composer in rows:
+            title_text = match_text(title)
+            composer_text = match_text(composer)
+            haystack = f"{title_text}{match_text(catalog)}{match_text(key)}{composer_text}"
+            score = 0.0
+            for term in terms:
+                probe = f" {term} " if term.isdigit() or len(term) <= 2 else f" {term}"
+                if probe not in haystack:
+                    break
+                score += 3.0 if probe in title_text else 2.0 if probe in composer_text else 1.5
+            else:
+                if f" {' '.join(terms)} " in title_text:
+                    score += 4.0
+                score -= 0.6 if parent_id else 0.0
+                score -= len(title) / 400
+                scored.append((score, title, piece_id))
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        ids = [piece_id for _, _, piece_id in scored[:limit]]
+        if not ids:
+            return []
+        result = await self.session.execute(
+            select(Piece).options(selectinload(Piece.composer), selectinload(Piece.genre)).where(Piece.id.in_(ids))
         )
-        result = await self.session.execute(stmt)
-        return result.scalars().all()
+        by_id = {piece.id: piece for piece in result.scalars().all()}
+        return [by_id[piece_id] for piece_id in ids if piece_id in by_id]
 
     async def search_composers(self, query: str, limit: int = 20) -> Sequence[Composer]:
         stmt = select(Composer).where(Composer.name.ilike(f"%{query}%")).order_by(Composer.name).limit(limit)

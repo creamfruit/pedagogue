@@ -2,6 +2,7 @@ import { api } from "../api/client.js";
 import { linkSummaryPanel } from "../components/overview.js";
 import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
 import { store } from "../lib/store.js";
+import { features } from "../lib/features.js";
 import { navigate } from "../router.js";
 import { familyTreeView } from "./familyTree.js";
 import { drawFigures, figureAt, layoutFigures, markNewFigures, toFigureSpace } from "../lib/achievementSky.js";
@@ -99,7 +100,7 @@ export async function constellationView(outlet, context = {}) {
         item("Colour", "is the star's era: eras that follow each other share a hue, and the later one carries a cross of spikes. An equipped star colour from the Observatory replaces this."),
         item("Size", "is difficulty. Harder pieces are bigger stars, and heavier to throw."),
         item("Bright core", "marks a top-ten piece or the star you're holding."),
-        item("Hollow, dashed star", "needs a verification take before it lights up."),
+        features.audio ? item("Hollow, dashed star", "needs a verification take before it lights up.") : null,
         item("Faded star", "is drifting from lack of practice; a fine dashed ring around it means it has frozen."),
         item("Dark core with a pale outline", "is a custom piece you added yourself."),
         item("Yellow stick figures", "are achievements you've earned. Each one has its own shape and place in the sky, and sits further back than your pieces. Tap one to read it.")

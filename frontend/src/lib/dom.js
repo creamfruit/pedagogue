@@ -179,12 +179,17 @@ export function openModal(contentNode, { title } = {}) {
   return { close };
 }
 
-export function optionCard({ icon, title, description, onSelect }) {
+export function optionCard({ icon, title, description, onSelect, badge = null, disabled = false }) {
   return el(
     "button",
-    { type: "button", class: "option-card", onclick: onSelect },
+    { type: "button", class: `option-card${disabled ? " option-card-locked" : ""}`, onclick: disabled ? null : onSelect, disabled: disabled || null, "aria-disabled": disabled ? "true" : null },
     el("span", { class: "option-icon" }, icon),
-    el("div", {}, el("strong", { style: "font-weight:500" }, title), el("p", { class: "faint", style: "margin:4px 0 0;font-size:12px" }, description))
+    el(
+      "div",
+      {},
+      el("strong", { style: "font-weight:500" }, title, badge ? el("span", { class: "pill soon-pill" }, badge) : null),
+      el("p", { class: "faint", style: "margin:4px 0 0;font-size:12px" }, description)
+    )
   );
 }
 

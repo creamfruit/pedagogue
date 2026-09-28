@@ -130,11 +130,19 @@ class MetadataGenerator:
         genre_name: Optional[str],
         duration_sec: Optional[int],
         reference: Optional[Reference] = None,
+        library: Optional[list[dict]] = None,
     ) -> dict:
+        from app.services.score_library import LIBRARY_MODEL, library_difficulty, merged_techniques
+
         by_name = {technique.name: technique.id for technique in self.techniques}
-        links = list(reference.techniques) if reference else heuristic_techniques(title, composer_name)
+        if reference:
+            links = list(reference.techniques)
+        elif library:
+            links = merged_techniques(library)
+        else:
+            links = heuristic_techniques(title, composer_name)
         techniques = [{"technique_id": by_name[name], "weight": weight} for name, weight in links if name in by_name]
-        difficulty = reference.score if reference else estimate_difficulty(title, composer_name)
+        difficulty = reference.score if reference else (library_difficulty(library) if library else None) or estimate_difficulty(title, composer_name)
         return {
             "techniques": techniques,
             "hard_bars": [],
@@ -144,7 +152,7 @@ class MetadataGenerator:
             "syllabus_grade": GRADE_BY_BAND.get(difficulty_band(difficulty), "Unrated"),
             "mood": None,
             "scene": None,
-            "model": LADDER_VERSION if reference else METADATA_MODEL_HEURISTIC,
+            "model": LADDER_VERSION if reference else (LIBRARY_MODEL if library else METADATA_MODEL_HEURISTIC),
         }
 
     def normalize(self, data: dict) -> dict:

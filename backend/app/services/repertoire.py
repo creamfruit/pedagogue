@@ -3,17 +3,21 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import BinaryIO, Optional
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectin_polymorphic, selectinload
 
+from app.core.config import settings
 from app.core.storage import (
     AUDIO_TYPES,
-    PDF_TYPES,
+    SCORE_SUFFIXES,
     Storage,
+    UnsupportedMediaType,
     ensure_media_type,
+    sniff_score,
     storage as default_storage,
 )
 from app.models.models import (
@@ -53,7 +57,8 @@ class RepertoireService(BaseService):
     @staticmethod
     def requires_grading(piece: Piece) -> bool:
         return (
-            piece.difficulty_score is not None
+            settings.audio_features_enabled
+            and piece.difficulty_score is not None
             and piece.difficulty_score >= GRADED_DIFFICULTY_THRESHOLD
         )
 
@@ -325,10 +330,21 @@ class SubmissionService(BaseService):
         content_type: Optional[str],
     ) -> PdfSubmission:
         await self.repertoire.get(user, entry_id)
-        ensure_media_type(content_type, PDF_TYPES, "a PDF")
-        key = self.storage.build_key(user.id, "scores", filename or "score.pdf")
+        name = filename or "score.pdf"
+        suffix = Path(name).suffix.lower()
+        if suffix not in SCORE_SUFFIXES:
+            raise UnsupportedMediaType("upload a PDF, MusicXML (.musicxml, .xml, .mxl) or MIDI (.mid) file")
+        head = stream.read(4096)
+        if not sniff_score(head, suffix):
+            raise UnsupportedMediaType(f"that file does not look like a real {suffix} score")
+        stream.seek(0)
+        key = self.storage.build_key(user.id, "scores", name)
         self.storage.save(stream, key)
-        submission = PdfSubmission(repertoire_entry_id=entry_id, storage_key=key)
+        submission = PdfSubmission(
+            repertoire_entry_id=entry_id,
+            storage_key=key,
+            musicxml_key=key if suffix in (".musicxml", ".xml", ".mxl") else None,
+        )
         self.session.add(submission)
         await self.session.flush()
         return submission

@@ -3,6 +3,7 @@ import { api, onUnauthorized } from "./api/client.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
 import { startCosmos } from "./lib/cosmos.js";
+import { el } from "./lib/dom.js";
 import { navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
 import { loginView, registerView } from "./views/auth.js";
 import { onboardingView } from "./views/onboarding.js";
@@ -228,6 +229,22 @@ async function boot() {
 
   const tag = document.getElementById("build-tag");
   tag.textContent = `Piano Pedagogue · ${import.meta.env.MODE}`;
+
+  if (store.serverDown) {
+    const view = document.getElementById("view");
+    view.replaceChildren(
+      el(
+        "div",
+        { class: "panel panel-accent form-narrow server-down" },
+        el("h1", {}, "Can't reach the Pedagogue server"),
+        el("p", { class: "muted" }, "You're still signed in. The app couldn't talk to the backend, so nothing has been lost."),
+        el("p", { class: "faint", style: "font-size:13px" }, "If you're running it yourself, check the backend window is open and says it's running on port 8000, then try again."),
+        el("button", { class: "btn", type: "button", onclick: () => window.location.reload() }, "Try again")
+      )
+    );
+    setTimeout(() => window.location.reload(), 15000);
+    return;
+  }
 
   await startRouter(document.getElementById("view"));
   if (store.isAuthenticated) {
