@@ -41,6 +41,12 @@ class Storage(ABC):
     @abstractmethod
     def url(self, key: str) -> str: ...
 
+    @abstractmethod
+    def delete_prefix(self, prefix: str) -> int: ...
+
+    def delete_user_files(self, user_id: uuid.UUID) -> int:
+        return sum(self.delete_prefix(f"{kind}/{user_id}/") for kind in USER_FILE_KINDS)
+
     def build_key(self, user_id: uuid.UUID, kind: str, filename: str) -> str:
         suffix = Path(filename).suffix.lower()[:10]
         token = uuid.uuid4().hex
@@ -98,6 +104,14 @@ class LocalStorage(Storage):
     def exists(self, key: str) -> bool:
         return self.path_for(key).exists()
 
+    def delete_prefix(self, prefix: str) -> int:
+        target = self.path_for(prefix)
+        if target == self.root or not target.is_dir():
+            return 0
+        removed = sum(1 for path in target.rglob("*") if path.is_file())
+        shutil.rmtree(target, ignore_errors=True)
+        return removed
+
     def url(self, key: str) -> str:
         return f"file://{self.path_for(key)}"
 
@@ -148,11 +162,24 @@ class S3Storage(Storage):
         except ClientError:
             return False
 
+    def delete_prefix(self, prefix: str) -> int:
+        removed = 0
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            objects = [{"Key": item["Key"]} for item in page.get("Contents", [])]
+            for start in range(0, len(objects), 1000):
+                batch = objects[start : start + 1000]
+                self.client.delete_objects(Bucket=self.bucket, Delete={"Objects": batch, "Quiet": True})
+                removed += len(batch)
+        return removed
+
     def url(self, key: str) -> str:
         return self.client.generate_presigned_url(
             "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=3600
         )
 
+
+USER_FILE_KINDS = ("scores", "recordings", "musicxml", "midi")
 
 PDF_TYPES = {"application/pdf"}
 AUDIO_TYPES = {

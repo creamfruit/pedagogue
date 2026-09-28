@@ -15,6 +15,7 @@ import { tierRetakeView } from "./views/tierRetake.js";
 import { rouletteView } from "./views/roulette.js";
 import { shopView } from "./views/shop.js";
 import { notFoundView } from "./views/notfound.js";
+import { privacyView, termsView } from "./views/legal.js";
 
 const PUBLIC_ROUTES = new Set(["/login", "/register"]);
 
@@ -34,9 +35,12 @@ route("/roulette", rouletteView);
 route("/observatory", shopView);
 route("/login", loginView, { public: true });
 route("/register", registerView, { public: true });
+route("/privacy", privacyView, { open: true });
+route("/terms", termsView, { open: true });
 setNotFound(notFoundView);
 
-setGuard(({ pathname }) => {
+setGuard(({ pathname, entry }) => {
+  if (entry?.open) return null;
   const isPublic = PUBLIC_ROUTES.has(pathname);
   if (!store.isAuthenticated && !isPublic) return "/login";
   if (store.isAuthenticated && isPublic) return "/";

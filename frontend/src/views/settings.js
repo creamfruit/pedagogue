@@ -1,7 +1,8 @@
 import { api } from "../api/client.js";
-import { el, reveal, sectionBlock } from "../lib/dom.js";
+import { el, openModal, reveal, sectionBlock } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
+import { navigate } from "../router.js";
 
 const LEVELS = [
   ["beginner", "Beginner"],
@@ -254,18 +255,93 @@ function dataSection() {
   );
 }
 
+const CONFIRM_WORD = "DELETE";
+
+function openDeleteAccount() {
+  const typed = el("input", {
+    id: "delete-confirm",
+    type: "text",
+    autocomplete: "off",
+    autocapitalize: "characters",
+    spellcheck: "false",
+    placeholder: CONFIRM_WORD,
+  });
+  const password = el("input", { id: "delete-password", type: "password", autocomplete: "current-password" });
+  const error = el("p", { class: "field-error", role: "alert", hidden: true });
+  const submit = el("button", { type: "submit", class: "btn btn-danger", disabled: true }, "Delete my account forever");
+  const ready = () => typed.value.trim() === CONFIRM_WORD && password.value.length > 0;
+  const sync = () => {
+    submit.disabled = !ready();
+  };
+  typed.addEventListener("input", sync);
+  password.addEventListener("input", sync);
+
+  const form = el(
+    "form",
+    {
+      class: "stack delete-account",
+      onsubmit: async (event) => {
+        event.preventDefault();
+        if (!ready()) return;
+        error.hidden = true;
+        submit.disabled = true;
+        submit.textContent = "Deleting…";
+        try {
+          await api.deleteAccount(password.value);
+          modal.close();
+          store.signOut();
+          notify.success("Your account and all your data have been deleted");
+          navigate("/login", { replace: true });
+        } catch (failure) {
+          error.textContent = failure.detail || "Could not delete the account";
+          error.hidden = false;
+          submit.textContent = "Delete my account forever";
+          sync();
+        }
+      },
+    },
+    el("p", { style: "margin:0" }, "This permanently deletes your account and everything in it:"),
+    el(
+      "ul",
+      { class: "delete-account-list" },
+      el("li", {}, "your repertoire, practice history, plans and notes"),
+      el("li", {}, "every score and recording you uploaded"),
+      el("li", {}, "XP, gold, achievements, cosmetics, friends and leaderboard places")
+    ),
+    el("p", { class: "faint", style: "margin:0" }, "It can't be undone. Download your practice history first under Your data if you want to keep it."),
+    el("div", { class: "field" }, el("label", { for: "delete-confirm" }, `Type ${CONFIRM_WORD} to confirm`), typed),
+    el("div", { class: "field" }, el("label", { for: "delete-password" }, "Your password"), password),
+    error,
+    el("div", {}, submit)
+  );
+  const modal = openModal(form, { title: "Delete my account" });
+  typed.focus();
+}
+
 function accountSection() {
   return sectionBlock(
     "Account",
     { caption: store.user?.email || "" },
     el(
-      "button",
-      {
-        type: "button",
-        class: "btn btn-ghost btn-small",
-        onclick: () => document.getElementById("sign-out")?.click(),
-      },
-      "Sign out"
+      "div",
+      { class: "row", style: "gap:var(--space-2)" },
+      el(
+        "button",
+        {
+          type: "button",
+          class: "btn btn-ghost btn-small",
+          onclick: () => document.getElementById("sign-out")?.click(),
+        },
+        "Sign out"
+      ),
+      el("button", { type: "button", class: "btn btn-danger btn-small", onclick: openDeleteAccount }, "Delete my account")
+    ),
+    el(
+      "p",
+      { class: "faint settings-legal" },
+      el("a", { href: "/privacy", "data-link": true }, "Privacy policy"),
+      " · ",
+      el("a", { href: "/terms", "data-link": true }, "Terms of use")
     )
   );
 }

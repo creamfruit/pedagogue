@@ -170,6 +170,8 @@ export const api = {
   login: (email, password) =>
     request("/auth/token", { method: "POST", body: { email, password }, auth: false }),
   me: () => request("/auth/me"),
+  deleteAccount: (password) =>
+    request("/auth/me", { method: "DELETE", body: { password, confirmation: "DELETE" } }),
 
   onboardingStatus: () => request("/onboarding/status"),
   onboardingSummary: () => request("/onboarding/summary"),

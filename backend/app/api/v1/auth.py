@@ -1,12 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.api.deps import CurrentUser, SessionDep, get_user_by_email
+from app.api.deps import CurrentUser, SessionDep, StorageDep, get_user_by_email
 from app.core.security import hasher, tokens
 from app.models.models import User
-from app.schemas.schemas import Token, UserLogin, UserRead, UserRegister
+from app.schemas.schemas import AccountDeletion, Token, UserLogin, UserRead, UserRegister
+from app.services.account import delete_account
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -52,3 +53,13 @@ async def token_login(payload: UserLogin, session: SessionDep) -> Token:
 @router.get("/me", response_model=UserRead)
 async def me(user: CurrentUser) -> UserRead:
     return UserRead.model_validate(user)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+async def delete_me(payload: AccountDeletion, user: CurrentUser, session: SessionDep, storage: StorageDep) -> Response:
+    if payload.confirmation.strip().upper() != "DELETE":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="type DELETE to confirm")
+    if not hasher.verify(payload.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="that password is incorrect")
+    await delete_account(session, user, storage)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -9,11 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.security import tokens
+from app.core.storage import Storage, storage
 from app.models.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login")
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+def get_file_storage() -> Storage:
+    return storage
+
+
+StorageDep = Annotated[Storage, Depends(get_file_storage)]
 TokenDep = Annotated[str, Depends(oauth2_scheme)]
 
 CREDENTIALS_ERROR = HTTPException(

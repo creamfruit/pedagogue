@@ -61,6 +61,11 @@ class UserLogin(BaseModel):
     password: str
 
 
+class AccountDeletion(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    confirmation: str = Field(max_length=32)
+
+
 class UserRead(ORMModel):
     id: uuid.UUID
     email: EmailStr

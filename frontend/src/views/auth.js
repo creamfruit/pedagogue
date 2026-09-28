@@ -7,6 +7,13 @@ function field(label, input, errorId) {
   return el("div", { class: "field" }, el("label", { for: input.id }, label), input, el("p", { class: "field-error", id: errorId, hidden: true }));
 }
 
+function legalLinks(lead) {
+  const terms = el("a", { href: "/terms", "data-link": true }, lead ? "terms of use" : "Terms of use");
+  const privacy = el("a", { href: "/privacy", "data-link": true }, lead ? "privacy policy" : "Privacy policy");
+  if (lead) return el("p", { class: "faint auth-legal" }, lead, terms, " and the ", privacy, ".");
+  return el("p", { class: "faint auth-legal" }, privacy, " · ", terms);
+}
+
 function showError(id, message) {
   const node = document.getElementById(id);
   if (!node) return;
@@ -47,7 +54,8 @@ export function loginView(outlet) {
     el("p", { class: "muted" }, "Your repertoire, your weaknesses, your route to the next piece."),
     field("Email", email, "email-error"),
     field("Password", password, "password-error"),
-    el("div", { class: "row", style: "justify-content:space-between;margin-top:6px" }, submit, el("a", { href: "/register", "data-link": true, class: "muted" }, "Create an account"))
+    el("div", { class: "row", style: "justify-content:space-between;margin-top:6px" }, submit, el("a", { href: "/register", "data-link": true, class: "muted" }, "Create an account")),
+    legalLinks()
   );
 
   outlet.append(form);
@@ -95,7 +103,8 @@ export function registerView(outlet) {
     field("Display name", name, "name-error"),
     field("Email", email, "email-error"),
     field("Password", password, "password-error"),
-    el("div", { class: "row", style: "justify-content:space-between;margin-top:6px" }, submit, el("a", { href: "/login", "data-link": true, class: "muted" }, "I already have one"))
+    el("div", { class: "row", style: "justify-content:space-between;margin-top:6px" }, submit, el("a", { href: "/login", "data-link": true, class: "muted" }, "I already have one")),
+    legalLinks("By creating an account you agree to the ")
   );
 
   outlet.append(form);
