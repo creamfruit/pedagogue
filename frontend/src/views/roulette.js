@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { el, empty, sectionBlock, skeletonBlock } from "../lib/dom.js";
+import { backButton, el, empty, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { lightTap } from "../lib/haptics.js";
 import { renderNotation } from "../lib/notation.js";
 import { notify } from "../lib/toast.js";
@@ -35,6 +35,7 @@ export async function rouletteView(outlet) {
   const stage = el("div", {}, skeletonBlock(4));
   const board = el("div", {}, skeletonBlock(3));
   outlet.append(
+    backButton("/"),
     el(
       "div",
       { class: "page-head" },

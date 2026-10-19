@@ -1,3 +1,5 @@
+import { stopAllPlayback } from "./lib/piano.js";
+
 const routes = [];
 let outlet = null;
 let notFound = null;
@@ -106,6 +108,7 @@ export async function resolve() {
     }
   }
   disposeCurrent = null;
+  stopAllPlayback();
 
   const context = { params: found ? found.params : {}, query, pathname };
   const handler = found ? found.entry.handler : notFound;

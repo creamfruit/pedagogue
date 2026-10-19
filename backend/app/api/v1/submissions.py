@@ -15,7 +15,7 @@ from fastapi import (
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
-from app.core.storage import FileTooLarge, UnsupportedMediaType
+from app.core.storage import SCORE_MEDIA, FileTooLarge, UnsupportedMediaType, storage
 from app.schemas.schemas import (
     AnalysisDetail,
     SubmissionAccepted,
@@ -112,6 +112,11 @@ async def submit_pdf(
     return accepted(submission, background_tasks)
 
 
+def audio_guard() -> None:
+    if not settings.audio_features_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Audio recordings are coming soon.")
+
+
 @router.post(
     "/repertoire/{entry_id}/submissions/audio",
     response_model=SubmissionAccepted,
@@ -128,6 +133,7 @@ async def submit_audio(
     is_verification: bool = Form(default=False),
     tempo_curve: Optional[str] = Form(default=None),
 ) -> SubmissionAccepted:
+    audio_guard()
     service = SubmissionService(session)
     try:
         parsed_curve = json.loads(tempo_curve) if tempo_curve else None
@@ -165,6 +171,44 @@ async def get_submission(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     feedback = await feedback_for(session, [submission])
     return SubmissionDetail.model_validate(submission).model_copy(update={"coach_feedback": feedback.get(submission.id)})
+
+
+@router.get("/submissions/{submission_id}/file")
+async def submission_file(submission_id: uuid.UUID, user: CurrentUser, session: SessionDep) -> Response:
+    try:
+        submission = await SubmissionService(session).get(user, submission_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    key = getattr(submission, "storage_key", None)
+    if not key or not storage.exists(key):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="file not found")
+    suffix = "." + key.rsplit(".", 1)[-1].lower() if "." in key else ""
+    with storage.open(key) as handle:
+        data = handle.read()
+    media = SCORE_MEDIA.get(suffix, "application/octet-stream")
+    return Response(
+        content=data,
+        media_type=media,
+        headers={"Content-Disposition": f'inline; filename="score{suffix}"', "Cache-Control": "private, max-age=3600"},
+    )
+
+
+@router.get("/submissions/{submission_id}/crops/{index}")
+async def submission_crop(submission_id: uuid.UUID, index: int, user: CurrentUser, session: SessionDep) -> Response:
+    try:
+        submission = await SubmissionService(session).get(user, submission_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    crops = []
+    for analysis in sorted(submission.analyses, key=lambda item: item.created_at, reverse=True):
+        crops = (analysis.raw_result or {}).get("crops") or []
+        if crops:
+            break
+    if not 0 <= index < len(crops) or not storage.exists(crops[index]["key"]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="crop not found")
+    with storage.open(crops[index]["key"]) as handle:
+        data = handle.read()
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
 
 
 @router.get("/submissions/{submission_id}/analyses", response_model=list[AnalysisDetail])

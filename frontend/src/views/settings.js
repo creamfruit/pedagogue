@@ -1,5 +1,5 @@
 import { api } from "../api/client.js";
-import { el, openModal, reveal, sectionBlock } from "../lib/dom.js";
+import { backButton, el, openModal, reveal, sectionBlock } from "../lib/dom.js";
 import { DONATION_URL, paidOffer } from "../lib/features.js";
 import {
   DEFAULT_REMINDER_TIME,
@@ -416,6 +416,7 @@ function accountSection() {
 export async function settingsView(outlet) {
   const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), dataSection(), supportSection(), accountSection()];
   outlet.append(
+    backButton("/"),
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),
     el("div", { class: "settings-stack" }, ...sections.filter(Boolean))
   );

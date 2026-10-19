@@ -13,6 +13,7 @@ const DEFAULT_VELOCITY = 78;
 const buffers = new Map();
 const pending = new Map();
 let master = null;
+let active = null;
 
 function nearestSample(midi) {
   const clamped = Math.min(108, Math.max(21, midi));
@@ -82,7 +83,12 @@ function strike(ctx, destination, midi, velocity, at, seconds) {
   return source;
 }
 
+export function stopAllPlayback() {
+  if (active) active.interrupt();
+}
+
 export function playEvents(events, { tempo = 90, onDone, onStart, onProgress, lead = 0.08 } = {}) {
+  stopAllPlayback();
   const ctx = audioContext();
   const secondsPerBeat = 60 / tempo;
   const end = events.reduce((latest, event) => Math.max(latest, event[0] + Math.max(event[5] ?? event[1], event[1])), 0);
@@ -114,19 +120,29 @@ export function playEvents(events, { tempo = 90, onDone, onStart, onProgress, le
           raf = requestAnimationFrame(tick);
         }
         timers.push(setTimeout(() => {
-          if (!stopped && onDone) onDone();
+          if (stopped) return;
+          if (active === handle) active = null;
+          if (onDone) onDone();
         }, durationMs + lead * 1000));
       })
     : Promise.reject(new Error("Audio is not available in this browser"));
 
   ready.catch(() => {
-    if (!stopped && onDone) onDone();
+    if (stopped) return;
+    if (active === handle) active = null;
+    if (onDone) onDone();
   });
 
-  return {
+  const handle = {
     durationMs,
     ready,
+    interrupt: () => {
+      const wasStopped = stopped;
+      handle.stop();
+      if (!wasStopped && onDone) onDone();
+    },
     stop: () => {
+      if (active === handle) active = null;
       stopped = true;
       timers.forEach(clearTimeout);
       if (raf) cancelAnimationFrame(raf);
@@ -140,4 +156,6 @@ export function playEvents(events, { tempo = 90, onDone, onStart, onProgress, le
       });
     },
   };
+  active = handle;
+  return handle;
 }

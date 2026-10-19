@@ -1,12 +1,13 @@
 import "./styles.css";
 import { api, onUnauthorized } from "./api/client.js";
-import { closeTopModal } from "./lib/dom.js";
+import { closeTopModal, el } from "./lib/dom.js";
 import { isOnline, onConnectivity, watchConnectivity } from "./lib/connectivity.js";
 import { hideSplash, setupNative } from "./lib/native.js";
 import { flushNotes, onOutboxChange, pendingNotes } from "./lib/outbox.js";
 import { isNative } from "./lib/platform.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
+import { startCosmos } from "./lib/cosmos.js";
 import { canGoBack, goBack, navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
 import { loginView, registerView } from "./views/auth.js";
 import { onboardingView } from "./views/onboarding.js";
@@ -72,8 +73,6 @@ function setWallet() {
   level.className = "wallet-level";
   level.textContent = `LV ${wallet.level}`;
 
-  // The level pill's own XP bar: progress through the current level, with the
-  // numbers beside it, rather than a second bar repeating the same quantity.
   const into = Math.max(wallet.xp_into_level || 0, 0);
   const span = into + Math.max(wallet.xp_for_next_level || 0, 0);
   const percent = Math.round(Math.min(Math.max(wallet.level_progress || 0, 0), 1) * 100);
@@ -260,6 +259,7 @@ async function registerServiceWorker() {
 
 async function boot() {
   await setupNative({ onBack: handleBack, onResume: sendQueuedNotes });
+  startCosmos();
   wireNetworkStatus();
   wireMenu();
   wireAccountMenu();
@@ -282,6 +282,22 @@ async function boot() {
 
   const tag = document.getElementById("build-tag");
   tag.textContent = `Piano Pedagogue · ${import.meta.env.MODE}`;
+
+  if (store.serverDown) {
+    const view = document.getElementById("view");
+    view.replaceChildren(
+      el(
+        "div",
+        { class: "panel panel-accent form-narrow server-down" },
+        el("h1", {}, "Can't reach the Pedagogue server"),
+        el("p", { class: "muted" }, "You're still signed in. The app couldn't talk to the backend, so nothing has been lost."),
+        el("p", { class: "faint", style: "font-size:13px" }, "If you're running it yourself, check the backend window is open and says it's running on port 8000, then try again."),
+        el("button", { class: "btn", type: "button", onclick: () => window.location.reload() }, "Try again")
+      )
+    );
+    setTimeout(() => window.location.reload(), 15000);
+    return;
+  }
 
   await startRouter(document.getElementById("view"));
   hideSplash();

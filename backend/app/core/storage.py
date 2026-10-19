@@ -182,6 +182,17 @@ class S3Storage(Storage):
 USER_FILE_KINDS = ("scores", "recordings", "musicxml", "midi")
 
 PDF_TYPES = {"application/pdf"}
+SCORE_MEDIA = {
+    ".pdf": "application/pdf",
+    ".musicxml": "application/vnd.recordare.musicxml+xml",
+    ".xml": "application/vnd.recordare.musicxml+xml",
+    ".mxl": "application/vnd.recordare.musicxml",
+    ".mid": "audio/midi",
+    ".midi": "audio/midi",
+    ".kar": "audio/midi",
+}
+
+
 AUDIO_TYPES = {
     "audio/mpeg",
     "audio/mp3",
@@ -240,7 +251,14 @@ def ensure_media_type(content_type: Optional[str], allowed: set[str], label: str
 def get_storage() -> Storage:
     if settings.storage_endpoint:
         return S3Storage()
-    return LocalStorage()
+    root = Path(settings.local_storage_dir or Path.home() / ".pedagogue" / "storage")
+    legacy = Path("storage").resolve()
+    if not root.exists() and legacy.is_dir() and legacy != root.resolve():
+        try:
+            shutil.copytree(legacy, root)
+        except OSError:
+            pass
+    return LocalStorage(root=str(root))
 
 
 storage = get_storage()

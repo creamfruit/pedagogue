@@ -1,8 +1,5 @@
 import { el } from "./dom.js";
 
-// Canvas drawing cannot use CSS custom properties directly, so this reads the
-// four accent tokens (and the neutrals) from styles.css :root at runtime. The
-// fallbacks only matter if the stylesheet has not loaded; keep them in sync.
 const FALLBACK = {
   tide: "#6fb7b3",
   accent: "#cee9e2",
@@ -38,9 +35,6 @@ export function palette() {
   return cached;
 }
 
-// Six eras on three warm accents. Chronological pairs share a hue and the later
-// era of each pair is drawn with diffraction spikes, so every era stays
-// distinguishable without a fifth colour.
 export const ERA_STYLE = {
   Baroque: { tone: "tide", spiked: false },
   Classical: { tone: "tide", spiked: true },
@@ -60,11 +54,9 @@ export function eraGlyph(era) {
   });
 }
 
-// Heat ramp for the "difficulty" star cosmetic: mauve for the easiest pieces,
-// then mint, tide, and starlight for the hardest.
 export function difficultyTone(difficulty) {
   if (difficulty >= 90) return "starlight";
-  if (difficulty >= 75) return "tide";
-  if (difficulty >= 55) return "accent";
+  if (difficulty >= 78) return "tide";
+  if (difficulty >= 60) return "accent";
   return "mauve";
 }

@@ -66,7 +66,10 @@ export function playNotation(notation, { onMeasure, onDone } = {}) {
   const timers = [];
   const playback = playEvents(events, {
     tempo,
-    onDone,
+    onDone: () => {
+      timers.forEach(clearTimeout);
+      if (onDone) onDone();
+    },
     onStart: () => {
       if (!onMeasure) return;
       measureStarts.forEach((beat, index) => {

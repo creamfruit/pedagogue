@@ -124,12 +124,12 @@ SCALES = FakeTechnique(3, "Rapid scales", "Thumb under a moving hand.", "Accenti
 
 def test_difficulty_bands():
     assert difficulty_band(None) == "unrated"
-    assert difficulty_band(20.0) == "beginner"
-    assert difficulty_band(40.0) == "early intermediate"
-    assert difficulty_band(60.0) == "intermediate"
-    assert difficulty_band(75.0) == "late intermediate"
-    assert difficulty_band(85.0) == "advanced"
-    assert difficulty_band(95.0) == "virtuoso"
+    assert difficulty_band(10.0) == "beginner"
+    assert difficulty_band(25.0) == "early intermediate"
+    assert difficulty_band(40.0) == "intermediate"
+    assert difficulty_band(55.0) == "late intermediate"
+    assert difficulty_band(70.0) == "advanced"
+    assert difficulty_band(84.0) == "virtuoso"
 
 
 def test_overview_orders_sections_hardest_first():

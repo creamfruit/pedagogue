@@ -208,6 +208,7 @@ export const api = {
   upload: (path, form, options) => request(path, { ...options, method: "POST", form }),
 
   register: (payload) => request("/auth/register", { method: "POST", body: payload, auth: false }),
+  refreshToken: () => request("/auth/refresh", { method: "POST" }),
   login: (email, password) =>
     request("/auth/token", { method: "POST", body: { email, password }, auth: false }),
   me: () => request("/auth/me"),
@@ -251,6 +252,27 @@ export const api = {
   submissions: (entryId) => request(`/repertoire/${entryId}/submissions`),
   submitText: (entryId, bodyText) =>
     request(`/repertoire/${entryId}/submissions/text`, { method: "POST", body: { body: bodyText } }),
+  blob: async (path) => {
+    const headers = {};
+    const token = tokenStore.get();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(buildUrl(path), { headers });
+    if (!response.ok) throw new ApiError(response.status, "Could not load that image");
+    return response.blob();
+  },
+  scoreFile: async (submissionId) => {
+    const headers = {};
+    const token = tokenStore.get();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    let response;
+    try {
+      response = await fetch(buildUrl(`/submissions/${submissionId}/file`), { headers });
+    } catch {
+      throw new ApiError(0, "you appear to be offline");
+    }
+    if (!response.ok) throw new ApiError(response.status, "Could not open that score");
+    return response.blob();
+  },
   submitScore: (entryId, file) => {
     const form = new FormData();
     form.append("file", file, file.name || "score");

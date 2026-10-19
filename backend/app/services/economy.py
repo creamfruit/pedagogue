@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
@@ -69,8 +71,8 @@ ACHIEVEMENT_RULES: dict[str, AchievementRule] = {
     "grade_ninety": AchievementRule("best_grade", 90, "best graded run {best}, needs {target}"),
     "flawless": AchievementRule("best_grade", 98, "best graded run {best}, needs {target}"),
     "five_graded": AchievementRule("graded_cleared", 5, "{current} of {target} pieces cleared at 80+"),
-    "grade_eight_club": AchievementRule("hardest_learned", 80, "hardest piece learnt {best}, needs {target}"),
-    "virtuoso": AchievementRule("hardest_learned", 95, "hardest piece learnt {best}, needs {target}"),
+    "grade_eight_club": AchievementRule("hardest_learned", 45, "hardest piece learnt {best}, needs {target}"),
+    "virtuoso": AchievementRule("hardest_learned", 90, "hardest piece learnt {best}, needs {target}"),
     "polyrhythm_steady": AchievementRule("best_polyrhythm", 0.9, "best polyrhythm {best}%, needs {target}%", percent=True),
     "level_five": AchievementRule("level", 5, "level {best} of {target}"),
     "level_ten": AchievementRule("level", 10, "level {best} of {target}"),
@@ -145,6 +147,7 @@ class EconomyService(BaseService):
             detail=detail,
             ref_type=ref_type,
             ref_id=str(ref_id) if ref_id is not None else None,
+            created_at=datetime.now(timezone.utc),
         )
         self.session.add(entry)
         await self.session.flush()
@@ -163,6 +166,7 @@ class EconomyService(BaseService):
             detail=detail,
             ref_type="cosmetic",
             ref_id=str(ref_id) if ref_id is not None else None,
+            created_at=datetime.now(timezone.utc),
         )
         self.session.add(entry)
         await self.session.flush()

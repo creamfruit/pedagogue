@@ -5,10 +5,12 @@ function setting(name, fallback) {
 }
 
 export const features = {
-  audio: setting("VITE_AUDIO_FEATURES", "coming-soon") === "on",
+  audio: ["on", "true"].includes(setting("VITE_AUDIO_FEATURES", "coming-soon")),
   paidOffers: !isNative,
   inAppPurchases: false,
 };
+
+export const COMING_SOON = "Coming soon";
 
 export const DONATION_URL = features.paidOffers ? String(import.meta.env.VITE_DONATION_URL || "").trim() : "";
 

@@ -351,7 +351,31 @@ genuinely clean run, and an entry that clears that bar is promoted to
 average.
 
 
+## Quick start on Windows
+
+Run `start-pedagogue.ps1` from the project folder (right-click, Run with PowerShell). It starts Postgres and Redis in Docker, migrates and seeds the database, then opens the backend, the frontend and the browser.
+
+Your data survives updates: accounts live in the Docker volume `backend_piano_pgdata`, uploaded scores in `%USERPROFILE%\.pedagogue\storage`, and the sign-in key in `%USERPROFILE%\.pedagogue\secret_key`. Unzipping a new version into a different folder keeps all three.
+
+## Uploading scores
+
+On any piece page, Scores & notes takes a PDF, MusicXML or MIDI file.
+- PDF: pages are read for staves and barlines, bars are counted, and the densest writing is marked as hard passages with a clip of those bars from your copy. If the piece already has checked passages, your pages are matched to them instead. Bar numbers are counted from the page, so they can be a bar or two out.
+- MusicXML and MIDI: read note by note for exact passages and techniques.
+
+Audio recordings, the listening coach, graded run-throughs and verification takes are switched off for now (`AUDIO_FEATURES_ENABLED` on the backend, `VITE_AUDIO_FEATURES` on the frontend).
+
+## Difficulty ladder
+
+Every difficulty is on one 0 to 100 ladder. The anchors live in `backend/app/services/repertoire_reference.py`: Für Elise sits at 30, Chopin's first Ballade at 70, Harmonies du soir at 84, La Campanella at 90 and Islamey at 98. Edit a number there and run `python -m app.seed` to push it to every matching piece, including ones already imported from MusicBrainz or OpenOpus.
+
+Pieces that are not on the ladder get an estimate from the composer and the form, marked as an estimate on the piece page. The offline metadata step no longer invents hard bars or filler text. Imported pieces take their catalogue number, key and nickname from the title, and the backend looks up a short history on Wikipedia through the work's MusicBrainz and Wikidata links (set `WIKI_FACTS_ENABLED=false` to turn that off).
+
+Bands: under 15 beginner, 15 to 30 early intermediate, 30 to 45 intermediate, 45 to 60 late intermediate, 60 to 78 advanced (graded run and verification take required from 60), 78 and up concert repertoire.
+
 ## Credits
+
+Piece histories fetched from Wikipedia are shown with a link to the article and are available under CC BY-SA 4.0.
 
 Piano playback uses the Salamander Grand Piano V3 samples by Alexander Holm (CC BY 3.0).
 Technique examples in onboarding are real passages from the First Editions of Fryderyk Chopin's

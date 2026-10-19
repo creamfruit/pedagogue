@@ -50,6 +50,11 @@ async def token_login(payload: UserLogin, session: SessionDep) -> Token:
     return Token(access_token=tokens.create_access_token(str(user.id)), expires_in=tokens.expires_in)
 
 
+@router.post("/refresh", response_model=Token)
+async def refresh(user: CurrentUser) -> Token:
+    return Token(access_token=tokens.create_access_token(str(user.id)), expires_in=tokens.expires_in)
+
+
 @router.get("/me", response_model=UserRead)
 async def me(user: CurrentUser) -> UserRead:
     return UserRead.model_validate(user)

@@ -38,6 +38,12 @@ async def generate_piece_metadata(piece_id: int) -> Optional[str]:
     return await run(int(piece_id))
 
 
+async def enrich_piece_facts(piece_id: int) -> Optional[str]:
+    from app.services.piece_knowledge import enrich_piece_facts as run
+
+    return await run(int(piece_id))
+
+
 async def generate_coach_feedback(submission_id: uuid.UUID | str) -> Optional[str]:
     from app.services.coach_feedback import generate_coach_feedback as run
 
@@ -59,6 +65,7 @@ async def schedule_meteor_shower(hours: int = 48, count: int = 5) -> Optional[in
 JOBS: dict[str, Callable[..., Awaitable[Any]]] = {
     "process_submission": process_submission,
     "generate_piece_metadata": generate_piece_metadata,
+    "enrich_piece_facts": enrich_piece_facts,
     "generate_coach_feedback": generate_coach_feedback,
     "generate_daily_snippet": generate_daily_snippet,
     "schedule_meteor_shower": schedule_meteor_shower,

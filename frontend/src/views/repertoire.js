@@ -1,18 +1,19 @@
 import { api, pollSubmission } from "../api/client.js";
 import { difficultyPair, pieceOverview } from "../components/overview.js";
-import { el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
+import { backButton, el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { notify } from "../lib/toast.js";
 import { pendingNotes, queueNote } from "../lib/outbox.js";
-import { features } from "../lib/features.js";
 import { isScoreFile, scoreAccept } from "../lib/scoreFiles.js";
 import { shareLink, siteUrl } from "../lib/share.js";
 import { STATUS_LABEL, STATUS_ORDER, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
+import { COMING_SOON, features } from "../lib/features.js";
+import { renderScore } from "../lib/score.js";
 
 const ALL_PRACTICE_MODES = [
   { mode: "free", icon: "\u{1F3B9}", title: "Free practice", description: "Open-ended time at the keys, logged minutes and load only." },
-  { mode: "live_listening", icon: "\u{1F3A7}", title: "Live listening coach", description: "Real-time cues on tempo drift and tension while you play." },
+  { mode: "live_listening", icon: "\u{1F3A7}", title: "Live listening coach", description: "Real-time cues on tempo drift and tension while you play.", audio: true },
   { mode: "forge_drill", icon: "\u{1F528}", title: "Forge a drill", description: "Targeted repetitions built from your weakest passages." },
   { mode: "sight_reading", icon: "\u{1F3BC}", title: "Sight-reading forge", description: "A freshly generated 8-bar exercise, never the same twice." },
   { mode: "polyrhythm", icon: "\u{1F300}", title: "Polyrhythm trainer", description: "Cross-rhythm practice timed against a click." },
@@ -29,6 +30,8 @@ function openPracticeModal() {
         icon: option.icon,
         title: option.title,
         description: option.description,
+        badge: option.audio && !features.audio ? COMING_SOON : null,
+        disabled: option.audio && !features.audio,
         onSelect: async () => {
           try {
             await api.startSession({ mode: option.mode });
@@ -266,8 +269,31 @@ function statusGroup(group, { collapsed }) {
   return el("section", { class: "status-group", "aria-label": STATUS_LABEL[group.status] }, control.button, control.region);
 }
 
+let carriedQuery = "";
+let switchTab = null;
+
+function widerSearchLink(term) {
+  return el(
+    "li",
+    { class: "list-item wider-search" },
+    el("span", { class: "faint", style: "font-size:13px" }, "Not the one? Look further in MusicBrainz and OpenOpus."),
+    el(
+      "button",
+      {
+        type: "button",
+        class: "btn btn-small btn-ghost",
+        onclick: () => {
+          carriedQuery = term;
+          switchTab?.("external");
+        },
+      },
+      `Search "${term}" wider`
+    )
+  );
+}
+
 function catalogSearchPanel(statusSelect) {
-  const search = el("input", { type: "search", placeholder: "Search the catalog, e.g. Chopin etude" });
+  const search = el("input", { type: "search", placeholder: "Search the catalog, e.g. Chopin mazurka op 17, Scarlatti K. 141" });
   const results = el("ul", { class: "list" });
 
   let selected = null;
@@ -318,12 +344,18 @@ function catalogSearchPanel(statusSelect) {
                 },
                 dataset: { piece: piece.id },
               },
-              el("div", {}, el("div", {}, piece.title), el("div", { class: "faint", style: "font-size:12.5px" }, piece.composer?.name || "unknown")),
+              el(
+                "div",
+                {},
+                el("div", {}, piece.title),
+                el("div", { class: "faint", style: "font-size:12.5px" }, [piece.composer?.name || "unknown", piece.catalog_number, piece.key_signature].filter(Boolean).join(" · "))
+              ),
               piece.difficulty_score ? el("span", { class: "pill mono" }, piece.difficulty_score) : null
             )
-          )
+          ),
+          widerSearchLink(term)
         );
-        if (!pieces.length) results.replaceChildren(empty("Nothing found in the catalog."));
+        if (!pieces.length) results.replaceChildren(empty("Nothing in the catalog yet."), widerSearchLink(term));
       } catch (error) {
         results.replaceChildren(empty(error.detail || "Search failed."));
       }
@@ -344,8 +376,10 @@ function catalogSearchPanel(statusSelect) {
 const SOURCE_LABELS = { openopus: "OpenOpus", musicbrainz: "MusicBrainz" };
 
 function externalSearchPanel(statusSelect) {
-  const search = el("input", { type: "search", placeholder: "Composer, work or both, e.g. Rachmaninoff prelude" });
+  const search = el("input", { type: "search", placeholder: "Composer, work or both, e.g. Lyapunov Lezghinka", value: carriedQuery });
   const results = el("ul", { class: "list" });
+  if (carriedQuery) setTimeout(() => search.dispatchEvent(new Event("input")), 0);
+  carriedQuery = "";
 
   let debounce;
   search.addEventListener("input", () => {
@@ -530,6 +564,7 @@ export async function newEntryView(outlet) {
   const body = el("div", {});
   const tabButtons = new Map();
 
+  switchTab = (id) => activate(id);
   function activate(id) {
     tabButtons.forEach((button, key) => button.classList.toggle("panel-accent", key === id));
     const tab = TABS.find((t) => t.id === id);
@@ -549,6 +584,7 @@ export async function newEntryView(outlet) {
   );
 
   outlet.append(
+    backButton("/repertoire"),
     el("h1", {}, "Add a piece"),
     el(
       "div",
@@ -631,7 +667,7 @@ function requirementItems(entry, gate) {
         : `Pieces at difficulty ${gate.threshold} or above count as learnt only after a graded run.${best}`,
     });
   }
-  if (entry.needs_verification || (entry.is_verified && entry.piece.difficulty_score >= 70)) {
+  if (entry.needs_verification || (entry.is_verified && entry.piece.difficulty_score >= 60)) {
     items.push({
       done: !entry.needs_verification,
       title: entry.needs_verification ? "Submit a verification take" : "Verification take submitted",
@@ -667,6 +703,30 @@ function requirementsChecklist(items) {
         )
       )
     )
+  );
+}
+
+function openScoreForm() {
+  const panel = document.getElementById("scores-and-notes");
+  if (!panel) return;
+  const toggle = [...panel.querySelectorAll(".reveal-btn")].find((button) => button.textContent.includes("Add a score"));
+  if (toggle && toggle.getAttribute("aria-expanded") === "false") toggle.click();
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  panel.querySelector("input[type=file]")?.focus({ preventScroll: true });
+}
+
+function noPassagesBanner(overview) {
+  if (!overview || overview.sections.length) return null;
+  return el(
+    "div",
+    { class: "locked-banner" },
+    el("strong", { style: "font-weight:500" }, "No hard passages marked yet"),
+    el(
+      "p",
+      { class: "muted", style: "margin:8px 0 12px;font-size:13.5px" },
+      "This piece isn't in the analysed score library. Upload the PDF you practise from (or a MusicXML or MIDI file) and its hardest bars will be marked and clipped here."
+    ),
+    el("button", { type: "button", class: "btn btn-small", onclick: openScoreForm }, "Upload a score")
   );
 }
 
@@ -763,6 +823,39 @@ function planPanel(entryId, plan, onBuild, onAdvance) {
 }
 
 const SUBMISSION_LABELS = { audio: "Recording", text: "Practice notes", pdf: "Score" };
+function scoreKind(submission) {
+  const key = (submission.storage_key || "").toLowerCase();
+  if (key.endsWith(".pdf")) return "pdf";
+  if (key.startsWith("midi/") || key.endsWith(".mid") || key.endsWith(".midi") || key.endsWith(".kar")) return "midi";
+  return "musicxml";
+}
+
+const SCORE_KIND_LABEL = { pdf: "PDF", musicxml: "MusicXML", midi: "MIDI" };
+
+async function openScore(submission) {
+  const kind = scoreKind(submission);
+  const stage = el("div", { class: "score-viewer" }, el("p", { class: "faint" }, "Opening the score…"));
+  const modal = openModal(stage, { title: `${SCORE_KIND_LABEL[kind]} score` });
+  try {
+    const blob = await api.scoreFile(submission.id);
+    const url = URL.createObjectURL(blob);
+    if (kind === "pdf") {
+      stage.replaceChildren(
+        el("iframe", { class: "score-pdf", src: url, title: "Score PDF" }),
+        el("p", { class: "faint", style: "font-size:12px;margin:8px 0 0" }, el("a", { href: url, target: "_blank", rel: "noopener" }, "Open in a new tab"))
+      );
+    } else if (kind === "musicxml") {
+      const host = el("div", { class: "score-render" });
+      stage.replaceChildren(host);
+      await renderScore(host, url, { zoom: 0.6 });
+    } else {
+      stage.replaceChildren(el("p", { class: "faint" }, "MIDI files are read for hard passages and techniques; there is no page to show."));
+    }
+  } catch (error) {
+    stage.replaceChildren(el("p", { class: "faint" }, error.detail || "Could not open that score."));
+  }
+  return modal;
+}
 
 function submissionDate(submission) {
   if (!submission.created_at) return null;
@@ -857,10 +950,22 @@ function submissionCard(submission) {
       el(
         "span",
         { class: "row", style: "gap:10px" },
-        el("strong", {}, SUBMISSION_LABELS[submission.submission_type] || submission.submission_type),
+        el(
+          "strong",
+          {},
+          SUBMISSION_LABELS[submission.submission_type] || submission.submission_type,
+          submission.submission_type === "pdf" ? ` · ${SCORE_KIND_LABEL[scoreKind(submission)]}` : ""
+        ),
         date ? el("span", { class: "faint mono", style: "font-size:11px" }, date) : null
       ),
-      el("span", { class: `pill ${tone[submission.processing_status] || ""}` }, submission.processing_status)
+      el(
+        "span",
+        { class: "row", style: "gap:8px" },
+        submission.submission_type === "pdf" && scoreKind(submission) !== "midi"
+          ? el("button", { type: "button", class: "btn btn-small btn-ghost", onclick: () => openScore(submission) }, "Open")
+          : null,
+        el("span", { class: `pill ${tone[submission.processing_status] || ""}` }, submission.processing_status)
+      )
     ),
   ];
   if (submission.submission_type === "audio") {
@@ -1079,50 +1184,75 @@ function writtenSubmissionPanel(entry, written, onChange) {
   );
 
   const scoreInput = el("input", { type: "file", accept: scoreAccept() });
+  const scoreStatus = el("p", { class: "faint", style: "font-size:12px;margin:6px 0 0", hidden: true });
   const scoreSubmit = el(
     "button",
     {
       class: "btn btn-small",
       onclick: async () => {
         const file = scoreInput.files[0];
-        if (!file) return notify.error("Choose a score first");
+        if (!file) return notify.error("Choose a score file first");
         if (!isScoreFile(file)) return notify.error("Choose a PDF, MusicXML (.musicxml, .xml, .mxl) or MIDI (.mid) file");
         scoreSubmit.disabled = true;
+        scoreStatus.hidden = false;
+        scoreStatus.textContent = "Uploading and reading the score…";
         try {
-          await api.submitScore(entry.id, file);
-          notify.success("Score submitted");
+          const accepted = await api.submitScore(entry.id, file);
           scoreInput.value = "";
+          const finished = await pollSubmission(accepted.submission.id, { attempts: 75 }).catch(() => null);
+          const summary = finished?.analyses?.[finished.analyses.length - 1]?.summary;
+          notify.success(summary ? `Score read: ${summary}` : "Score uploaded");
           await onChange();
         } catch (error) {
-          notify.error(error.isOffline ? "Scores can only be uploaded while you're online" : error.detail || "Could not submit that score");
+          notify.error(error.isOffline ? "Scores can only be uploaded while you're online" : error.detail || "Could not upload that score");
         } finally {
           scoreSubmit.disabled = false;
+          scoreStatus.hidden = true;
         }
       },
     },
     "Upload score"
   );
+  const composer = entry.piece.composer?.name || "";
+  const findLinks = el(
+    "p",
+    { class: "faint", style: "font-size:12px;margin:8px 0 0" },
+    "No file yet? Find a free one on ",
+    el("a", { href: `https://imslp.org/index.php?search=${encodeURIComponent(`${composer} ${entry.piece.title}`)}`, target: "_blank", rel: "noopener" }, "IMSLP"),
+    " (PDF) or ",
+    el("a", { href: `https://musescore.com/sheetmusic?text=${encodeURIComponent(`${composer} ${entry.piece.title}`)}`, target: "_blank", rel: "noopener" }, "MuseScore"),
+    " (export as MusicXML)."
+  );
 
   const form = reveal(
-    "Add notes or a score",
+    "Add a score or notes",
     el(
       "div",
       { class: "submission-form" },
-      el("div", { class: "field" }, el("label", {}, "Practice notes"), textBody, el("div", { style: "margin-top:8px" }, textSubmit)),
       el(
         "div",
-        { class: "field", style: "margin-bottom:0" },
-        el("label", {}, "Score (PDF, MusicXML or MIDI)"),
-        el("div", { class: "row" }, scoreInput, scoreSubmit)
-      )
-    )
+        { class: "field" },
+        el("label", {}, "Sheet music"),
+        el(
+          "p",
+          { class: "faint", style: "font-size:12px;margin:0 0 8px" },
+          "PDFs are read page by page: Pedagogue counts the bars, finds the densest writing and clips those bars into Hard passages. MusicXML or MIDI files are read note by note for exact passages and techniques."
+        ),
+        el("div", { class: "row" }, scoreInput, scoreSubmit),
+        scoreStatus,
+        findLinks
+      ),
+      el("div", { class: "field", style: "margin-bottom:0" }, el("label", {}, "Practice notes"), textBody, el("div", { style: "margin-top:8px" }, textSubmit))
+    ),
+    { open: !written.length }
   );
 
   return sectionBlock(
-    "Notes & scores",
+    "Scores & notes",
     {
-      caption: "Written practice notes and sheet music, read for bar numbers and techniques.",
+      caption: "Upload the sheet music you practise from, and jot down notes. Bar numbers you mention in notes are picked up too.",
       className: "submission-panel",
+      id: "scores-and-notes",
     },
     pendingList,
     savedList,
@@ -1134,10 +1264,8 @@ function writtenSubmissionPanel(entry, written, onChange) {
 function submissionSections(entry, submissions, onChange, { requirements = [], gate = null } = {}) {
   const recordings = submissions.filter((submission) => submission.submission_type === "audio");
   const written = submissions.filter((submission) => submission.submission_type !== "audio");
-  return [
-    recordingPanel(entry, recordings, onChange, { requirements, gate }),
-    writtenSubmissionPanel(entry, written, onChange),
-  ];
+  const panels = [writtenSubmissionPanel(entry, written, onChange), recordingPanel(entry, recordings, onChange, { requirements, gate })];
+  return features.audio ? panels.reverse() : panels;
 }
 
 export async function entryDetailView(outlet, context) {
@@ -1195,7 +1323,7 @@ export async function entryDetailView(outlet, context) {
 
     const requirements = requirementItems(entry, gate);
     const remaining = features.audio ? requirements.filter((item) => !item.done).length : 0;
-    const notices = [decayBanner(entry, render)].filter(Boolean);
+    const notices = [decayBanner(entry, render), noPassagesBanner(overview)].filter(Boolean);
 
     const summary = el(
       "section",
@@ -1252,6 +1380,7 @@ export async function entryDetailView(outlet, context) {
     );
 
     const sections = [
+      backButton("/repertoire"),
       el(
         "div",
         { class: "page-head" },
@@ -1260,8 +1389,7 @@ export async function entryDetailView(outlet, context) {
           "div",
           { class: "row" },
           el("button", { type: "button", class: "btn btn-small", onclick: () => openPracticeModal() }, "Practice this piece"),
-          el("button", { type: "button", class: "btn btn-ghost btn-small", onclick: () => sharePiece(entry) }, "Share"),
-          el("a", { class: "btn btn-ghost btn-small", href: "/repertoire", "data-link": true }, "Back")
+          el("button", { type: "button", class: "btn btn-ghost btn-small", onclick: () => sharePiece(entry) }, "Share")
         )
       ),
       summary,

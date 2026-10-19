@@ -9,6 +9,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectin_polymorphic, selectinload
 
+from app.core.config import settings
 from app.core.storage import (
     AUDIO_TYPES,
     SCORE_KINDS,
@@ -54,7 +55,8 @@ class RepertoireService(BaseService):
     @staticmethod
     def requires_grading(piece: Piece) -> bool:
         return (
-            piece.difficulty_score is not None
+            settings.audio_features_enabled
+            and piece.difficulty_score is not None
             and piece.difficulty_score >= GRADED_DIFFICULTY_THRESHOLD
         )
 

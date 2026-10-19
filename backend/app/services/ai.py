@@ -42,7 +42,20 @@ def client():
     return _client
 
 
-async def complete_json(prompt: str, schema: dict[str, Any], *, system: Optional[str] = None, max_tokens: int = 4000) -> Completion:
+async def complete_json(
+    prompt: str,
+    schema: dict[str, Any],
+    *,
+    system: Optional[str] = None,
+    max_tokens: int = 4000,
+    pdf_base64: Optional[str] = None,
+) -> Completion:
+    content: Any = prompt
+    if pdf_base64:
+        content = [
+            {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_base64}},
+            {"type": "text", "text": prompt},
+        ]
     request: dict[str, Any] = {
         "model": settings.anthropic_model,
         "max_tokens": max_tokens,
@@ -52,7 +65,7 @@ async def complete_json(prompt: str, schema: dict[str, Any], *, system: Optional
             "effort": settings.anthropic_effort,
             "format": {"type": "json_schema", "schema": schema},
         },
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": content}],
     }
     if system:
         request["system"] = system

@@ -360,6 +360,9 @@ class Piece(IntPrimaryKeyMixin, Base):
     external_ref: Mapped[Optional[str]] = mapped_column(String(120))
     metadata_generated_at: Mapped[Optional[datetime]]
     metadata_generation_model: Mapped[Optional[str]] = mapped_column(String(60))
+    reference_url: Mapped[Optional[str]] = mapped_column(String(300))
+    reference_label: Mapped[Optional[str]] = mapped_column(String(60))
+    facts_checked_at: Mapped[Optional[datetime]]
     custom_style: Mapped[Optional[dict[str, Any]]]
 
     composer: Mapped[Optional[Composer]] = relationship(back_populates="pieces")
@@ -446,6 +449,10 @@ class Piece(IntPrimaryKeyMixin, Base):
 
     @property
     def requires_verification(self) -> bool:
+        from app.core.config import settings
+
+        if not settings.audio_features_enabled:
+            return False
         return self.difficulty_score is not None and self.difficulty_score >= VERIFICATION_DIFFICULTY_THRESHOLD
 
     @property
@@ -1311,9 +1318,9 @@ class ReadinessScore(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         return self.restart_count == 0 and self.memory_slip_count == 0
 
 
-GRADED_DIFFICULTY_THRESHOLD = Decimal("70.0")
+GRADED_DIFFICULTY_THRESHOLD = Decimal("60.0")
 GRADED_PASS_SCORE = Decimal("80.0")
-VERIFICATION_DIFFICULTY_THRESHOLD = Decimal("70.0")
+VERIFICATION_DIFFICULTY_THRESHOLD = Decimal("60.0")
 ORBITAL_DECAY_HALF_LIFE_DAYS = 21
 LEVEL_BASE = 100
 

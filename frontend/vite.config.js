@@ -12,8 +12,13 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
+    preview: {
+      port: 4173,
+      strictPort: true,
+    },
     server: {
       port: 5173,
+      strictPort: true,
       proxy: {
         "/api": { target: apiTarget, changeOrigin: true },
         "/health": { target: apiTarget, changeOrigin: true },

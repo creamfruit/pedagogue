@@ -10,6 +10,7 @@ const state = {
   streak: null,
   nudge: null,
   ready: false,
+  serverDown: false,
 };
 
 const subscribers = new Set();
@@ -79,6 +80,9 @@ export const store = {
   get ready() {
     return state.ready;
   },
+  get serverDown() {
+    return state.serverDown;
+  },
   get isAuthenticated() {
     return Boolean(state.user);
   },
@@ -89,13 +93,28 @@ export const store = {
       emit();
       return null;
     }
-    try {
-      state.user = await api.me();
-      await Promise.all([loadProfile(), loadOnboarding()]);
-    } catch (error) {
-      state.user = null;
-      if (!error?.isOffline) tokenStore.clear();
+    state.serverDown = false;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        state.user = await api.me();
+        await Promise.all([loadProfile(), loadOnboarding()]);
+        break;
+      } catch (error) {
+        state.user = null;
+        if (error && (error.status === 401 || error.status === 403)) {
+          tokenStore.clear();
+          break;
+        }
+        if (error?.isOffline) break;
+        if (attempt === 5) {
+          state.serverDown = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+      }
     }
+    const refreshed = state.user ? await api.refreshToken().catch(() => null) : null;
+    if (refreshed?.access_token) tokenStore.set(refreshed.access_token);
     state.ready = true;
     emit();
     return state.user;

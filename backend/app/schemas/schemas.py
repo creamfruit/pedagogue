@@ -958,6 +958,9 @@ class SectionRead(BaseModel):
     description: Optional[str] = None
     practice_cue: Optional[str] = None
     techniques: list[str] = Field(default_factory=list)
+    source: Optional[str] = None
+    score_crop: Optional[str] = None
+    score_page: Optional[int] = None
 
 
 class TechniqueBreakdown(BaseModel):
@@ -1018,6 +1021,9 @@ class PieceOverview(BaseModel):
     scene: Optional[str] = None
     historical_note: Optional[str] = None
     fun_fact: Optional[str] = None
+    reference_url: Optional[str] = None
+    reference_label: Optional[str] = None
+    difficulty_basis: str = "catalogue"
     composer: Optional[ComposerProfile] = None
     sections: list[SectionRead] = Field(default_factory=list)
     techniques: list[TechniqueBreakdown] = Field(default_factory=list)

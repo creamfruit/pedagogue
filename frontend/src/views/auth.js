@@ -14,6 +14,24 @@ function legalLinks(lead) {
   return el("p", { class: "faint auth-legal" }, privacy, " · ", terms);
 }
 
+const LAST_EMAIL = "pp.lastEmail";
+
+function rememberEmail(value) {
+  try {
+    localStorage.setItem(LAST_EMAIL, value);
+  } catch {
+    return;
+  }
+}
+
+function lastEmail() {
+  try {
+    return localStorage.getItem(LAST_EMAIL) || "";
+  } catch {
+    return "";
+  }
+}
+
 function showError(id, message) {
   const node = document.getElementById(id);
   if (!node) return;
@@ -21,8 +39,8 @@ function showError(id, message) {
   node.hidden = !message;
 }
 
-export function loginView(outlet) {
-  const email = el("input", { id: "email", type: "email", autocomplete: "email", placeholder: "you@example.com" });
+export function loginView(outlet, context = {}) {
+  const email = el("input", { id: "email", type: "email", autocomplete: "email", placeholder: "you@example.com", value: context.query?.email || lastEmail() });
   const password = el("input", { id: "password", type: "password", autocomplete: "current-password", placeholder: "your password" });
   const submit = el("button", { class: "btn", type: "submit" }, "Sign in");
 
@@ -40,6 +58,7 @@ export function loginView(outlet) {
         submit.textContent = "Signing in";
         try {
           await store.signIn(email.value.trim(), password.value);
+          rememberEmail(email.value.trim());
           await store.refreshOnboarding();
           notify.success(`Welcome back, ${store.user.display_name || "pianist"}`);
           navigate("/", { replace: true });
@@ -51,7 +70,7 @@ export function loginView(outlet) {
       },
     },
     el("h1", {}, "Sign in"),
-    el("p", { class: "muted" }, "Your repertoire, your weaknesses, your route to the next piece."),
+    el("p", { class: "muted" }, "Your repertoire, your weaknesses, your route to the next piece. You stay signed in on this device for 90 days."),
     field("Email", email, "email-error"),
     field("Password", password, "password-error"),
     el("div", { class: "row", style: "justify-content:space-between;margin-top:6px" }, submit, el("a", { href: "/register", "data-link": true, class: "muted" }, "Create an account")),
@@ -59,7 +78,8 @@ export function loginView(outlet) {
   );
 
   outlet.append(form);
-  email.focus();
+  if (email.value) password.focus();
+  else email.focus();
 }
 
 export function registerView(outlet) {
@@ -89,10 +109,17 @@ export function registerView(outlet) {
             password: password.value,
             display_name: name.value.trim() || null,
           });
+          rememberEmail(email.value.trim());
           await store.refreshOnboarding();
           notify.success("Account created");
           navigate("/", { replace: true });
         } catch (error) {
+          if (error.status === 409) {
+            rememberEmail(email.value.trim());
+            notify.info("You already have an account with that email. Sign in with it.");
+            navigate(`/login?email=${encodeURIComponent(email.value.trim())}`);
+            return;
+          }
           showError("email-error", error.detail || "Could not create the account");
           submit.disabled = false;
           submit.textContent = "Create account";
