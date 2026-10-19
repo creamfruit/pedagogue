@@ -140,6 +140,9 @@ Open http://localhost:8000/docs.
 pytest
 ```
 
+The database-backed tests are skipped unless `PIANO_TEST_DATABASE_URL` points at a disposable,
+migrated database. Never point it at one you care about.
+
 ## Frontend
 
 ```bash
@@ -148,6 +151,8 @@ npm install
 cp .env.example .env
 npm run dev
 ```
+
+Run the frontend tests (Vitest with jsdom) with `npm test`.
 
 Open http://localhost:5173. Vite proxies `/api` to the backend on port 8000, so there is
 no CORS to configure in development.
