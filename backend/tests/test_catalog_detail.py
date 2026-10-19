@@ -216,3 +216,17 @@ def test_unknown_link_type_is_rejected(bad):
 
     with pytest.raises(ValueError):
         LinkType(bad)
+
+
+def test_difficulty_basis_names_where_the_number_came_from():
+    from types import SimpleNamespace
+
+    from app.services.catalog import difficulty_basis
+
+    def piece(title, composer, model, source=None):
+        return SimpleNamespace(title=title, composer=SimpleNamespace(name=composer), catalog_number=None, metadata_generation_model=model, external_source=source)
+
+    assert difficulty_basis(piece("Für Elise", "Ludwig van Beethoven", "heuristic-0.3")) == "reference"
+    assert difficulty_basis(piece("Obscure study no. 9", "Nobody", "score-library-1", "library")) == "library"
+    assert difficulty_basis(piece("Obscure study no. 9", "Nobody", "heuristic-0.3", "openopus")) == "estimate"
+    assert difficulty_basis(piece("Obscure study no. 9", "Nobody", "claude-opus-5", "openopus")) == "generated"

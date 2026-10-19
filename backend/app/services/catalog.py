@@ -88,6 +88,8 @@ def difficulty_basis(piece) -> str:
     model = getattr(piece, "metadata_generation_model", None) or ""
     if model.startswith("heuristic"):
         return "estimate"
+    if model.startswith("score-library"):
+        return "library"
     if getattr(piece, "external_source", None) and model:
         return "generated"
     return "catalogue"

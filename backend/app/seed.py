@@ -394,7 +394,8 @@ async def seed_catalog_detail() -> None:
         library = await seed_score_library(session)
         print(
             f"score library: {library['created']} pieces added, {library['enriched']} existing pieces given "
-            f"analysed passages, {library['skipped']} already present"
+            f"analysed passages, {library['skipped']} already present; withdrawn sources: {library['withdrawn']} pieces "
+            f"re-estimated, {library['passages_removed']} passages and {library['pieces_removed']} pieces removed"
         )
         knowledge = await refresh_catalog_knowledge(session)
         print(

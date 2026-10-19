@@ -271,13 +271,88 @@ def genre_for(title: str, genres: dict[str, Genre]) -> Optional[Genre]:
     return None
 
 
+def parent_ref(entry: dict) -> str:
+    return f"work:{entry['id'].rsplit('-', 1)[0]}"
+
+
+def library_refs_in_use() -> tuple[set[str], set[str]]:
+    entries = load_library().get("entries", [])
+    return {entry["id"] for entry in entries}, {parent_ref(entry) for entry in entries if entry.get("parent") and entry.get("movement")}
+
+
+def is_withdrawn(piece: Piece, composer_name: Optional[str], current_ids: set[str], current_parents: set[str]) -> bool:
+    if piece.external_source == LIBRARY_SOURCE:
+        ref = piece.external_ref or ""
+        return ref not in (current_parents if ref.startswith("work:") else current_ids)
+    if piece.metadata_generation_model != LIBRARY_MODEL:
+        return False
+    return not find_entries(piece.title, composer_name, piece.catalog_number)
+
+
+async def withdraw_library_data(session: AsyncSession) -> dict[str, int]:
+    from app.models.models import PassageAssessment, PdfSubmission
+    from app.services.metadata_generator import METADATA_MODEL_HEURISTIC
+
+    counts = {"withdrawn": 0, "passages_removed": 0, "pieces_removed": 0}
+    current_ids, current_parents = library_refs_in_use()
+    pieces = (
+        await session.execute(
+            select(Piece)
+            .where((Piece.external_source == LIBRARY_SOURCE) | (Piece.metadata_generation_model == LIBRARY_MODEL))
+            .options(selectinload(Piece.composer))
+        )
+    ).scalars().all()
+    stale = [piece for piece in pieces if is_withdrawn(piece, piece.composer.name if piece.composer else None, current_ids, current_parents)]
+    if not stale:
+        return counts
+    ids = [piece.id for piece in stale]
+    used = set((await session.execute(select(RepertoireEntry.piece_id).where(RepertoireEntry.piece_id.in_(ids)))).scalars().all())
+    uploaded = set(
+        (
+            await session.execute(
+                select(RepertoireEntry.piece_id)
+                .join(PdfSubmission, PdfSubmission.repertoire_entry_id == RepertoireEntry.id)
+                .where(RepertoireEntry.piece_id.in_(ids))
+            )
+        ).scalars().all()
+    )
+    assessed = select(PassageAssessment.passage_id)
+    stale.sort(key=lambda piece: (piece.external_ref or "").startswith("work:"))
+    for piece in stale:
+        if piece.external_source == LIBRARY_SOURCE and piece.id not in used:
+            await session.flush()
+            has_children = (await session.execute(select(Piece.id).where(Piece.parent_piece_id == piece.id).limit(1))).first() is not None
+            if not has_children:
+                await session.delete(piece)
+                counts["pieces_removed"] += 1
+                continue
+        if piece.id not in uploaded:
+            passages = (
+                await session.execute(
+                    select(Passage).where(
+                        Passage.piece_id == piece.id,
+                        Passage.source == PassageSource.ANALYZER,
+                        Passage.id.not_in(assessed),
+                    )
+                )
+            ).scalars().all()
+            for passage in passages:
+                await session.delete(passage)
+            counts["passages_removed"] += len(passages)
+        piece.metadata_generation_model = METADATA_MODEL_HEURISTIC
+        counts["withdrawn"] += 1
+    await session.flush()
+    return counts
+
+
 async def seed_score_library(session: AsyncSession) -> dict[str, int]:
     from app.services.metadata_generator import GRADE_BY_BAND
     from app.services.piece_knowledge import fill_composer
 
+    withdrawn = await withdraw_library_data(session)
     library = load_library()
     entries = library.get("entries", [])
-    counts = {"created": 0, "enriched": 0, "skipped": 0}
+    counts = {"created": 0, "enriched": 0, "skipped": 0, **withdrawn}
     if not entries:
         return counts
     techniques = {t.name: t for t in (await session.execute(select(Technique))).scalars().all()}
@@ -388,9 +463,9 @@ async def seed_score_library(session: AsyncSession) -> dict[str, int]:
 
     for (composer_name, parent_title), members in groups.items():
         members.sort(key=lambda e: e["movement"][0])
-        parent_ref = f"work:{members[0]['id'].rsplit('-', 1)[0]}"
-        if parent_ref in library_refs or all(m["id"] in claimed for m in members):
-            existing_parent = library_refs.get(parent_ref)
+        group_ref = parent_ref(members[0])
+        if group_ref in library_refs or all(m["id"] in claimed for m in members):
+            existing_parent = library_refs.get(group_ref)
             if existing_parent is not None:
                 for entry in members:
                     owner = claimed_by.get(entry["id"])
@@ -405,7 +480,7 @@ async def seed_score_library(session: AsyncSession) -> dict[str, int]:
         await fill_composer(session, composer, eras)
         catalog = members[0].get("catalog")
         parent_display = f"{parent_title}, {catalog}" if catalog and catalog not in parent_title else parent_title
-        parent_entry = {**members[0], "id": parent_ref, "duration_sec": sum(int(m.get("duration_sec") or 0) for m in members)}
+        parent_entry = {**members[0], "id": group_ref, "duration_sec": sum(int(m.get("duration_sec") or 0) for m in members)}
         parent = make_piece(parent_entry, composer, title=parent_display, difficulty=library_difficulty(members))
         parent.key_signature = members[0].get("key")
         session.add(parent)

@@ -54,7 +54,7 @@ def test_analyser_finds_the_octave_bars():
 
 def test_library_ships_with_real_passages():
     entries = load_library()["entries"]
-    assert len(entries) > 500
+    assert len(entries) > 150
     with_passages = [entry for entry in entries if entry["passages"]]
     assert len(with_passages) / len(entries) > 0.9
     for entry in entries[:50]:
@@ -68,11 +68,10 @@ def test_library_ships_with_real_passages():
     ("title", "composer", "expected"),
     [
         ("12 Études, op. 10: No. 1 in C major", "Frédéric Chopin", "Étude in C major"),
-        ("Piano Sonata no. 14 in C-sharp minor, op. 27 no. 2: III. Presto agitato", "Ludwig van Beethoven", "III. Presto agitato"),
-        ("Das Wohltemperierte Klavier I, BWV 846: Fuge", "Johann Sebastian Bach", "Fugue in C major"),
+        ("Piano Sonata no. 2 in B-flat minor, op. 35: III. Marche funèbre", "Frédéric Chopin", "Op. 35: III"),
         ("Mazurkas, op. 17: No. 4 in A minor", "Frédéric Chopin", "Mazurka in A minor"),
-        ("Harmonies du soir", "Franz Liszt", "Harmonies du soir"),
-        ("Maple Leaf Rag", "Scott Joplin", "Maple Leaf Rag"),
+        ("Nocturnes, op. 9: No. 2 in E-flat major", "Frédéric Chopin", "Nocturne in E-flat major"),
+        ("Ballade no. 1 in G minor, op. 23", "Frédéric Chopin", "Ballade in G minor"),
     ],
 )
 def test_imported_titles_find_their_library_entry(title, composer, expected):
@@ -82,8 +81,23 @@ def test_imported_titles_find_their_library_entry(title, composer, expected):
 
 
 def test_whole_sonata_brings_every_movement():
-    found = find_entries("Piano Sonata no. 14 in C-sharp minor, op. 27 no. 2", "Ludwig van Beethoven")
-    assert [entry["movement"][0] for entry in found] == [1, 2, 3]
+    found = find_entries("Piano Sonata no. 2 in B-flat minor, op. 35", "Frédéric Chopin")
+    assert [entry["movement"][0] for entry in found] == [1, 2, 3, 4]
+
+
+def test_library_only_ships_commercially_licensed_sources():
+    library = load_library()
+    sources = library["sources"]
+    assert sources and all(source["commercial"] for source in sources.values())
+    assert all("NC" not in source["license"] for source in sources.values())
+    assert all(source.get("attribution") for source in sources.values())
+    assert {entry["source"] for entry in library["entries"]} <= set(sources)
+
+
+def test_works_from_withdrawn_sources_have_no_library_data():
+    assert find_entries("Piano Sonata no. 14 in C-sharp minor, op. 27 no. 2", "Ludwig van Beethoven") == []
+    assert find_entries("Maple Leaf Rag", "Scott Joplin") == []
+    assert find_entries("Das Wohltemperierte Klavier I, BWV 846: Fuge", "Johann Sebastian Bach") == []
 
 
 def test_no_false_match_on_shared_generic_title():
@@ -173,5 +187,63 @@ async def test_uploaded_musicxml_marks_passages_on_the_piece(tmp_path):
             await session.execute(delete(RepertoireEntry).where(RepertoireEntry.user_id == ids[0]))
             await session.execute(delete(User).where(User.id == ids[0]))
             await session.execute(delete(Piece).where(Piece.id == ids[1]))
+            await session.commit()
+        await engine.dispose()
+
+
+def test_withdrawn_library_pieces_are_detected():
+    from app.models.models import Piece
+    from app.services.score_library import LIBRARY_MODEL, LIBRARY_SOURCE, is_withdrawn, library_refs_in_use
+
+    ids, parents = library_refs_in_use()
+    kept = find_entries("Ballade no. 1 in G minor, op. 23", "Frédéric Chopin")[0]
+    assert not is_withdrawn(Piece(title=kept["title"], external_source=LIBRARY_SOURCE, external_ref=kept["id"]), None, ids, parents)
+    assert is_withdrawn(Piece(title="Pathétique", external_source=LIBRARY_SOURCE, external_ref="beethoven-op-13-1"), None, ids, parents)
+    assert is_withdrawn(Piece(title="Sonata", external_source=LIBRARY_SOURCE, external_ref="work:beethoven-op-13"), None, ids, parents)
+    assert not is_withdrawn(Piece(title="Sonata No. 2", external_source=LIBRARY_SOURCE, external_ref="work:chopin-op-35"), None, ids, parents)
+    moonlight = Piece(title="Piano Sonata No. 14, Op. 27 No. 2", metadata_generation_model=LIBRARY_MODEL)
+    assert is_withdrawn(moonlight, "Ludwig van Beethoven", ids, parents)
+    nocturne = Piece(title="Nocturne in E-flat major, Op. 9 No. 2", metadata_generation_model=LIBRARY_MODEL)
+    assert not is_withdrawn(nocturne, "Frédéric Chopin", ids, parents)
+    assert not is_withdrawn(Piece(title="Moonlight", metadata_generation_model="heuristic-0.3"), "Ludwig van Beethoven", ids, parents)
+
+
+@pytest.mark.skipif(not TEST_DB, reason="set PIANO_TEST_DATABASE_URL to a disposable, migrated database to run")
+async def test_seed_withdraws_data_from_removed_sources():
+    import uuid
+    from decimal import Decimal
+
+    from sqlalchemy import delete, select
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.models.models import Passage, PassageSource, Piece
+    from app.services.score_library import LIBRARY_MODEL, LIBRARY_SOURCE, withdraw_library_data
+
+    engine = create_async_engine(TEST_DB)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    tag = uuid.uuid4().hex[:8]
+    async with factory() as session:
+        orphan = Piece(title=f"Withdrawn sonata {tag}", external_source=LIBRARY_SOURCE, external_ref=f"withdrawn-{tag}-1", metadata_generation_model=LIBRARY_MODEL)
+        enriched = Piece(title=f"Imported study {tag}", metadata_generation_model=LIBRARY_MODEL, difficulty_score=Decimal("70"))
+        session.add_all([orphan, enriched])
+        await session.flush()
+        session.add(Passage(piece_id=enriched.id, start_measure=1, end_measure=4, label="Octave passage", source=PassageSource.ANALYZER))
+        session.add(Passage(piece_id=enriched.id, start_measure=9, end_measure=12, label="Teacher note", source=PassageSource.USER))
+        await session.commit()
+        ids = (orphan.id, enriched.id)
+    try:
+        async with factory() as session:
+            counts = await withdraw_library_data(session)
+            await session.commit()
+            assert counts["pieces_removed"] >= 1 and counts["passages_removed"] >= 1
+        async with factory() as session:
+            assert await session.get(Piece, ids[0]) is None
+            piece = await session.get(Piece, ids[1])
+            assert piece.metadata_generation_model.startswith("heuristic")
+            sources = (await session.execute(select(Passage.source).where(Passage.piece_id == ids[1]))).scalars().all()
+            assert sources == [PassageSource.USER]
+    finally:
+        async with factory() as session:
+            await session.execute(delete(Piece).where(Piece.id.in_(ids)))
             await session.commit()
         await engine.dispose()

@@ -379,9 +379,10 @@ Piece histories fetched from Wikipedia are shown with a link to the article and 
 
 Piano playback uses the Salamander Grand Piano V3 samples by Alexander Holm (CC BY 3.0).
 Technique examples in onboarding are real passages from the First Editions of Fryderyk Chopin's
-Music (Fryderyk Chopin Institute, CC BY 4.0), the ASAP dataset (CC BY-NC-SA 4.0) and
-Bernd Krueger's Classical Piano MIDI (CC BY-SA 3.0 DE). See `tools/excerpts/README.md` for how
-the library is built and checked, and the licence note before any commercial release.
+Music (Fryderyk Chopin Institute, CC BY 4.0) and Bernd Krueger's Classical Piano MIDI (CC BY-SA).
+The analysed score library is measured from the same Chopin first editions. Every source allows
+commercial use: [LICENSES.md](LICENSES.md) lists each one and what its licence requires, and the
+in-app Credits page (Settings → Credits) carries the attributions.
 
 ## Deploying
 

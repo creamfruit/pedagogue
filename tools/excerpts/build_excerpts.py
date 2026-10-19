@@ -16,11 +16,10 @@ import music21 as m21
 from music21.musicxml.m21ToXml import GeneralObjectExporter
 
 sys.path.insert(0, os.path.dirname(__file__))
-from specs import ASAP, CHOPIN_FE, CPM, EXCERPTS
+from specs import CHOPIN_FE, CPM, EXCERPTS
 from xmlslice import slice_xml
 
 _KERN_CACHE = {}
-_XML_CACHE = {}
 
 
 def kern_xml(path):
@@ -28,13 +27,6 @@ def kern_xml(path):
         score = m21.converter.parse(path, format="humdrum")
         _KERN_CACHE[path] = GeneralObjectExporter(score).parse()
     return _KERN_CACHE[path]
-
-
-def raw_xml(path):
-    if path not in _XML_CACHE:
-        with open(path, "rb") as handle:
-            _XML_CACHE[path] = handle.read()
-    return _XML_CACHE[path]
 
 
 def load_midi(path):
@@ -100,14 +92,20 @@ def spell(midi, spelling):
     return m21.pitch.Pitch(f"{name}{octave}")
 
 
+def midi_bars(spec):
+    offset = spec["source"].get("bar_offset", 0)
+    return spec["bars"][0] + offset, spec["bars"][1] + offset
+
+
 def cpm_score(spec):
     path = os.path.join(ROOTS[CPM], spec["source"]["path"])
-    first, last = spec["bars"]
+    first, last = midi_bars(spec)
     notes, bars, tpb = midi_bar_notes(path, first, last)
     score = m21.stream.Score()
     tracks = sorted({note[4] for note in notes})
     chosen = (tracks[0],) if spec["source"].get("tracks") == "right" or len(tracks) == 1 else (tracks[0], tracks[-1])
     spelling = spec["source"].get("spelling")
+    scale = spec["source"].get("scale", 1)
     for track in chosen:
         part = m21.stream.Part()
         own = [note for note in notes if note[4] == track]
@@ -115,15 +113,15 @@ def cpm_score(spec):
         for bar in range(first, last + 1):
             start_tick, numerator, denominator = bars[bar - 1]
             bar_start = (start_tick - bars[first - 1][0]) / tpb
-            bar_length = 4 * numerator / denominator
-            measure = m21.stream.Measure(number=bar)
+            bar_length = 4 * numerator / denominator * scale
+            measure = m21.stream.Measure(number=bar - spec["source"].get("bar_offset", 0))
             if bar == first:
                 measure.insert(0, m21.clef.TrebleClef() if track == tracks[0] else (m21.clef.TrebleClef() if mean >= 60 else m21.clef.BassClef()))
                 measure.insert(0, m21.key.KeySignature(spec["source"].get("key_sharps", 0)))
-                measure.insert(0, m21.meter.TimeSignature(f"{numerator}/{denominator}"))
+                measure.insert(0, m21.meter.TimeSignature(spec["source"].get("meter") or f"{numerator}/{denominator}"))
             onsets = collections.OrderedDict()
             for offset, length, pitch, velocity, _ in sorted(own):
-                local = quantize(offset - bar_start)
+                local = quantize((offset - bar_start) * scale)
                 if 0 <= local < bar_length:
                     onsets.setdefault(local, []).append(pitch)
             keys = list(onsets)
@@ -144,9 +142,7 @@ def cpm_score(spec):
 def excerpt_xml(spec):
     kind = spec["source"]["kind"]
     first, last = spec["bars"]
-    if kind == ASAP:
-        data = slice_xml(raw_xml(os.path.join(ROOTS[ASAP], spec["source"]["path"])), first, last)
-    elif kind == CHOPIN_FE:
+    if kind == CHOPIN_FE:
         data = slice_xml(kern_xml(os.path.join(ROOTS[CHOPIN_FE], spec["source"]["path"])), first, last)
     elif kind == CPM:
         data = cpm_score(spec)
@@ -265,20 +261,21 @@ def bar_ends_for(score):
 
 def events_from_midi(spec):
     path = os.path.join(ROOTS[CPM], spec["source"]["path"])
-    first, last = spec["bars"]
+    first, last = midi_bars(spec)
     notes, bars, tpb = midi_bar_notes(path, first, last)
     tracks = sorted({note[4] for note in notes})
     if spec["source"].get("tracks") == "right":
         notes = [note for note in notes if note[4] == tracks[0]]
+    scale = spec["source"].get("scale", 1)
     result = []
     for offset, length, pitch, velocity, track in notes:
         hand = "R" if track == tracks[0] else "L"
-        result.append([round(offset, 4), round(length, 4), pitch, velocity, hand, round(length, 4)])
+        result.append([round(offset * scale, 4), round(length * scale, 4), pitch, velocity, hand, round(length * scale, 4)])
     if spec.get("pedal") == "bar":
         ends = []
         for bar in range(first, last + 1):
             start_tick, numerator, denominator = bars[bar - 1]
-            ends.append((start_tick - bars[first - 1][0]) / tpb + 4 * numerator / denominator)
+            ends.append(((start_tick - bars[first - 1][0]) / tpb + 4 * numerator / denominator) * scale)
         for item in result:
             later = [end for end in ends if end > item[0] + 1e-6]
             if later:
@@ -291,7 +288,7 @@ def pitch_bag(kind, path, first, last):
     if kind == CPM:
         notes, _, _ = midi_bar_notes(os.path.join(ROOTS[CPM], path), first, last)
         return collections.Counter(pitch for _, pitch in {(round(note[0] * 24) / 24, note[2]) for note in notes})
-    data = slice_xml(raw_xml(os.path.join(ROOTS[kind], path)) if kind == ASAP else kern_xml(os.path.join(ROOTS[kind], path)), first, last)
+    data = slice_xml(kern_xml(os.path.join(ROOTS[kind], path)), first, last)
     score = parse_xml_bytes(data)
     seen = set()
     for part in score.parts:
@@ -315,7 +312,8 @@ def verify(spec, primary_bag):
     first, last = spec["bars"]
     for other in spec.get("verify", []):
         best = (0.0, 0)
-        for shift in range(-4, 5):
+        base = other.get("bar_offset", 0)
+        for shift in range(base - 4, base + 5):
             try:
                 bag = pitch_bag(other["kind"], other["path"], first + shift, last + shift)
             except Exception:
@@ -328,9 +326,8 @@ def verify(spec, primary_bag):
 
 
 SOURCE_LABELS = {
-    ASAP: {"name": "ASAP dataset (Foscarin et al.)", "license": "CC BY-NC-SA 4.0", "url": "https://github.com/fosfrancesco/asap-dataset"},
     CHOPIN_FE: {"name": "First Editions of Fryderyk Chopin's Music, Fryderyk Chopin Institute", "license": "CC BY 4.0", "url": "https://chopinscores.org"},
-    CPM: {"name": "Classical Piano MIDI, Bernd Krueger (via ACPAS)", "license": "CC BY-SA 3.0 DE", "url": "http://www.piano-midi.de"},
+    CPM: {"name": "Classical Piano MIDI, Bernd Krueger", "license": "CC BY-SA (Germany)", "url": "http://www.piano-midi.de"},
 }
 
 
@@ -362,7 +359,7 @@ def build(out_dir):
             "tempo": spec["tempo"],
             "time_signature": signature.ratioString if signature else None,
             "note": spec["note"],
-            "source": {"kind": spec["source"]["kind"], "edition": spec["source"]["edition"]},
+            "source": {key: value for key, value in {"kind": spec["source"]["kind"], "edition": spec["source"]["edition"], "original": spec["source"].get("original")}.items() if value},
             "checks": checks,
             "manual_check": spec.get("manual_check"),
             "score": f"{spec['id']}.musicxml",
@@ -380,10 +377,9 @@ ROOTS = {}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--asap", required=True)
     parser.add_argument("--chopin", required=True)
     parser.add_argument("--cpm", required=True)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
-    ROOTS.update({ASAP: args.asap, CHOPIN_FE: args.chopin, CPM: args.cpm})
+    ROOTS.update({CHOPIN_FE: args.chopin, CPM: args.cpm})
     build(args.out)

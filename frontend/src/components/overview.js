@@ -24,6 +24,7 @@ const FILLER = [/^This metadata was generated automatically/i, /sits within the 
 const BASIS_NOTES = {
   reference: "Placed on Pedagogue's reference ladder, where Für Elise is 30, Chopin's first Ballade 70 and Islamey 98.",
   estimate: "Estimated from the composer and the form. It will move once the piece is placed on the ladder.",
+  library: "Measured from the notes of a first edition in the score library, calibrated against the same ladder.",
   generated: "Rated by the catalogue assistant against the same ladder: Für Elise 30, Ballade No. 1 70, Islamey 98.",
 };
 
