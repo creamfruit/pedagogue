@@ -7,6 +7,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from app.core.config import settings
 from app.core.database import session_scope
+from app.core.monitoring import init_sentry
 from app.models.models import ProcessingStatus, SubmissionType
 from app.services.analyzers import analyzer_for, load_submission
 
@@ -158,7 +159,12 @@ def _redis_settings():
     return RedisSettings.from_dsn(settings.redis_url)
 
 
+async def _on_startup(ctx) -> None:
+    init_sentry("worker")
+
+
 class WorkerSettings:
+    on_startup = _on_startup
     redis_settings = _redis_settings()
     functions = [_arq_job(name) for name in JOBS]
     cron_jobs = _cron_jobs()

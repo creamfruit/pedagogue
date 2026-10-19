@@ -326,8 +326,12 @@ For **each** type answer:
 - Used for tracking: **No**
 
 Do not tick Location, Contacts, Health and Fitness, Financial Info,
-Browsing History, Search History, Purchases, Diagnostics, Usage Data or any
-advertising data: the app collects none of them. (When audio is turned on,
+Browsing History, Search History, Purchases, Usage Data or any advertising
+data: the app collects none of them. Tick **Diagnostics > Crash Data** only
+if the app build sets `VITE_SENTRY_DSN`: Used for **App Functionality**,
+linked to the user's identity **Yes** (the account ID), used for tracking
+**No**. On Google Play, the matching answer is **App info and performance >
+Crash logs**, collected, not shared, for App functionality. (When audio is turned on,
 add **User Content > Audio Data**, App Functionality, linked, not tracking.)
 
 ### 8b. Google Play: Data safety

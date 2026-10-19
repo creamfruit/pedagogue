@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.core.database import dispose_engine, ping
+from app.core.monitoring import init_sentry
 from app.core.rate_limit import validate_limits
 
 logging.basicConfig(
@@ -21,6 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("piano")
 validate_limits()
+init_sentry("api")
 
 
 @asynccontextmanager

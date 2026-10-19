@@ -151,6 +151,9 @@ The store listings and the privacy policy link should use your own domain.
 | `RATE_LIMIT_REGISTER` | no | `20/hour` | New accounts per client IP. |
 | `RATE_LIMIT_UPLOAD` | no | `30/hour` | Score and recording uploads per user. |
 | `RATE_LIMIT_PDF_ANALYSIS` | no | `20/hour` | PDF scores sent to be read per user, counting uploads and retries. |
+| `SENTRY_DSN` | no | empty | Error reports from the API and worker. Empty turns reporting off. See "Error reporting" below. |
+| `SENTRY_ENVIRONMENT` | no | `ENVIRONMENT` | Environment name on reports. |
+| `SENTRY_TRACES_SAMPLE_RATE` | no | `0` | Share of requests sent as performance traces, 0 to 1. |
 | `MUSICBRAINZ_CONTACT` | no | repo URL | Sent in the MusicBrainz user agent. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | no | `10080` | Seven days. |
 | `RUN_RELEASE_ON_START` | no | `false` | `true` runs migrations and seed on container start (free plans). |
@@ -162,6 +165,35 @@ The store listings and the privacy policy link should use your own domain.
 | `VITE_API_URL` | yes | Absolute backend origin, no trailing slash, no `/api/v1`. `npm run build` stops with an error without it. |
 | `VITE_API_PREFIX` | no | Defaults to `/api/v1`. |
 | `NODE_VERSION` | yes on Render | `22`. |
+| `VITE_SENTRY_DSN` | no | Error reports from the website and apps. Empty turns reporting off, and the privacy policy then says no crash reporting is used. |
+| `VITE_RELEASE` | no | Version tag on frontend error reports. |
+
+## Error reporting
+
+Errors from the API, the worker, the website and the apps go to Sentry when a DSN is set. Leave
+`SENTRY_DSN` and `VITE_SENTRY_DSN` empty and nothing is sent.
+
+1. In Sentry, create two projects: **Python (FastAPI)** for the backend and **Browser JavaScript**
+   for the website and apps.
+2. In each project, open **Settings > Security & Privacy** and turn on **Prevent Storing of IP
+   Addresses** and **Data Scrubber**. The privacy policy promises the first.
+3. Set the backend DSN as `SENTRY_DSN` on `pedagogue-api` (the worker copies it), and the browser
+   DSN as `VITE_SENTRY_DSN` on `pedagogue-web` and in the mobile build environment. Redeploy, and
+   rebuild the apps.
+
+Before anything is sent, both sides strip personal data:
+- **The user:** only the account ID is kept.
+- **The request:** bodies, cookies, query strings and the `Authorization`, cookie and forwarding
+  headers are dropped.
+- **Everything else:** email addresses and bearer tokens are masked, and any field named like a
+  password, token, secret or email is replaced.
+
+Stack-frame variables are not collected. The backend scrubbing is in
+`backend/app/core/monitoring.py`, the frontend's in `frontend/src/lib/monitoring.js`, and both are
+covered by tests.
+
+If an app build sets `VITE_SENTRY_DSN`, declare crash data in the store privacy forms
+(`MOBILE_RELEASE.md`, section 8).
 
 ## Running the production image yourself
 

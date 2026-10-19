@@ -58,6 +58,8 @@ services:
         value: "500"
       - key: RATE_LIMIT_STORAGE
         value: redis
+      - key: SENTRY_DSN
+        sync: false
 
   - type: worker
     name: pedagogue-worker
@@ -115,6 +117,11 @@ services:
           type: web
           name: pedagogue-api
           envVarKey: ANTHROPIC_API_KEY
+      - key: SENTRY_DSN
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: SENTRY_DSN
 
   - type: keyvalue
     name: pedagogue-redis
@@ -134,6 +141,8 @@ services:
       - key: NODE_VERSION
         value: "22"
       - key: VITE_API_URL
+        sync: false
+      - key: VITE_SENTRY_DSN
         sync: false
     headers:
       - path: /sw.js

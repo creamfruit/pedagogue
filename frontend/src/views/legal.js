@@ -1,8 +1,10 @@
 import { el } from "../lib/dom.js";
+import { monitoringDsn } from "../lib/monitoring.js";
 import { store } from "../lib/store.js";
 
-const UPDATED = "28 September 2026";
+const UPDATED = "19 October 2026";
 const CONTACT = (import.meta.env.VITE_CONTACT_EMAIL || "").trim();
+const ERROR_REPORTS = Boolean(monitoringDsn());
 
 function restoreTitle() {
   document.title = "Piano Pedagogue";
@@ -61,7 +63,11 @@ export function privacyView(outlet) {
             [el("strong", {}, "Progress: "), "XP, gold, levels, achievements, cosmetics you buy with in-app gold, streaks, and your daily roulette results."],
             [el("strong", {}, "Friends: "), "friend requests and friendships. Friends can see your constellation if your visibility setting allows it."],
           ]),
-          p("We do not collect your location, contacts, photos, advertising identifiers or device identifiers, and we do not use analytics or crash-reporting services.")
+          p(
+            ERROR_REPORTS
+              ? "We do not collect your location, contacts, photos, advertising identifiers or device identifiers, and we do not use analytics."
+              : "We do not collect your location, contacts, photos, advertising identifiers or device identifiers, and we do not use analytics or crash-reporting services."
+          )
         ),
         section(
           "Uploads",
@@ -79,7 +85,10 @@ export function privacyView(outlet) {
             ],
             "When you search for a piece that isn't in our catalogue, your search words are sent to MusicBrainz, the public music encyclopaedia.",
             "The app's fonts are loaded from Google Fonts, which sees your IP address when it serves them.",
-          ])
+            ERROR_REPORTS
+              ? "When something breaks, an error report goes to Sentry so we can fix it: what failed, where in the app, your browser or device type, and your account ID. Email addresses, passwords, sign-in tokens, file contents and form contents are removed before a report is sent, and Sentry is set not to store IP addresses."
+              : null,
+          ].filter(Boolean))
         ),
         section(
           "On your device",

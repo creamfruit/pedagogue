@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.monitoring import identify
 from app.core.security import tokens
 from app.core.storage import Storage, storage
 from app.models.models import User
@@ -42,6 +43,7 @@ async def get_current_user(session: SessionDep, token: TokenDep) -> User:
     user = await session.get(User, user_id)
     if user is None:
         raise CREDENTIALS_ERROR
+    identify(user.id)
     return user
 
 

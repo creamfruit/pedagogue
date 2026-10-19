@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     rate_limit_upload: str = "30/hour"
     rate_limit_pdf_analysis: str = "20/hour"
 
+    sentry_dsn: str = ""
+    sentry_environment: str = ""
+    sentry_traces_sample_rate: float = 0.0
+
     @model_validator(mode="before")
     @classmethod
     def normalise_database_urls(cls, values: dict) -> dict:

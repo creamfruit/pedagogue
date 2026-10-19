@@ -8,6 +8,7 @@ import { isNative } from "./lib/platform.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
 import { startCosmos } from "./lib/cosmos.js";
+import { identifyUser, startMonitoring } from "./lib/monitoring.js";
 import { canGoBack, goBack, navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
 import { loginView, registerView } from "./views/auth.js";
 import { onboardingView } from "./views/onboarding.js";
@@ -260,6 +261,7 @@ async function registerServiceWorker() {
 }
 
 async function boot() {
+  startMonitoring();
   await setupNative({ onBack: handleBack, onResume: sendQueuedNotes });
   startCosmos();
   wireNetworkStatus();
@@ -274,6 +276,7 @@ async function boot() {
   });
 
   subscribe(setChrome);
+  subscribe((state) => identifyUser(state.user?.id));
   await store.hydrate();
   setChrome();
 
