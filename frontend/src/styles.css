@@ -4361,3 +4361,54 @@ body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.keyboard-connection {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.keyboard-message {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.keyboard-message-problem {
+  padding: var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--warn, var(--accent));
+  border-radius: var(--radius);
+  background: var(--bg-sunk);
+  color: var(--text-dim);
+}
+
+.keyboard-device select {
+  max-width: min(100%, 320px);
+}
+
+.keyboard-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.keyboard-note {
+  min-width: 3.5ch;
+  font-size: 22px;
+  color: var(--text-dim);
+  transition: color var(--dur) var(--ease);
+}
+
+.keyboard-note.down {
+  color: var(--accent);
+}
+
+.keyboard-recent {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.keyboard-panel [hidden] {
+  display: none !important;
+}

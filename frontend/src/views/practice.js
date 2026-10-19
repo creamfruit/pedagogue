@@ -6,6 +6,7 @@ import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { renderNotation } from "../lib/notation.js";
 import { playNotation } from "../lib/synth.js";
+import { keyboardPanel } from "./keyboardPractice.js";
 import { ambientToggle, metronomePanel } from "./practiceTools.js";
 
 function sightReadingForge() {
@@ -128,12 +129,14 @@ export async function practiceView(outlet) {
   const page = el("div", { class: "practice-page" });
   const metronome = metronomePanel();
   const ambient = ambientToggle(page);
+  const keyboard = keyboardPanel();
   page.append(
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Practice"), ambient.node),
     el(
       "div",
       { class: "stack" },
       el("div", { class: "practice-top" }, sessionHost, metronome.node),
+      keyboard.node,
       sightReadingForge(),
       el("div", { class: "grid" }, loadHost, historyHost)
     )
@@ -142,6 +145,7 @@ export async function practiceView(outlet) {
   const dispose = () => {
     metronome.dispose();
     ambient.dispose();
+    keyboard.dispose();
   };
 
   async function renderSession() {
