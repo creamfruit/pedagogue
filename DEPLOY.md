@@ -142,7 +142,15 @@ The store listings and the privacy policy link should use your own domain.
 | `ANTHROPIC_MODEL` | no | `claude-opus-5` | |
 | `ANTHROPIC_EFFORT` | no | `medium` | |
 | `ADMIN_EMAILS` | no | none | Comma separated. |
-| `MAX_UPLOAD_MB` | no | `50` | |
+| `MAX_UPLOAD_MB` | no | `50` | Largest single upload. |
+| `UPLOAD_QUOTA_MB` | no | `500` | Total stored uploads per user, measured from the bucket. An upload that would pass it is refused with a 413. |
+| `RATE_LIMIT_ENABLED` | no | `true` | `false` turns every limit below off. |
+| `RATE_LIMIT_STORAGE` | no | `memory` | `redis` counts in `REDIS_URL`, so limits hold across API instances and restarts. The blueprint sets `redis`. If Redis is unreachable the API counts in memory instead. |
+| `RATE_LIMIT_SIGN_IN` | no | `10/minute` | Sign-in attempts per email address. Limits read `count/period`, where the period is `second`, `minute`, `hour` or `day`, optionally with a multiple (`5/15minutes`). |
+| `RATE_LIMIT_SIGN_IN_IP` | no | `50/minute` | Sign-in attempts per client IP. |
+| `RATE_LIMIT_REGISTER` | no | `20/hour` | New accounts per client IP. |
+| `RATE_LIMIT_UPLOAD` | no | `30/hour` | Score and recording uploads per user. |
+| `RATE_LIMIT_PDF_ANALYSIS` | no | `20/hour` | PDF scores sent to be read per user, counting uploads and retries. |
 | `MUSICBRAINZ_CONTACT` | no | repo URL | Sent in the MusicBrainz user agent. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | no | `10080` | Seven days. |
 | `RUN_RELEASE_ON_START` | no | `false` | `true` runs migrations and seed on container start (free plans). |

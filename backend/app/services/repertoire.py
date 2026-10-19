@@ -331,7 +331,7 @@ class SubmissionService(BaseService):
         kind = score_format(stream, filename)
         default_name = {"pdf": "score.pdf", "musicxml": "score.musicxml", "mxl": "score.mxl", "midi": "score.mid"}[kind]
         key = self.storage.build_key(user.id, SCORE_KINDS[kind], filename or default_name)
-        self.storage.save(stream, key)
+        self.storage.save_for_user(stream, key, user.id)
         submission = PdfSubmission(
             repertoire_entry_id=entry_id,
             storage_key=key,
@@ -356,7 +356,7 @@ class SubmissionService(BaseService):
         entry = await self.repertoire.get(user, entry_id)
         ensure_media_type(content_type, AUDIO_TYPES, "an audio recording")
         key = self.storage.build_key(user.id, "recordings", filename or "take.wav")
-        self.storage.save(stream, key)
+        self.storage.save_for_user(stream, key, user.id)
         submission = AudioSubmission(
             repertoire_entry_id=entry_id,
             storage_key=key,

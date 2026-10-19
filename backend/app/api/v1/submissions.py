@@ -15,7 +15,8 @@ from fastapi import (
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
-from app.core.storage import SCORE_MEDIA, FileTooLarge, UnsupportedMediaType, storage
+from app.core.rate_limit import enforce
+from app.core.storage import SCORE_MEDIA, FileTooLarge, QuotaExceeded, UnsupportedMediaType, score_format, storage
 from app.schemas.schemas import (
     AnalysisDetail,
     SubmissionAccepted,
@@ -28,6 +29,14 @@ from app.services.repertoire import SubmissionService
 from app.workers.queue import get_queue
 
 router = APIRouter(tags=["submissions"])
+
+
+DIGITAL_SCORE_SUFFIXES = (".musicxml", ".xml", ".mxl", ".mid", ".midi", ".kar")
+
+
+def is_pdf_score(submission) -> bool:
+    key = (getattr(submission, "storage_key", None) or "").lower()
+    return key.startswith("scores/") and not getattr(submission, "musicxml_key", None) and not key.endswith(DIGITAL_SCORE_SUFFIXES)
 
 
 def poll_url(submission_id: uuid.UUID) -> str:
@@ -97,6 +106,13 @@ async def submit_pdf(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
 ) -> SubmissionAccepted:
+    await enforce("upload", str(user.id))
+    try:
+        kind = score_format(file.file, file.filename)
+    except UnsupportedMediaType as exc:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc))
+    if kind == "pdf":
+        await enforce("pdf_analysis", str(user.id))
     service = SubmissionService(session)
     try:
         submission = await service.add_pdf(
@@ -106,7 +122,7 @@ async def submit_pdf(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except UnsupportedMediaType as exc:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc))
-    except FileTooLarge as exc:
+    except (FileTooLarge, QuotaExceeded) as exc:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc))
     await enqueue(session, submission.id, background_tasks)
     return accepted(submission, background_tasks)
@@ -134,6 +150,7 @@ async def submit_audio(
     tempo_curve: Optional[str] = Form(default=None),
 ) -> SubmissionAccepted:
     audio_guard()
+    await enforce("upload", str(user.id))
     service = SubmissionService(session)
     try:
         parsed_curve = json.loads(tempo_curve) if tempo_curve else None
@@ -155,7 +172,7 @@ async def submit_audio(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except UnsupportedMediaType as exc:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc))
-    except FileTooLarge as exc:
+    except (FileTooLarge, QuotaExceeded) as exc:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc))
     await enqueue(session, submission.id, background_tasks)
     return accepted(submission, background_tasks)
@@ -234,6 +251,12 @@ async def retry_submission(
     background_tasks: BackgroundTasks,
 ) -> SubmissionAccepted:
     service = SubmissionService(session)
+    try:
+        existing = await service.get(user, submission_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if is_pdf_score(existing):
+        await enforce("pdf_analysis", str(user.id))
     try:
         submission = await service.requeue(user, submission_id)
     except LookupError as exc:

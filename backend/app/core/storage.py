@@ -22,12 +22,16 @@ class UnsupportedMediaType(StorageError):
     pass
 
 
+class QuotaExceeded(StorageError):
+    pass
+
+
 class Storage(ABC):
     def __init__(self, max_bytes: Optional[int] = None) -> None:
         self.max_bytes = max_bytes or settings.max_upload_bytes
 
     @abstractmethod
-    def save(self, stream: BinaryIO, key: str) -> int: ...
+    def save(self, stream: BinaryIO, key: str, limit: Optional[int] = None) -> int: ...
 
     @abstractmethod
     def open(self, key: str) -> BinaryIO: ...
@@ -44,6 +48,25 @@ class Storage(ABC):
     @abstractmethod
     def delete_prefix(self, prefix: str) -> int: ...
 
+    @abstractmethod
+    def usage_bytes(self, prefix: str) -> int: ...
+
+    def user_usage(self, user_id: uuid.UUID) -> int:
+        return sum(self.usage_bytes(f"{kind}/{user_id}/") for kind in USER_FILE_KINDS)
+
+    def save_for_user(self, stream: BinaryIO, key: str, user_id: uuid.UUID) -> int:
+        quota = settings.upload_quota_bytes
+        remaining = quota - self.user_usage(user_id)
+        message = f"you have used your {quota // (1024 * 1024)} MB of upload space; delete old scores or recordings to make room"
+        if remaining <= 0:
+            raise QuotaExceeded(message)
+        if remaining >= self.max_bytes:
+            return self.save(stream, key)
+        try:
+            return self.save(stream, key, limit=remaining)
+        except FileTooLarge:
+            raise QuotaExceeded(message) from None
+
     def delete_user_files(self, user_id: uuid.UUID) -> int:
         return sum(self.delete_prefix(f"{kind}/{user_id}/") for kind in USER_FILE_KINDS)
 
@@ -52,8 +75,8 @@ class Storage(ABC):
         token = uuid.uuid4().hex
         return f"{kind}/{user_id}/{token}{suffix}"
 
-    def guard_size(self, size: int) -> None:
-        if size > self.max_bytes:
+    def guard_size(self, size: int, limit: Optional[int] = None) -> None:
+        if size > min(self.max_bytes, limit or self.max_bytes):
             raise FileTooLarge(f"file exceeds {self.max_bytes // (1024 * 1024)} MB limit")
 
 
@@ -69,9 +92,10 @@ class LocalStorage(Storage):
             raise StorageError("key escapes storage root")
         return target
 
-    def save(self, stream: BinaryIO, key: str) -> int:
+    def save(self, stream: BinaryIO, key: str, limit: Optional[int] = None) -> int:
         target = self.path_for(key)
         target.parent.mkdir(parents=True, exist_ok=True)
+        ceiling = min(self.max_bytes, limit or self.max_bytes)
         written = 0
         digest = hashlib.sha256()
         with target.open("wb") as handle:
@@ -80,7 +104,7 @@ class LocalStorage(Storage):
                 if not chunk:
                     break
                 written += len(chunk)
-                if written > self.max_bytes:
+                if written > ceiling:
                     handle.close()
                     target.unlink(missing_ok=True)
                     raise FileTooLarge(f"file exceeds {self.max_bytes // (1024 * 1024)} MB limit")
@@ -112,6 +136,12 @@ class LocalStorage(Storage):
         shutil.rmtree(target, ignore_errors=True)
         return removed
 
+    def usage_bytes(self, prefix: str) -> int:
+        target = self.path_for(prefix)
+        if target == self.root or not target.is_dir():
+            return 0
+        return sum(path.stat().st_size for path in target.rglob("*") if path.is_file())
+
     def url(self, key: str) -> str:
         return f"file://{self.path_for(key)}"
 
@@ -139,9 +169,10 @@ class S3Storage(Storage):
             )
         return self._client
 
-    def save(self, stream: BinaryIO, key: str) -> int:
-        body = stream.read()
-        self.guard_size(len(body))
+    def save(self, stream: BinaryIO, key: str, limit: Optional[int] = None) -> int:
+        ceiling = min(self.max_bytes, limit or self.max_bytes)
+        body = stream.read(ceiling + 1)
+        self.guard_size(len(body), limit)
         self.client.put_object(Bucket=self.bucket, Key=key, Body=body)
         return len(body)
 
@@ -172,6 +203,13 @@ class S3Storage(Storage):
                 self.client.delete_objects(Bucket=self.bucket, Delete={"Objects": batch, "Quiet": True})
                 removed += len(batch)
         return removed
+
+    def usage_bytes(self, prefix: str) -> int:
+        total = 0
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            total += sum(int(item.get("Size", 0)) for item in page.get("Contents", []))
+        return total
 
     def url(self, key: str) -> str:
         return self.client.generate_presigned_url(

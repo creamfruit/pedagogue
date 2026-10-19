@@ -54,6 +54,10 @@ services:
         sync: false
       - key: MAX_UPLOAD_MB
         value: "50"
+      - key: UPLOAD_QUOTA_MB
+        value: "500"
+      - key: RATE_LIMIT_STORAGE
+        value: redis
 
   - type: worker
     name: pedagogue-worker

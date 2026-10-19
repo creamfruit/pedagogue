@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     embedding_dim: int = 64
 
     max_upload_mb: int = 50
+    upload_quota_mb: int = 500
+
+    rate_limit_enabled: bool = True
+    rate_limit_storage: Literal["memory", "redis"] = "memory"
+    rate_limit_sign_in: str = "10/minute"
+    rate_limit_sign_in_ip: str = "50/minute"
+    rate_limit_register: str = "20/hour"
+    rate_limit_upload: str = "30/hour"
+    rate_limit_pdf_analysis: str = "20/hour"
 
     @model_validator(mode="before")
     @classmethod
@@ -116,6 +125,10 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024
+
+    @property
+    def upload_quota_bytes(self) -> int:
+        return self.upload_quota_mb * 1024 * 1024
 
     @model_validator(mode="after")
     def persistent_secret(self) -> "Settings":

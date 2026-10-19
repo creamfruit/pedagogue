@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.deps import CurrentUser, SessionDep, StorageDep, get_user_by_email
+from app.core.rate_limit import client_ip, enforce
 from app.core.security import hasher, tokens
 from app.models.models import User
 from app.schemas.schemas import AccountDeletion, Token, UserLogin, UserRead, UserRegister
@@ -13,7 +14,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-async def register(payload: UserRegister, session: SessionDep) -> Token:
+async def register(payload: UserRegister, session: SessionDep, request: Request) -> Token:
+    await enforce("register", client_ip(request))
     existing = await get_user_by_email(session, payload.email)
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="that email is already registered")
@@ -31,7 +33,10 @@ async def register(payload: UserRegister, session: SessionDep) -> Token:
 async def login(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: SessionDep,
+    request: Request,
 ) -> Token:
+    await enforce("sign_in_ip", client_ip(request))
+    await enforce("sign_in", form.username.strip().lower())
     user = await get_user_by_email(session, form.username)
     if user is None or not hasher.verify(form.password, user.password_hash):
         raise HTTPException(
@@ -43,7 +48,9 @@ async def login(
 
 
 @router.post("/token", response_model=Token)
-async def token_login(payload: UserLogin, session: SessionDep) -> Token:
+async def token_login(payload: UserLogin, session: SessionDep, request: Request) -> Token:
+    await enforce("sign_in_ip", client_ip(request))
+    await enforce("sign_in", payload.email.strip().lower())
     user = await get_user_by_email(session, payload.email)
     if user is None or not hasher.verify(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="incorrect email or password")

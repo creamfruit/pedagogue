@@ -13,12 +13,14 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.core.database import dispose_engine, ping
+from app.core.rate_limit import validate_limits
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("piano")
+validate_limits()
 
 
 @asynccontextmanager
@@ -53,7 +55,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    expose_headers=["Content-Disposition"],
+    expose_headers=["Content-Disposition", "Retry-After"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
