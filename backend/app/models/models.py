@@ -797,6 +797,7 @@ class PracticeMode(str, enum.Enum):
     FORGE_DRILL = "forge_drill"
     SIGHT_READING = "sight_reading"
     POLYRHYTHM = "polyrhythm"
+    KEYBOARD = "keyboard"
 
 
 class LoadSeverity(str, enum.Enum):
@@ -983,6 +984,60 @@ class SessionItem(UUIDPrimaryKeyMixin, Base):
                 factor = sum(weights) / len(weights)
         self.load_units = Decimal(str(round(minutes * factor, 2)))
         return self.load_units
+
+
+class KeyboardAttempt(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "keyboard_attempts"
+    __table_args__ = (
+        CheckConstraint("mode IN ('scored', 'wait', 'free')", name="mode_known"),
+        CheckConstraint("start_bar IS NULL OR end_bar IS NULL OR end_bar >= start_bar", name="bar_order"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    repertoire_entry_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repertoire_entries.id", ondelete="CASCADE"), index=True)
+    passage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("passages.id", ondelete="SET NULL"), index=True)
+    session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("practice_sessions.id", ondelete="SET NULL"), index=True)
+    mode: Mapped[str] = mapped_column(String(10))
+    start_bar: Mapped[Optional[int]] = mapped_column(Integer)
+    end_bar: Mapped[Optional[int]] = mapped_column(Integer)
+    tempo_bpm: Mapped[Optional[int]] = mapped_column(SmallInteger)
+    achieved_tempo_bpm: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 1))
+    expected: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    correct: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    wrong: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    missing: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    played: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    accuracy: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 4))
+    timing: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
+    evenness: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
+    overall: Mapped[Decimal] = mapped_column(Numeric(4, 1), default=0, server_default="0")
+    clean: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    late: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    early: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    duration_sec: Mapped[Decimal] = mapped_column(Numeric(7, 1), default=0, server_default="0")
+
+    bars: Mapped[list[KeyboardAttemptBar]] = relationship(
+        back_populates="attempt", cascade="all, delete-orphan", order_by="KeyboardAttemptBar.bar"
+    )
+
+
+class KeyboardAttemptBar(Base):
+    __tablename__ = "keyboard_attempt_bars"
+
+    attempt_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("keyboard_attempts.id", ondelete="CASCADE"), primary_key=True)
+    bar: Mapped[int] = mapped_column(Integer, primary_key=True)
+    expected: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    correct: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    wrong: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    missing: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    accuracy: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 4))
+    tempo_bpm: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 1))
+    timing_error_ms: Mapped[Optional[Decimal]] = mapped_column(Numeric(6, 1))
+    timing_score: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
+    late: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    early: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    attempt: Mapped[KeyboardAttempt] = relationship(back_populates="bars")
 
 
 class LoadAlert(UUIDPrimaryKeyMixin, Base):

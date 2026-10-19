@@ -6,6 +6,7 @@ from app.api.v1 import (
     economy,
     events,
     export,
+    keyboard,
     onboarding,
     performance,
     practice,
@@ -23,6 +24,7 @@ api_router.include_router(repertoire.router)
 api_router.include_router(submissions.router)
 api_router.include_router(progression.router)
 api_router.include_router(practice.router)
+api_router.include_router(keyboard.router)
 api_router.include_router(coach.router)
 api_router.include_router(performance.router)
 api_router.include_router(economy.router)

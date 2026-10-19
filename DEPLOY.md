@@ -152,6 +152,7 @@ The store listings and the privacy policy link should use your own domain.
 | `RATE_LIMIT_REGISTER` | no | `20/hour` | New accounts per client IP. |
 | `RATE_LIMIT_UPLOAD` | no | `30/hour` | Score and recording uploads per user. |
 | `RATE_LIMIT_PDF_ANALYSIS` | no | `20/hour` | PDF scores sent to be read per user, counting uploads and retries. |
+| `RATE_LIMIT_KEYBOARD_ATTEMPT` | no | `120/hour` | Keyboard runs saved per user. |
 | `BACKUP_BUCKET` | yes for backups | `STORAGE_BUCKET` | Bucket the nightly dump goes to. Use its own bucket. |
 | `BACKUP_RETENTION_DAYS` | no | `30` | Dumps older than this are deleted, but the newest `BACKUP_KEEP_MIN` (7) are always kept. |
 | `SENTRY_DSN` | no | empty | Error reports from the API and worker. Empty turns reporting off. See "Error reporting" below. |

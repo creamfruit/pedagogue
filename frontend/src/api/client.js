@@ -232,6 +232,10 @@ export const api = {
   importExternalPiece: (payload) => request("/catalog/external/import", { method: "POST", body: payload }),
   piece: (id) => request(`/catalog/pieces/${id}`),
   pieceOverview: (id) => request(`/catalog/pieces/${id}/overview`),
+  keyboardReference: (entryId) => request(`/keyboard/entries/${entryId}/reference`),
+  keyboardNotes: (entryId, params) => request(`/keyboard/entries/${entryId}/reference/notes`, { params }),
+  keyboardLadder: (entryId, params) => request(`/keyboard/entries/${entryId}/ladder`, { params }),
+  keyboardAttempt: (entryId, body) => request(`/keyboard/entries/${entryId}/attempts`, { method: "POST", body }),
   linkSummary: (sourceId, targetId, linkType) =>
     request(`/catalog/links/${sourceId}/${targetId}`, { params: { link_type: linkType } }),
   searchComposers: (q) => request("/catalog/composers", { params: { q } }),

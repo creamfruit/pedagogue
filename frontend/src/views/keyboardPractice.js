@@ -1,5 +1,6 @@
 import { el, sectionBlock } from "../lib/dom.js";
 import { createMidiController, noteName } from "../lib/midi.js";
+import { keyboardSession } from "./keyboardSession.js";
 
 const STATUS_LABEL = {
   unsupported: ["Not available", "pill-bad"],
@@ -76,10 +77,13 @@ function connectionBlock(controller, onChange) {
   };
 }
 
-export function keyboardPanel({ controller = createMidiController() } = {}) {
+export function keyboardPanel({ controller = createMidiController(), api, createRun } = {}) {
   const body = el("div", { class: "keyboard-body" });
-  const link = connectionBlock(controller, () => {});
-  body.append(link.node);
+  const session = keyboardSession({ controller, api, createRun });
+  const link = connectionBlock(controller, (state) => {
+    session.node.hidden = state.status === "unsupported";
+  });
+  body.append(link.node, session.node);
 
   const node = sectionBlock(
     "Keyboard practice",
@@ -91,7 +95,9 @@ export function keyboardPanel({ controller = createMidiController() } = {}) {
     node,
     controller,
     body,
+    session,
     dispose: () => {
+      session.dispose();
       link.dispose();
       controller.dispose();
     },

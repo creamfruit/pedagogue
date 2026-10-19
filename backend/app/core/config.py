@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     rate_limit_register: str = "20/hour"
     rate_limit_upload: str = "30/hour"
     rate_limit_pdf_analysis: str = "20/hour"
+    rate_limit_keyboard_attempt: str = "120/hour"
 
     sentry_dsn: str = ""
     sentry_environment: str = ""
