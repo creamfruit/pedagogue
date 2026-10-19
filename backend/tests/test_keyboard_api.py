@@ -261,3 +261,18 @@ async def test_saving_runs_is_rate_limited(world, monkeypatch):
         body = {"mode": "free", "tempo_bpm": 90, "notes": []}
         codes = [(await http.post(f"/api/v1/keyboard/entries/{world.ids.bare}/attempts", json=body)).status_code for _ in range(3)]
     assert codes == [201, 201, 429]
+
+
+@needs_db
+async def test_free_play_climbs_its_own_ladder_without_a_reference(world):
+    async with client() as http:
+        played = [{"t": i * 375.0, "midi": 60 + i % 4} for i in range(16)]
+        body = {"mode": "free", "tempo_bpm": 80, "notes": played}
+        first = (await http.post(f"/api/v1/keyboard/entries/{world.ids.bare}/attempts", json=body)).json()
+        assert first["clean"] is True and first["ladder"]["raised"] is False
+        second = (await http.post(f"/api/v1/keyboard/entries/{world.ids.bare}/attempts", json=body)).json()
+        assert second["ladder"]["raised"] is True and second["ladder"]["recommended_tempo"] == 84
+        state = (await http.get(f"/api/v1/keyboard/entries/{world.ids.bare}/ladder", params={"mode": "free"})).json()
+        assert state["recommended_tempo"] == 84
+        scored = (await http.get(f"/api/v1/keyboard/entries/{world.ids.entry}/ladder", params={"mode": "scored", "start_bar": 1, "end_bar": 3})).json()
+        assert scored["current_tempo"] is None

@@ -108,16 +108,42 @@ describe("choosing a piece", () => {
     expect(node.textContent).toContain("Start at ♩ = 60");
   });
 
-  it("says plainly when there is no reference and will not start", async () => {
+  it("says plainly when there is no reference and offers only free play", async () => {
     const message = "Note checking isn't available for this piece because it has no MusicXML or MIDI reference.";
     const { node, runs, api } = setup({ reference: { available: false, message, passages: [], target_tempo_bpm: 100, beats_per_bar: 4 } });
     await choose(node);
     expect(node.textContent).toContain(message);
-    expect(startButton(node).disabled).toBe(true);
+    const modes = [...node.querySelector('select[aria-label="How to play"]').options].map((option) => option.textContent);
+    expect(modes).toEqual(["Free play against the metronome"]);
+    expect(node.querySelector('select[aria-label="Passage"]').closest(".keyboard-options").hidden).toBe(true);
+    expect(node.querySelector('select[aria-label="Beats per bar"]').hidden).toBe(false);
+    expect(startButton(node).disabled).toBe(false);
     startButton(node).click();
     await flush();
-    expect(runs).toHaveLength(0);
     expect(api.keyboardNotes).not.toHaveBeenCalled();
+    expect(runs).toHaveLength(1);
+    expect(runs[0].config).toMatchObject({ mode: "free", notes: [], tempoBpm: 60, beatsPerBar: 4, countInBeats: 4, maxSeconds: 120 });
+  });
+
+  it("offers free play alongside the scored modes when there is a reference", async () => {
+    const { node, api } = setup();
+    await choose(node);
+    const mode = node.querySelector('select[aria-label="How to play"]');
+    expect([...mode.options].map((option) => option.value)).toEqual(["scored", "wait", "free"]);
+    mode.value = "free";
+    mode.dispatchEvent(new Event("change"));
+    await flush();
+    expect(node.querySelector('select[aria-label="Passage"]').closest(".keyboard-options").hidden).toBe(true);
+    expect(api.keyboardLadder).toHaveBeenLastCalledWith("e1", { mode: "free" });
+    expect(node.textContent).toContain("it can't check notes");
+  });
+
+  it("does not offer the scored modes if the piece it was last on had no reference", async () => {
+    const { node, api } = setup();
+    await choose(node);
+    api.keyboardReference.mockResolvedValueOnce({ available: false, message: "No reference.", passages: [], target_tempo_bpm: 100, beats_per_bar: 4 });
+    await choose(node, "e2");
+    expect([...node.querySelector('select[aria-label="How to play"]').options].map((option) => option.value)).toEqual(["free"]);
   });
 });
 
@@ -252,6 +278,63 @@ describe("finishing a run", () => {
     expect(node.textContent).toContain("This run wasn't saved");
     expect(node.textContent).toContain("you appear to be offline");
     expect(node.querySelectorAll(".heat-cell")).toHaveLength(1);
+  });
+
+  it("saves a free-play run without bars and says note checking is unavailable", async () => {
+    const attempt = attemptResult({
+      mode: "free",
+      expected: 0,
+      correct: 0,
+      missing: 0,
+      accuracy: null,
+      clean: true,
+      played: 16,
+      timing: 94,
+      evenness: 88,
+      achieved_tempo_bpm: null,
+      note_checking: false,
+      message: "Note checking isn't available for free play. This only measures how evenly you play against the metronome.",
+      bars: [{ bar: 1, expected: 0, correct: 0, wrong: 0, missing: 0, accuracy: null, timing_score: 96, timing_error_ms: 8 }, { bar: 2, expected: 0, correct: 0, wrong: 0, missing: 0, accuracy: null, timing_score: 40, timing_error_ms: 70 }],
+      ladder: { recommended_tempo: 60, current_tempo: 60, clean_streak: 1, runs_needed: 2, target_tempo: 100, raised: false, reached_target: false },
+    });
+    const { node, runs, api } = setup({ attempt, reference: { available: false, message: "No reference.", passages: [], target_tempo_bpm: 100, beats_per_bar: 4 } });
+    await choose(node);
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish({ mode: "free", notes: [{ t: 0, midi: 60 }, { t: 300, midi: 62 }], tempoBpm: 60, beatsPerBar: 4, countInBeats: 4, latencyMs: 0, durationSec: 9, local: null });
+    await flush();
+    expect(api.keyboardAttempt).toHaveBeenCalledWith("e1", {
+      mode: "free",
+      start_bar: null,
+      end_bar: null,
+      passage_id: null,
+      beats_per_bar: 4,
+      count_in_beats: 4,
+      latency_ms: 0,
+      duration_sec: 9,
+      notes: [{ t: 0, midi: 60 }, { t: 300, midi: 62 }],
+      tempo_bpm: 60,
+    });
+    const shown = node.querySelector(".keyboard-result").textContent;
+    expect(shown).toContain("Note checking isn't available");
+    expect(shown).toContain("Timing");
+    expect(shown).toContain("Evenness");
+    expect(shown).not.toContain("Notes right");
+    expect(shown).not.toMatch(/null|undefined/);
+    expect([...node.querySelectorAll(".heat-cell")].map((cell) => cell.className.match(/heat-(good|fair|bad)/)[1])).toEqual(["good", "bad"]);
+  });
+
+  it("still explains free play when the run could not be saved", async () => {
+    const { node, runs } = setup({ failSave: true, reference: { available: false, message: "No reference.", passages: [], target_tempo_bpm: 100, beats_per_bar: 4 } });
+    await choose(node);
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish({ mode: "free", notes: [{ t: 0, midi: 60 }], tempoBpm: 60, beatsPerBar: 4, countInBeats: 4, latencyMs: 0, durationSec: 4, local: null });
+    await flush();
+    const shown = node.querySelector(".keyboard-result").textContent;
+    expect(shown).toContain("This run wasn't saved");
+    expect(shown).toContain("Note checking isn't available");
+    expect(shown).not.toMatch(/null|undefined/);
   });
 
   it("can be stopped part-way through", async () => {

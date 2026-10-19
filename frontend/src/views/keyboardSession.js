@@ -6,10 +6,15 @@ import { noteName } from "../lib/midi.js";
 import { notify } from "../lib/toast.js";
 
 const LATENCY_KEY = "pp.midi-latency";
+const FREE_MAX_SECONDS = 120;
+const BEAT_CHOICES = [2, 3, 4, 5, 6, 7, 9, 12];
+
+export const NOTE_CHECKING_UNAVAILABLE = "Note checking isn't available for this piece, so free play can only measure how evenly you play against the metronome.";
 
 const MODES = [
   ["scored", "Play along with the metronome", "Scores the notes, the timing against the tempo and how even you are."],
   ["wait", "Wait for me", "The music only moves on when you play the right notes. No timing."],
+  ["free", "Free play against the metronome", "Play anything you like. This only measures how evenly you keep time with the click; it can't check notes."],
 ];
 
 function storedLatency() {
@@ -43,18 +48,21 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   let busy = false;
   let manualTempo = false;
   let ladder = null;
+  let chosenMode = null;
 
   const entrySelect = el("select", { "aria-label": "Piece to practise" }, el("option", { value: "" }, "Loading your pieces…"));
   const info = el("p", { class: "keyboard-message faint", role: "status", hidden: true });
-  const modeSelect = el("select", { "aria-label": "How to play" }, ...MODES.map(([value, label]) => el("option", { value }, label)));
+  const modeSelect = el("select", { "aria-label": "How to play" });
   const modeHint = el("p", { class: "faint", style: "margin:0;font-size:12px" });
   const passageSelect = el("select", { "aria-label": "Passage" });
   const fromInput = el("input", { type: "number", min: "0", value: "1", class: "keyboard-bar", "aria-label": "First bar" });
   const toInput = el("input", { type: "number", min: "0", value: "4", class: "keyboard-bar", "aria-label": "Last bar" });
   const barsRow = el("div", { class: "row" }, el("span", { class: "faint", style: "font-size:12px" }, "Bars"), fromInput, el("span", { class: "faint" }, "to"), toInput);
+  const passageBox = el("div", { class: "keyboard-options" }, passageSelect, barsRow);
   const tempoInput = el("input", { type: "number", min: "20", max: "400", value: "80", class: "keyboard-bar", "aria-label": "Tempo in beats per minute" });
   const ladderBox = el("input", { type: "checkbox", checked: true });
   const ladderNote = el("p", { class: "faint keyboard-ladder", style: "margin:0;font-size:12px" });
+  const beatsSelect = el("select", { "aria-label": "Beats per bar" }, ...BEAT_CHOICES.map((beats) => el("option", { value: beats, selected: beats === 4 || null }, `${beats} beats per bar`)));
   const countIn = el("select", { "aria-label": "Count-in beats" }, ...[0, 2, 3, 4, 6, 8].map((beats) => el("option", { value: beats, selected: beats === 4 || null }, beats ? `${beats} beat count-in` : "No count-in")));
   const latency = el("input", { type: "number", min: "-200", max: "300", step: "5", value: String(storedLatency()), class: "keyboard-bar", "aria-label": "Keyboard delay in milliseconds" });
   const start = el("button", { type: "button", class: "btn" }, "Start");
@@ -74,19 +82,34 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     )
   );
   const advancedBox = el("div", {}, advanced.button, advanced.region);
-  const controls = [entrySelect, modeSelect, passageSelect, fromInput, toInput, tempoInput, ladderBox, countIn, latency];
-
-  function setBusy(value) {
-    busy = value;
-    controls.forEach((control) => {
-      control.disabled = value;
-    });
-    start.hidden = value;
-    stop.hidden = !value;
-  }
+  const controls = [entrySelect, modeSelect, passageSelect, fromInput, toInput, tempoInput, ladderBox, beatsSelect, countIn, latency];
 
   function currentMode() {
     return modeSelect.value;
+  }
+
+  function hasReference() {
+    return Boolean(reference && reference.available);
+  }
+
+  function canStart() {
+    if (!entrySelect.value || !reference) return false;
+    return currentMode() === "free" || hasReference();
+  }
+
+  function refreshControls() {
+    start.disabled = busy || !canStart();
+    controls.forEach((control) => {
+      control.disabled = busy;
+    });
+    modeSelect.disabled = busy || !reference;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    start.hidden = value;
+    stop.hidden = !value;
+    refreshControls();
   }
 
   function range() {
@@ -97,36 +120,41 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     return { start: pick.start_bar, end: pick.end_bar, passage: pick.id };
   }
 
-  function showRange() {
-    const custom = reference && passageSelect.value === "custom";
-    barsRow.hidden = !custom;
+  function offeredModes() {
+    return hasReference() ? MODES : MODES.filter(([value]) => value === "free");
+  }
+
+  function syncModes() {
+    const offered = offeredModes();
+    modeSelect.replaceChildren(...offered.map(([value, label]) => el("option", { value }, label)));
+    modeSelect.value = offered.some(([value]) => value === chosenMode) ? chosenMode : offered[0][0];
   }
 
   function describeMode() {
-    modeHint.textContent = MODES.find(([value]) => value === currentMode())?.[2] || "";
-    tempoRow.hidden = currentMode() === "wait";
-    advancedBox.hidden = currentMode() === "wait";
-    ladderNote.hidden = currentMode() === "wait";
-  }
-
-  function ready() {
-    return Boolean(reference && reference.available);
-  }
-
-  function refreshControls() {
-    const usable = ready();
-    start.disabled = !usable;
-    passageSelect.disabled = !usable || busy;
-    modeSelect.disabled = !usable || busy;
+    const mode = currentMode();
+    modeHint.textContent = MODES.find(([value]) => value === mode)?.[2] || "";
+    passageBox.hidden = mode === "free" || !hasReference();
+    barsRow.hidden = passageSelect.value !== "custom";
+    tempoRow.hidden = mode === "wait";
+    ladderNote.hidden = mode === "wait";
+    advancedBox.hidden = mode === "wait";
+    beatsSelect.hidden = mode !== "free";
   }
 
   async function refreshLadder() {
     ladder = null;
     ladderNote.textContent = "";
-    if (!ready() || currentMode() === "wait") return;
-    const { start: from, end: to } = range();
+    const mode = currentMode();
+    if (!reference || mode === "wait") return;
+    const params = { mode };
+    if (mode !== "free") {
+      if (!hasReference()) return;
+      const { start: from, end: to } = range();
+      params.start_bar = from;
+      params.end_bar = to;
+    }
     try {
-      ladder = await api.keyboardLadder(entrySelect.value, { mode: currentMode(), start_bar: from, end_bar: to });
+      ladder = await api.keyboardLadder(entrySelect.value, params);
     } catch {
       return;
     }
@@ -154,39 +182,47 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     reference = null;
     notesInfo = null;
     manualTempo = false;
+    ladder = null;
+    ladderNote.textContent = "";
     if (!entrySelect.value) {
       info.hidden = true;
+      syncModes();
+      describeMode();
       refreshControls();
       return;
     }
     info.hidden = false;
+    info.className = "keyboard-message faint";
     info.textContent = "Looking for note data for this piece…";
     refreshControls();
     try {
       reference = await api.keyboardReference(entrySelect.value);
     } catch (error) {
       info.textContent = error.detail || "Couldn't load this piece for keyboard practice.";
+      syncModes();
+      describeMode();
       refreshControls();
       return;
     }
-    if (!reference.available) {
-      info.textContent = reference.message;
+    syncModes();
+    if (hasReference()) {
+      info.hidden = true;
+      passageSelect.replaceChildren(
+        el("option", { value: "whole" }, `The whole piece (bars ${reference.first_bar}–${reference.last_bar})`),
+        ...reference.passages.map((pick) => el("option", { value: String(pick.id) }, `${pick.label} (bars ${pick.start_bar}–${pick.end_bar})`)),
+        el("option", { value: "custom" }, "Choose bars…")
+      );
+      fromInput.value = String(reference.first_bar);
+      toInput.value = String(Math.min(reference.first_bar + 3, reference.last_bar));
+      beatsSelect.value = BEAT_CHOICES.includes(reference.beats_per_bar) ? String(reference.beats_per_bar) : "4";
+    } else {
+      info.className = "keyboard-message keyboard-message-problem";
+      info.textContent = reference.message || NOTE_CHECKING_UNAVAILABLE;
       passageSelect.replaceChildren();
-      refreshControls();
-      return;
     }
-    info.hidden = true;
-    passageSelect.replaceChildren(
-      el("option", { value: "whole" }, `The whole piece (bars ${reference.first_bar}–${reference.last_bar})`),
-      ...reference.passages.map((pick) => el("option", { value: String(pick.id) }, `${pick.label} (bars ${pick.start_bar}–${pick.end_bar})`)),
-      el("option", { value: "custom" }, "Choose bars…")
-    );
-    fromInput.value = String(reference.first_bar);
-    toInput.value = String(Math.min(reference.first_bar + 3, reference.last_bar));
     tempoInput.value = String(Math.max(40, Math.round((reference.target_tempo_bpm * 0.6) / 2) * 2));
-    showRange();
-    refreshControls();
     describeMode();
+    refreshControls();
     await refreshLadder();
   }
 
@@ -197,6 +233,8 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     } else if (state.phase === "playing") {
       if (state.mode === "wait") {
         status.textContent = state.expected.length ? `Play ${state.expected.map(noteName).join(" + ")}` : "Finished";
+      } else if (state.mode === "free") {
+        status.textContent = `Keep time with the click. ${state.played} ${state.played === 1 ? "note" : "notes"} so far. Press Stop when you're done.`;
       } else {
         status.textContent = state.silent ? "Play now (no sound available, so the beat is silent)" : "Play now";
       }
@@ -205,37 +243,46 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
 
   function summaryMessage(data) {
     if (data.mode === "wait") return data.clean ? "You got through it without a slip." : `${data.wrong} wrong ${data.wrong === 1 ? "key" : "keys"} on the way through.`;
+    if (data.mode === "free") {
+      if (data.timing === null || data.timing === undefined) return "Play a few more notes with the click and your timing will be measured.";
+      return data.clean ? "Steady and on the beat." : "Not steady enough yet. Aim to land each note right on a click, or an even fraction of one.";
+    }
     if (data.clean) return "A clean run: right notes, on the beat, and even.";
     return "Not clean yet. A clean run needs nearly every note right, close to the beat, and an even pulse.";
   }
 
+  function ladderLine(data) {
+    const state = data.ladder;
+    if (!state) return null;
+    if (state.raised) return `That is ${state.runs_needed} clean runs at ♩ = ${state.current_tempo}. Next run: ♩ = ${state.recommended_tempo}.`;
+    if (state.reached_target) return `Clean at the target tempo of ♩ = ${state.target_tempo}.`;
+    return `${state.clean_streak} of ${state.runs_needed} clean runs at ♩ = ${state.current_tempo}.`;
+  }
+
   function renderResult(data, { problem } = {}) {
     result.hidden = false;
-    const ladderLine = data.ladder
-      ? data.ladder.raised
-        ? `That is ${data.ladder.runs_needed} clean runs at ♩ = ${data.ladder.current_tempo}. Next run: ♩ = ${data.ladder.recommended_tempo}.`
-        : data.ladder.reached_target
-          ? `Clean at the target tempo of ♩ = ${data.ladder.target_tempo}.`
-          : `${data.ladder.clean_streak} of ${data.ladder.runs_needed} clean runs at ♩ = ${data.ladder.current_tempo}.`
-      : null;
+    const free = data.mode === "free";
     const parts = [
       el("div", { class: "row", style: "align-items:baseline;gap:var(--space-3)" }, el("span", { class: "stat", style: "font-size:34px" }, `${Math.round(data.overall)}`), el("span", { class: `pill ${data.clean ? "pill-ok" : "pill-warn"}` }, data.clean ? "Clean run" : "Keep going")),
+      free ? el("p", { class: "keyboard-message keyboard-message-problem" }, data.message || NOTE_CHECKING_UNAVAILABLE) : null,
       el("p", { style: "margin:0" }, summaryMessage(data)),
       el(
         "div",
         { class: "keyboard-stats" },
-        stat("Notes right", data.accuracy === null || data.accuracy === undefined ? "—" : percent(data.accuracy * 100), "%"),
+        free ? null : stat("Notes right", data.accuracy === null || data.accuracy === undefined ? "—" : percent(data.accuracy * 100), "%"),
         data.mode === "wait" ? null : stat("Timing", percent(data.timing), "%"),
         data.mode === "wait" ? null : stat("Evenness", percent(data.evenness), "%")
       ),
-      el(
-        "p",
-        { class: "faint", style: "margin:0;font-size:13px" },
-        `${data.correct} right, ${data.wrong} wrong, ${data.missing} missed` + (data.mode === "scored" ? `, ${data.late} late, ${data.early} early` : "") + (data.achieved_tempo_bpm ? `. You played at about ♩ = ${Math.round(data.achieved_tempo_bpm)}.` : ".")
-      ),
-      ladderLine ? el("p", { style: "margin:0" }, ladderLine) : null,
+      free
+        ? el("p", { class: "faint", style: "margin:0;font-size:13px" }, `${data.played} notes played, ${data.late} late and ${data.early} early against the click.`)
+        : el(
+            "p",
+            { class: "faint", style: "margin:0;font-size:13px" },
+            `${data.correct} right, ${data.wrong} wrong, ${data.missing} missed` + (data.mode === "scored" ? `, ${data.late} late, ${data.early} early` : "") + (data.achieved_tempo_bpm ? `. You played at about ♩ = ${Math.round(data.achieved_tempo_bpm)}.` : ".")
+          ),
+      ladderLine(data) ? el("p", { style: "margin:0" }, ladderLine(data)) : null,
       problem ? el("p", { class: "keyboard-message keyboard-message-problem" }, problem) : null,
-      el("div", { class: "row" }, el("button", { type: "button", class: "btn btn-small", onclick: () => begin() }, "Play again"))
+      el("div", { class: "row" }, el("button", { type: "button", class: "btn btn-small", onclick: () => begin() }, "Play again")),
     ];
     result.replaceChildren(...parts.filter(Boolean));
     strip.update(data.bars.map((item) => ({ ...item, pending: false })));
@@ -245,8 +292,8 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     status.textContent = "Saving your run…";
     const body = {
       mode: finished.mode,
-      start_bar: from,
-      end_bar: to,
+      start_bar: finished.mode === "free" ? null : from,
+      end_bar: finished.mode === "free" ? null : to,
       passage_id: passage,
       beats_per_bar: finished.beatsPerBar,
       count_in_beats: finished.countInBeats,
@@ -279,6 +326,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
           accuracy: local ? local.accuracy : null,
           timing: null,
           evenness: null,
+          played: finished.notes.length,
           correct: local ? local.correct : 0,
           wrong: local ? local.wrong : 0,
           missing: local ? local.missing : 0,
@@ -287,20 +335,15 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
           bars: local ? local.bars : [],
           ladder: null,
         },
-        { problem: `This run wasn't saved: ${error.detail || "the server couldn't be reached"}. The result above only counts the notes.` }
+        { problem: `This run wasn't saved: ${error.detail || "the server couldn't be reached"}.${finished.mode === "free" ? "" : " The result above only counts the notes."}` }
       );
     }
   }
 
   async function begin() {
-    if (busy || !ready()) return;
+    if (busy || !canStart()) return;
     if (controller.state.status !== "ready" || !controller.state.selectedId) {
       notify.error("Connect a MIDI keyboard first, then choose it from the list.");
-      return;
-    }
-    const { start: from, end: to, passage } = range();
-    if (!(from >= 0 && to >= from)) {
-      notify.error("The last bar can't come before the first.");
       return;
     }
     const mode = currentMode();
@@ -309,32 +352,44 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
       notify.error("Choose a tempo between 20 and 400.");
       return;
     }
+    let from = null;
+    let to = null;
+    let passage = null;
+    if (mode !== "free") {
+      ({ start: from, end: to, passage } = range());
+      if (!(from >= 0 && to >= from)) {
+        notify.error("The last bar can't come before the first.");
+        return;
+      }
+    }
     rememberLatency(Number(latency.value) || 0);
     result.hidden = true;
     setBusy(true);
-    status.textContent = "Loading the notes…";
-    try {
-      notesInfo = await api.keyboardNotes(entrySelect.value, { start_bar: from, end_bar: to });
-    } catch (error) {
-      setBusy(false);
-      refreshControls();
-      status.textContent = error.detail || "Couldn't load those bars.";
-      return;
+    notesInfo = null;
+    if (mode !== "free") {
+      status.textContent = "Loading the notes…";
+      try {
+        notesInfo = await api.keyboardNotes(entrySelect.value, { start_bar: from, end_bar: to });
+      } catch (error) {
+        setBusy(false);
+        status.textContent = error.detail || "Couldn't load those bars.";
+        return;
+      }
     }
     run = createRun({
       controller,
       mode,
-      notes: notesInfo.notes,
+      notes: notesInfo ? notesInfo.notes : [],
       tempoBpm: tempo,
-      beatsPerBar: notesInfo.beats_per_bar,
+      beatsPerBar: mode === "free" ? Number(beatsSelect.value) : notesInfo.beats_per_bar,
       countInBeats: Number(countIn.value),
       latencyMs: Number(latency.value) || 0,
+      maxSeconds: mode === "free" ? FREE_MAX_SECONDS : 600,
       onUpdate: paintState,
       onFinish: async (finished) => {
         run = null;
         await submit(finished, from, to, passage);
         setBusy(false);
-        refreshControls();
         describeMode();
       },
     });
@@ -343,13 +398,15 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
 
   entrySelect.addEventListener("change", loadEntry);
   passageSelect.addEventListener("change", () => {
-    showRange();
+    describeMode();
     manualTempo = false;
     refreshLadder();
   });
   [fromInput, toInput].forEach((input) => input.addEventListener("change", () => refreshLadder()));
   modeSelect.addEventListener("change", () => {
+    chosenMode = modeSelect.value;
     describeMode();
+    refreshControls();
     manualTempo = false;
     refreshLadder();
   });
@@ -368,21 +425,22 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     { class: "keyboard-session" },
     el("div", { class: "row" }, el("label", { class: "faint", style: "font-size:12px" }, "Piece"), entrySelect),
     info,
-    el("div", { class: "keyboard-options" }, modeSelect, modeHint, passageSelect, barsRow, tempoRow, ladderNote, advancedBox),
+    el("div", { class: "keyboard-options" }, modeSelect, modeHint, passageBox, beatsSelect, tempoRow, ladderNote, advancedBox),
     el("div", { class: "row" }, start, stop),
     status,
     strip.node,
     result
   );
 
+  syncModes();
   describeMode();
-  showRange();
   refreshControls();
 
   api
     .repertoire({ limit: 100 })
     .then((page) => {
-      const entries = [...page.items].sort((a, b) => Number(["learning", "polishing"].includes(b.status)) - Number(["learning", "polishing"].includes(a.status)));
+      const learning = (entry) => Number(["learning", "polishing"].includes(entry.status));
+      const entries = [...page.items].sort((a, b) => learning(b) - learning(a));
       entrySelect.replaceChildren(
         el("option", { value: "" }, entries.length ? "Choose a piece…" : "Add a piece to your repertoire first"),
         ...entries.map((entry) => el("option", { value: entry.id }, entry.piece.title))
