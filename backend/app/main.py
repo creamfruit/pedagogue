@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.core.database import dispose_engine, ping
+from app.core.health import health_report
 from app.core.monitoring import init_sentry
 from app.core.rate_limit import validate_limits
 
@@ -93,16 +94,13 @@ async def database_handler(request: Request, exc: SQLAlchemyError) -> JSONRespon
 
 
 @app.get("/health", tags=["system"])
-async def health() -> dict[str, object]:
-    try:
-        database_up = await ping()
-    except SQLAlchemyError:
-        database_up = False
-    return {
-        "status": "ok" if database_up else "degraded",
-        "environment": settings.environment,
-        "database": database_up,
-    }
+async def health() -> JSONResponse:
+    healthy, report = await health_report()
+    return JSONResponse(
+        status_code=status.HTTP_200_OK if healthy else status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=report,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/", tags=["system"])

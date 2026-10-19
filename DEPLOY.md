@@ -93,8 +93,8 @@ out.
 
 ## 4. Check it works
 
-1. `https://pedagogue-api.onrender.com/health` returns
-   `{"status": "ok", ..., "database": true}`.
+1. `https://pedagogue-api.onrender.com/health` returns 200 with
+   `{"status": "ok", ..., "checks": {"database": {"ok": true, ...}, "redis": {"ok": true, ...}}}`.
 2. `https://pedagogue-api.onrender.com/docs` lists the endpoints.
 3. Open the website, register, finish onboarding, open a piece and upload a
    PDF score. Its status should move from queued to done within a minute; if
@@ -290,7 +290,24 @@ docker run --rm -p 8000:8000 \
   pedagogue-api
 ```
 
-Start the worker from the same image with `docker run ... pedagogue-api scripts/worker.sh`.
+Start the worker from the same image with `docker run ... pedagogue-api scripts/worker.sh`, and
+take a backup with `docker run ... pedagogue-api scripts/backup.sh`.
+
+## Health check
+
+`GET /health` checks that the API can reach its dependencies:
+- **Database:** runs `SELECT 1`.
+- **Redis:** sends `PING`. This check runs only when something uses Redis (`JOB_QUEUE=redis` or
+  `RATE_LIMIT_STORAGE=redis`, as in the blueprint). Otherwise it is reported as skipped.
+
+Each check has a three-second timeout. The endpoint returns **200** with `"status": "ok"` when
+every check that runs passes. Otherwise it returns **503** with `"status": "unavailable"`, plus
+which check failed and how long each took. Error details go to the log, not the response.
+
+The blueprint sets it as `healthCheckPath` on `pedagogue-api`. Render holds a new deploy back
+until `/health` returns 200, so a release that cannot reach Postgres or Redis never takes traffic
+and the previous version keeps serving. Once live, an instance that keeps failing the check is
+restarted. On other hosts, point the platform's HTTP health check at `/health`.
 
 ## Other hosts
 
@@ -298,4 +315,5 @@ Nothing in the image is Render specific. On Fly.io, Railway or a VPS: build
 `backend/Dockerfile`, run `scripts/release.sh` once per release, run
 `scripts/start.sh` for the API (it listens on `$PORT`) and `scripts/worker.sh`
 for the worker, and provide Postgres 16 with the `vector` extension available
-plus any Redis 6 or newer.
+plus any Redis 6 or newer. Use `/health` as the HTTP health check, and run `scripts/backup.sh`
+nightly from the host's scheduler.
