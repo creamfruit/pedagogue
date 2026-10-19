@@ -408,7 +408,9 @@ function accountSection() {
       { class: "faint settings-legal" },
       el("a", { href: "/privacy", "data-link": true }, "Privacy policy"),
       " · ",
-      el("a", { href: "/terms", "data-link": true }, "Terms of use")
+      el("a", { href: "/terms", "data-link": true }, "Terms of use"),
+      " · ",
+      el("a", { href: "/credits", "data-link": true }, "Credits")
     )
   );
 }

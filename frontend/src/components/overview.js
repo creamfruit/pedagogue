@@ -351,7 +351,10 @@ function storyBody(overview) {
         { class: "lore-source faint" },
         "Source: ",
         el("a", { href: overview.reference_url, target: "_blank", rel: "noopener" }, overview.reference_label || "Wikipedia"),
-        " · CC BY-SA"
+        " · ",
+        el("a", { href: "https://creativecommons.org/licenses/by-sa/4.0/", target: "_blank", rel: "noopener" }, "CC BY-SA 4.0"),
+        " · ",
+        el("a", { href: "/credits", "data-link": true }, "credits")
       )
     );
   }

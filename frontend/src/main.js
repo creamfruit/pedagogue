@@ -22,6 +22,7 @@ import { rouletteView } from "./views/roulette.js";
 import { shopView } from "./views/shop.js";
 import { notFoundView } from "./views/notfound.js";
 import { privacyView, termsView } from "./views/legal.js";
+import { creditsView } from "./views/credits.js";
 
 const PUBLIC_ROUTES = new Set(["/login", "/register"]);
 const ROOT_ROUTES = new Set(["/", "/login", "/onboarding"]);
@@ -44,6 +45,7 @@ route("/login", loginView, { public: true });
 route("/register", registerView, { public: true });
 route("/privacy", privacyView, { open: true });
 route("/terms", termsView, { open: true });
+route("/credits", creditsView, { open: true });
 setNotFound(notFoundView);
 
 setGuard(({ pathname, entry }) => {
