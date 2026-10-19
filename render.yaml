@@ -60,6 +60,8 @@ services:
         value: redis
       - key: SENTRY_DSN
         sync: false
+      - key: BACKUP_BUCKET
+        sync: false
 
   - type: worker
     name: pedagogue-worker
@@ -117,6 +119,59 @@ services:
           type: web
           name: pedagogue-api
           envVarKey: ANTHROPIC_API_KEY
+      - key: SENTRY_DSN
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: SENTRY_DSN
+
+  - type: cron
+    name: pedagogue-backup
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: scripts/backup.sh
+    schedule: "0 3 * * *"
+    plan: starter
+    region: oregon
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pedagogue-db
+          property: connectionString
+      - key: BACKUP_BUCKET
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: BACKUP_BUCKET
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
+      - key: STORAGE_ENDPOINT
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_ENDPOINT
+      - key: STORAGE_BUCKET
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_BUCKET
+      - key: STORAGE_ACCESS_KEY
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_ACCESS_KEY
+      - key: STORAGE_SECRET_KEY
+        fromService:
+          type: web
+          name: pedagogue-api
+          envVarKey: STORAGE_SECRET_KEY
       - key: SENTRY_DSN
         fromService:
           type: web

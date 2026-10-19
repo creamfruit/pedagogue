@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     sentry_environment: str = ""
     sentry_traces_sample_rate: float = 0.0
 
+    backup_bucket: str = ""
+    backup_prefix: str = "backups/"
+    backup_retention_days: int = 30
+    backup_keep_min: int = 7
+    backup_local_dir: str = ""
+    backup_pg_dump: str = "pg_dump"
+
     @model_validator(mode="before")
     @classmethod
     def normalise_database_urls(cls, values: dict) -> dict:

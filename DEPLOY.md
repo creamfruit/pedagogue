@@ -16,6 +16,7 @@ The iOS and Android apps use the same backend. See
 | `pedagogue-db` | Postgres 16 | All app data. The first migration enables `pgvector`. |
 | `pedagogue-redis` | Key Value (Redis compatible) | Job queue for uploads, coach feedback and the daily/weekly schedules. |
 | `pedagogue-api` | Docker web service | The FastAPI app. Before each deploy it runs `scripts/release.sh`: `alembic upgrade head`, then `python -m app.seed`. |
+| `pedagogue-backup` | Docker cron job | Every night at 03:00 UTC, dumps the database with `pg_dump` and uploads it to the backup bucket. See "Backups and restoring" below. |
 | `pedagogue-worker` | Docker background worker | Runs `arq app.workers.queue.WorkerSettings`: processes uploads, writes coach feedback, and runs the midnight roulette snippet and Friday meteor shower. |
 | `pedagogue-web` | Static site | The Vite build of `frontend/`, with every path rewritten to `index.html`. |
 
@@ -151,6 +152,8 @@ The store listings and the privacy policy link should use your own domain.
 | `RATE_LIMIT_REGISTER` | no | `20/hour` | New accounts per client IP. |
 | `RATE_LIMIT_UPLOAD` | no | `30/hour` | Score and recording uploads per user. |
 | `RATE_LIMIT_PDF_ANALYSIS` | no | `20/hour` | PDF scores sent to be read per user, counting uploads and retries. |
+| `BACKUP_BUCKET` | yes for backups | `STORAGE_BUCKET` | Bucket the nightly dump goes to. Use its own bucket. |
+| `BACKUP_RETENTION_DAYS` | no | `30` | Dumps older than this are deleted, but the newest `BACKUP_KEEP_MIN` (7) are always kept. |
 | `SENTRY_DSN` | no | empty | Error reports from the API and worker. Empty turns reporting off. See "Error reporting" below. |
 | `SENTRY_ENVIRONMENT` | no | `ENVIRONMENT` | Environment name on reports. |
 | `SENTRY_TRACES_SAMPLE_RATE` | no | `0` | Share of requests sent as performance traces, 0 to 1. |
@@ -167,6 +170,86 @@ The store listings and the privacy policy link should use your own domain.
 | `NODE_VERSION` | yes on Render | `22`. |
 | `VITE_SENTRY_DSN` | no | Error reports from the website and apps. Empty turns reporting off, and the privacy policy then says no crash reporting is used. |
 | `VITE_RELEASE` | no | Version tag on frontend error reports. |
+
+## Backups and restoring
+
+### What runs
+
+`pedagogue-backup` is a Render cron job built from the same image as the API. Every night at 03:00
+UTC it runs `python -m app.ops.backup run`, which:
+- runs `pg_dump --format=custom --no-owner --no-privileges` against `DATABASE_URL`
+- uploads the dump to `BACKUP_BUCKET` as `backups/pedagogue-YYYYMMDDTHHMMSSZ.dump`
+- deletes dumps older than `BACKUP_RETENTION_DAYS`, always keeping the newest seven
+
+A failed or empty dump fails the job. Render then marks the run as failed, and, with `SENTRY_DSN`
+set, the error is reported. To change the time, edit `schedule` in `render.yaml` (cron syntax, UTC).
+
+Render's paid Postgres plans also keep their own point-in-time recovery. The nightly dump is a
+second copy outside Render, and one you can restore anywhere.
+
+### Set it up
+
+1. In Cloudflare R2, create a bucket just for backups (for example `pedagogue-backups`). Give the
+   API token from step 1 read and write access to it, or create a separate token and set the
+   storage keys on the cron job by hand.
+2. Set `BACKUP_BUCKET` on `pedagogue-api` (the cron job copies it from there). The job reuses the
+   API's `STORAGE_ENDPOINT` and keys.
+3. In the Render dashboard, open `pedagogue-backup` and press **Trigger Run**. Check the logs for
+   `uploaded backups/pedagogue-....dump`.
+
+### Restore
+
+Restore into a new, empty database first, check it, and only then point the app at it. This leaves
+the current database untouched if something goes wrong.
+
+1. **Find the dump.** Open the **Shell** tab of `pedagogue-api` and list the backups, newest first:
+
+   ```bash
+   python -m app.ops.backup list
+   python -m app.ops.backup download backups/pedagogue-20261019T030000Z.dump /tmp/restore.dump
+   ```
+
+2. **Create the target.** In Render, create a new Postgres 16 database (for example
+   `pedagogue-db-restore`) in the same region. Copy its **Internal Database URL**.
+3. **Restore into it** from the same shell (the image ships `pg_restore` 17):
+
+   ```bash
+   export RESTORE_URL='postgresql://...internal URL of the new database...'
+   pg_restore --no-owner --no-privileges --exit-on-error --dbname="$RESTORE_URL" /tmp/restore.dump
+   ```
+
+   The dump creates the `vector` extension itself, so the new database needs no setup.
+4. **Check it**:
+
+   ```bash
+   psql "$RESTORE_URL" -c "select count(*) from users;" -c "select max(started_at) from practice_sessions;"
+   psql "$RESTORE_URL" -c "select version_num from alembic_version;"
+   ```
+
+   The counts should match what you expect, and the latest session should be just before the dump.
+5. **Switch over.** Suspend `pedagogue-worker` and `pedagogue-backup`. Then change `DATABASE_URL` on
+   `pedagogue-api`, `pedagogue-worker` and `pedagogue-backup` to the new database. In the
+   blueprint, rename `fromDatabase.name`, or set the URL by hand. Redeploy the API: its pre-deploy
+   step runs `alembic upgrade head`, which brings an older dump up to the current schema. Resume
+   the worker and the backup job.
+6. Keep the old database until you are sure, then delete it.
+
+**Restoring in place** overwrites the live database, so only do it when the database itself is
+lost or unusable. Suspend the worker and the API first, then:
+
+```bash
+pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --exit-on-error \
+  --dbname="$DATABASE_URL" /tmp/restore.dump
+```
+
+`--single-transaction` rolls everything back if any step fails. Everything written since the dump
+is lost.
+
+**Practise a restore** into a scratch database once a month, so you know the dumps work before you
+need one.
+
+Uploaded files live in the uploads bucket, not in the database, so they are not in these dumps.
+Turn on R2 object versioning for that bucket if you want to recover deleted files.
 
 ## Error reporting
 
