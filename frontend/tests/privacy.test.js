@@ -20,6 +20,13 @@ describe("privacy policy", () => {
     expect(text).not.toContain("Sentry");
   });
 
+  it("says what keyboard practice keeps and what it does not", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "");
+    const text = await policyText();
+    expect(text).toContain("keyboard practice we keep each run's scores");
+    expect(text).toContain("are not kept");
+  });
+
   it("names Sentry and what it receives when error reporting is on", async () => {
     vi.stubEnv("VITE_SENTRY_DSN", "https://key@o0.ingest.sentry.io/1");
     const text = await policyText();

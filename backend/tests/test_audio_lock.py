@@ -41,10 +41,10 @@ async def test_a_live_listening_session_cannot_be_started_while_audio_is_coming_
 
 def test_the_live_listening_socket_closes_while_audio_is_coming_soon(monkeypatch):
     monkeypatch.setattr(settings, "audio_features_enabled", False)
-    with TestClient(app) as http:
-        with pytest.raises(WebSocketDisconnect) as closed:
-            with http.websocket_connect("/api/v1/practice/live?token=anything"):
-                pass
+    http = TestClient(app)
+    with pytest.raises(WebSocketDisconnect) as closed:
+        with http.websocket_connect("/api/v1/practice/live?token=anything"):
+            pass
     assert closed.value.code == 4403
 
 

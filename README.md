@@ -370,6 +370,20 @@ On any piece page, Scores & notes takes a PDF, MusicXML or MIDI file.
 
 Audio recordings, the listening coach, graded run-throughs and verification takes are switched off for now (`AUDIO_FEATURES_ENABLED` on the backend, `VITE_AUDIO_FEATURES` on the frontend).
 
+## Keyboard practice
+
+The Practice screen has a Keyboard panel for playing a piece on a MIDI keyboard and seeing how it went.
+
+- **Browsers.** It uses Web MIDI: Chrome, Edge or Opera on a computer or Android phone, or Firefox on a computer, on an https page (localhost counts). Safari, every browser on iPhone and iPad, and the native apps can't use it, and the panel says so. Nothing else on the page depends on it.
+- **Modes.** *Play along with the metronome* has a count-in and a click, and scores the notes, the timing against the tempo and the evenness (the steadiness of the gaps between notes, whatever the speed). *Wait for me* only moves on when the right notes are played. *Free play* needs no reference: it scores timing and evenness against the click and says plainly that it can't check notes.
+- **Reference notes.** Scoring needs the notes of the piece, taken from a MusicXML or MIDI file: either a score uploaded for the piece or a file attached in the panel (which wins). Pieces without either only get free play. Bar numbers follow the file.
+- **Tempo ladder.** Two clean runs in a row at the same tempo raise it by about 5% (at least 2 bpm), up to the target tempo. A clean run is nearly every note right, close to the beat and even.
+- **What is stored.** Each run's scores, tempo and per-bar results (not the notes played). The bars that went wrong show as a heat strip above the passage's crop from the player's own score.
+- **Practice, XP and review.** Runs join the open practice session (or start a keyboard one), so closing it pays XP and counts for the streak. Clearing a new tempo rung pays 15 XP once. A good run resets the piece's review clock; a poor one only moves it halfway.
+- **Audio.** Keyboard practice reads MIDI and plays only the click. Recording stays behind `AUDIO_FEATURES_ENABLED`.
+
+The scoring engine is `backend/app/services/keyboard_scoring.py`, and `RATE_LIMIT_KEYBOARD_ATTEMPT` limits how many runs can be saved per hour.
+
 ## Difficulty ladder
 
 Every difficulty is on one 0 to 100 ladder. The anchors live in `backend/app/services/repertoire_reference.py`: Für Elise sits at 30, Chopin's first Ballade at 70, Harmonies du soir at 84, La Campanella at 90 and Islamey at 98. Edit a number there and run `python -m app.seed` to push it to every matching piece, including ones already imported from MusicBrainz or OpenOpus.

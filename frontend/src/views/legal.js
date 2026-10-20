@@ -2,7 +2,7 @@ import { el } from "../lib/dom.js";
 import { monitoringDsn } from "../lib/monitoring.js";
 import { store } from "../lib/store.js";
 
-const UPDATED = "19 October 2026";
+const UPDATED = "20 October 2026";
 const CONTACT = (import.meta.env.VITE_CONTACT_EMAIL || "").trim();
 const ERROR_REPORTS = Boolean(monitoringDsn());
 
@@ -59,7 +59,7 @@ export function privacyView(outlet) {
             [el("strong", {}, "Account: "), "your email address, an optional display name, and your password as a one-way hash (we never see or store the password itself)."],
             [el("strong", {}, "Profile: "), "years playing, self-assessed level, hand span, time zone, reminder preference, who can see your profile, and whether you appear on leaderboards."],
             [el("strong", {}, "Tastes and technique: "), "the genres, composers and pieces you pick during setup, your technique ratings and tier list."],
-            [el("strong", {}, "Repertoire and practice: "), "the pieces you add, their status, tempos, dates and notes, practice sessions and minutes, drills, practice plans, sight-reading and polyrhythm results, performances and readiness scores."],
+            [el("strong", {}, "Repertoire and practice: "), "the pieces you add, their status, tempos, dates and notes, practice sessions and minutes, drills, practice plans, sight-reading and polyrhythm results, performances and readiness scores. For keyboard practice we keep each run's scores, the tempo, and how each bar went; the individual notes you played are used to score the run and are not kept."],
             [el("strong", {}, "Progress: "), "XP, gold, levels, achievements, cosmetics you buy with in-app gold, streaks, and your daily roulette results."],
             [el("strong", {}, "Friends: "), "friend requests and friendships. Friends can see your constellation if your visibility setting allows it."],
           ]),
