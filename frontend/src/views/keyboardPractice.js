@@ -77,9 +77,9 @@ function connectionBlock(controller, onChange) {
   };
 }
 
-export function keyboardPanel({ controller = createMidiController(), api, createRun } = {}) {
+export function keyboardPanel({ controller = createMidiController(), api, createRun, onSession } = {}) {
   const body = el("div", { class: "keyboard-body" });
-  const session = keyboardSession({ controller, api, createRun });
+  const session = keyboardSession({ controller, api, createRun, onSession });
   const link = connectionBlock(controller, (state) => {
     session.node.hidden = state.status === "unsupported";
   });

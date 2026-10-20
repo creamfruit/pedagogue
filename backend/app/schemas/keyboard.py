@@ -88,6 +88,10 @@ class AttemptOut(BaseModel):
     ladder: Optional[LadderOut] = None
     note_checking: bool = True
     message: Optional[str] = None
+    session_id: Optional[uuid.UUID] = None
+    session_minutes: Optional[int] = None
+    xp_awarded: int = 0
+    next_review_at: Optional[datetime] = None
 
 
 class PassagePick(BaseModel):
@@ -97,8 +101,25 @@ class PassagePick(BaseModel):
     end_bar: int
 
 
+class HeatBarOut(BaseModel):
+    bar: int
+    attempts: int
+    accuracy: Optional[float] = None
+    wrong: int = 0
+    missing: int = 0
+    late: int = 0
+    early: int = 0
+    tempo_bpm: Optional[float] = None
+
+
+class HeatOut(BaseModel):
+    attempts: int
+    bars: list[HeatBarOut] = Field(default_factory=list)
+
+
 class ReferenceOut(BaseModel):
     available: bool
+    piece_id: Optional[int] = None
     source: Optional[str] = None
     first_bar: Optional[int] = None
     last_bar: Optional[int] = None

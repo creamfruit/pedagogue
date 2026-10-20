@@ -4520,3 +4520,52 @@ body {
   display: grid;
   gap: 2px;
 }
+
+.keyboard-board {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.heat-caption {
+  font-size: 12px;
+}
+
+.keyboard-board.has-crop {
+  gap: 0;
+}
+
+.keyboard-board.has-crop .heat-caption {
+  margin-bottom: var(--space-2);
+}
+
+.keyboard-board.has-crop .heat-strip {
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+
+.keyboard-board.has-crop .heat-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 0;
+}
+
+.keyboard-crop-image img {
+  max-width: 100%;
+  height: auto;
+}
+
+.keyboard-session-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.keyboard-session-line p {
+  font-size: 13px;
+}
+
+.keyboard-reward {
+  color: var(--ok);
+}

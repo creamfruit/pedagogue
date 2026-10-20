@@ -236,6 +236,7 @@ export const api = {
   keyboardNotes: (entryId, params) => request(`/keyboard/entries/${entryId}/reference/notes`, { params }),
   keyboardLadder: (entryId, params) => request(`/keyboard/entries/${entryId}/ladder`, { params }),
   keyboardAttempt: (entryId, body) => request(`/keyboard/entries/${entryId}/attempts`, { method: "POST", body }),
+  keyboardHeat: (entryId, params) => request(`/keyboard/entries/${entryId}/heat`, { params }),
   linkSummary: (sourceId, targetId, linkType) =>
     request(`/catalog/links/${sourceId}/${targetId}`, { params: { link_type: linkType } }),
   searchComposers: (q) => request("/catalog/composers", { params: { q } }),

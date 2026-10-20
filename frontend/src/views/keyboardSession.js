@@ -41,7 +41,16 @@ function stat(label, value, unit = "") {
   return el("div", { class: "keyboard-stat" }, el("span", { class: "stat", style: "font-size:22px" }, `${value}${value === "—" ? "" : unit}`), el("span", { class: "stat-label" }, label));
 }
 
-export function keyboardSession({ controller, api = realApi, createRun = realCreateRun } = {}) {
+export function reviewLine(iso, now = new Date()) {
+  if (!iso) return null;
+  const due = new Date(iso);
+  const days = Math.round((due - now) / 86400000);
+  if (days <= 0) return "This piece is due for another look today.";
+  if (days === 1) return "Come back to this piece tomorrow to keep it fresh.";
+  return `Come back to this piece in about ${days} days to keep it fresh.`;
+}
+
+export function keyboardSession({ controller, api = realApi, createRun = realCreateRun, onSession = () => {} } = {}) {
   let reference = null;
   let notesInfo = null;
   let run = null;
@@ -49,6 +58,9 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   let manualTempo = false;
   let ladder = null;
   let chosenMode = null;
+  let overview = null;
+  let boardToken = 0;
+  let cropUrl = null;
 
   const entrySelect = el("select", { "aria-label": "Piece to practise" }, el("option", { value: "" }, "Loading your pieces…"));
   const info = el("p", { class: "keyboard-message faint", role: "status", hidden: true });
@@ -69,6 +81,9 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   const stop = el("button", { type: "button", class: "btn btn-ghost", hidden: true }, "Stop");
   const status = el("p", { class: "keyboard-status", role: "status", "aria-live": "polite" });
   const strip = heatStrip();
+  const caption = el("figcaption", { class: "faint heat-caption" });
+  const cropImage = el("div", { class: "keyboard-crop-image score-crop-frame", hidden: true });
+  const board = el("figure", { class: "keyboard-board", hidden: true }, caption, strip.node, cropImage);
   const result = el("div", { class: "keyboard-result", hidden: true });
   const tempoRow = el("div", { class: "row" }, el("span", { class: "faint", style: "font-size:12px" }, "Tempo ♩ ="), tempoInput, el("label", { class: "check-label" }, ladderBox, "Raise it after clean runs"));
   const advanced = reveal(
@@ -141,6 +156,62 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     beatsSelect.hidden = mode !== "free";
   }
 
+  function syncBoard() {
+    board.hidden = strip.node.hidden && cropImage.hidden;
+    board.classList.toggle("has-crop", !cropImage.hidden);
+  }
+
+  function clearCrop() {
+    boardToken += 1;
+    if (cropUrl) URL.revokeObjectURL(cropUrl);
+    cropUrl = null;
+    cropImage.replaceChildren();
+    cropImage.hidden = true;
+  }
+
+  async function loadCrop(token) {
+    if (!hasReference() || currentMode() === "free" || passageSelect.value === "whole" || passageSelect.value === "custom") return;
+    const { start: from, end: to } = range();
+    try {
+      if (!overview) overview = await api.pieceOverview(reference.piece_id);
+      const section = (overview.sections || []).find((item) => item.score_crop && item.start_measure === from && item.end_measure === to);
+      if (!section) return;
+      const blob = await api.blob(section.score_crop);
+      if (token !== boardToken) return;
+      cropUrl = URL.createObjectURL(blob);
+      cropImage.replaceChildren(el("img", { src: cropUrl, alt: `Bars ${from} to ${to} from your score`, loading: "lazy" }));
+      cropImage.hidden = false;
+      syncBoard();
+    } catch {
+      return;
+    }
+  }
+
+  async function showHistory(token) {
+    if (!hasReference() || currentMode() === "free") return;
+    const { start: from, end: to } = range();
+    if (!(from >= 0 && to >= from)) return;
+    try {
+      const heat = await api.keyboardHeat(entrySelect.value, { start_bar: from, end_bar: to });
+      if (token !== boardToken || busy || !result.hidden) return;
+      if (!heat.attempts) return;
+      caption.textContent = `Your last ${heat.attempts} ${heat.attempts === 1 ? "run" : "runs"} here, bar by bar`;
+      strip.update(heat.bars.map((item) => ({ ...item, expected: 0, correct: 0, pending: false })));
+      syncBoard();
+    } catch {
+      return;
+    }
+  }
+
+  async function refreshBoard() {
+    clearCrop();
+    strip.update([]);
+    caption.textContent = "";
+    syncBoard();
+    const token = boardToken;
+    await Promise.all([loadCrop(token), showHistory(token)]);
+  }
+
   async function refreshLadder() {
     ladder = null;
     ladderNote.textContent = "";
@@ -175,12 +246,21 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     }
   }
 
+  async function reselect() {
+    describeMode();
+    manualTempo = false;
+    await Promise.all([refreshLadder(), refreshBoard()]);
+  }
+
   async function loadEntry() {
     result.hidden = true;
+    clearCrop();
     strip.update([]);
+    syncBoard();
     status.textContent = "";
     reference = null;
     notesInfo = null;
+    overview = null;
     manualTempo = false;
     ladder = null;
     ladderNote.textContent = "";
@@ -223,11 +303,13 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     tempoInput.value = String(Math.max(40, Math.round((reference.target_tempo_bpm * 0.6) / 2) * 2));
     describeMode();
     refreshControls();
-    await refreshLadder();
+    await Promise.all([refreshLadder(), refreshBoard()]);
   }
 
   function paintState(state) {
+    caption.textContent = "This run";
     strip.update(barsFromTally(state.bars));
+    syncBoard();
     if (state.phase === "countin") {
       status.textContent = state.countIn ? `Count-in… ${state.countIn}` : "Get ready…";
     } else if (state.phase === "playing") {
@@ -259,9 +341,30 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     return `${state.clean_streak} of ${state.runs_needed} clean runs at ♩ = ${state.current_tempo}.`;
   }
 
+  function sessionBlock(data) {
+    if (!data.session_id) return null;
+    const finish = el("button", { type: "button", class: "btn btn-small btn-ghost" }, "Finish session");
+    const line = el("p", { style: "margin:0" }, `This session: ${data.session_minutes} ${data.session_minutes === 1 ? "minute" : "minutes"} of keyboard practice so far.`);
+    finish.addEventListener("click", async () => {
+      finish.disabled = true;
+      try {
+        await api.closeSession(data.session_id, {});
+        line.textContent = "Session finished. Its minutes now count towards your streak and XP.";
+        finish.remove();
+        notify.success("Session finished");
+      } catch (error) {
+        finish.disabled = false;
+        notify.error(error.detail || "Couldn't finish the session");
+      }
+      onSession();
+    });
+    return el("div", { class: "keyboard-session-line" }, line, finish);
+  }
+
   function renderResult(data, { problem } = {}) {
     result.hidden = false;
     const free = data.mode === "free";
+    const review = reviewLine(data.next_review_at);
     const parts = [
       el("div", { class: "row", style: "align-items:baseline;gap:var(--space-3)" }, el("span", { class: "stat", style: "font-size:34px" }, `${Math.round(data.overall)}`), el("span", { class: `pill ${data.clean ? "pill-ok" : "pill-warn"}` }, data.clean ? "Clean run" : "Keep going")),
       free ? el("p", { class: "keyboard-message keyboard-message-problem" }, data.message || NOTE_CHECKING_UNAVAILABLE) : null,
@@ -281,11 +384,16 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
             `${data.correct} right, ${data.wrong} wrong, ${data.missing} missed` + (data.mode === "scored" ? `, ${data.late} late, ${data.early} early` : "") + (data.achieved_tempo_bpm ? `. You played at about ♩ = ${Math.round(data.achieved_tempo_bpm)}.` : ".")
           ),
       ladderLine(data) ? el("p", { style: "margin:0" }, ladderLine(data)) : null,
+      data.xp_awarded ? el("p", { class: "keyboard-reward", style: "margin:0" }, `+${data.xp_awarded} XP for clearing a new tempo.`) : null,
+      review ? el("p", { class: "faint", style: "margin:0;font-size:13px" }, review) : null,
+      sessionBlock(data),
       problem ? el("p", { class: "keyboard-message keyboard-message-problem" }, problem) : null,
       el("div", { class: "row" }, el("button", { type: "button", class: "btn btn-small", onclick: () => begin() }, "Play again")),
     ];
     result.replaceChildren(...parts.filter(Boolean));
+    caption.textContent = free ? "How each bar went against the click" : "How each bar went";
     strip.update(data.bars.map((item) => ({ ...item, pending: false })));
+    syncBoard();
   }
 
   async function submit(finished, from, to, passage) {
@@ -315,6 +423,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
           notify.success(`Tempo raised to ♩ = ${data.ladder.recommended_tempo}`);
         }
       }
+      onSession();
     } catch (error) {
       status.textContent = "";
       const local = finished.local;
@@ -364,6 +473,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     }
     rememberLatency(Number(latency.value) || 0);
     result.hidden = true;
+    strip.update([]);
     setBusy(true);
     notesInfo = null;
     if (mode !== "free") {
@@ -398,17 +508,20 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
 
   entrySelect.addEventListener("change", loadEntry);
   passageSelect.addEventListener("change", () => {
-    describeMode();
-    manualTempo = false;
-    refreshLadder();
+    result.hidden = true;
+    reselect();
   });
-  [fromInput, toInput].forEach((input) => input.addEventListener("change", () => refreshLadder()));
+  [fromInput, toInput].forEach((input) =>
+    input.addEventListener("change", () => {
+      result.hidden = true;
+      Promise.all([refreshLadder(), refreshBoard()]);
+    })
+  );
   modeSelect.addEventListener("change", () => {
     chosenMode = modeSelect.value;
-    describeMode();
+    result.hidden = true;
     refreshControls();
-    manualTempo = false;
-    refreshLadder();
+    reselect();
   });
   tempoInput.addEventListener("input", () => {
     manualTempo = true;
@@ -428,7 +541,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     el("div", { class: "keyboard-options" }, modeSelect, modeHint, passageBox, beatsSelect, tempoRow, ladderNote, advancedBox),
     el("div", { class: "row" }, start, stop),
     status,
-    strip.node,
+    board,
     result
   );
 
@@ -456,6 +569,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     dispose: () => {
       if (run) run.cancel();
       run = null;
+      clearCrop();
     },
   };
 }

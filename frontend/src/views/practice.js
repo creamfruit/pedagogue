@@ -129,7 +129,13 @@ export async function practiceView(outlet) {
   const page = el("div", { class: "practice-page" });
   const metronome = metronomePanel();
   const ambient = ambientToggle(page);
-  const keyboard = keyboardPanel();
+  const keyboard = keyboardPanel({
+    onSession: () => {
+      store.refreshProfile();
+      renderSession();
+      renderLoad();
+    },
+  });
   page.append(
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Practice"), ambient.node),
     el(

@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { keyboardSession } from "../src/views/keyboardSession.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { keyboardSession, reviewLine } from "../src/views/keyboardSession.js";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const REFERENCE = {
   available: true,
+  piece_id: 5,
   source: "musicxml",
   first_bar: 1,
   last_bar: 12,
@@ -42,7 +43,7 @@ function attemptResult(overrides = {}) {
   };
 }
 
-function setup({ reference = REFERENCE, status = "ready", attempt = attemptResult(), failSave = false } = {}) {
+function setup({ reference = REFERENCE, status = "ready", attempt = attemptResult(), failSave = false, heat = { attempts: 0, bars: [] }, overview = { sections: [] } } = {}) {
   const api = {
     repertoire: vi.fn(async () => ({ items: [{ id: "e1", status: "learning", piece: { title: "Octave study" } }, { id: "e2", status: "learnt", piece: { title: "Old piece" } }] })),
     keyboardReference: vi.fn(async () => reference),
@@ -52,6 +53,10 @@ function setup({ reference = REFERENCE, status = "ready", attempt = attemptResul
       if (failSave) throw Object.assign(new Error("offline"), { detail: "you appear to be offline" });
       return attempt;
     }),
+    keyboardHeat: vi.fn(async () => heat),
+    pieceOverview: vi.fn(async () => overview),
+    blob: vi.fn(async () => new Blob(["png"])),
+    closeSession: vi.fn(async () => ({})),
   };
   const controller = { state: { status, selectedId: status === "ready" ? "k1" : "" }, onNote: () => () => {} };
   const runs = [];
@@ -63,9 +68,10 @@ function setup({ reference = REFERENCE, status = "ready", attempt = attemptResul
   const toasts = document.createElement("div");
   toasts.id = "toasts";
   document.body.append(toasts);
-  const session = keyboardSession({ controller, api, createRun });
+  const onSession = vi.fn();
+  const session = keyboardSession({ controller, api, createRun, onSession });
   document.body.append(session.node);
-  return { api, session, runs, node: session.node };
+  return { api, session, runs, node: session.node, onSession };
 }
 
 async function choose(node, id = "e1") {
@@ -78,6 +84,11 @@ async function choose(node, id = "e1") {
 }
 
 const startButton = (node) => [...node.querySelectorAll("button")].find((button) => button.textContent === "Start");
+
+beforeEach(() => {
+  URL.createObjectURL = vi.fn(() => "blob:crop");
+  URL.revokeObjectURL = vi.fn();
+});
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -346,5 +357,165 @@ describe("finishing a run", () => {
     expect(stop.hidden).toBe(false);
     stop.click();
     expect(runs[0].stop).toHaveBeenCalled();
+  });
+});
+
+const finishedRun = () => ({
+  mode: "scored",
+  notes: [{ t: 0, midi: 60 }],
+  tempoBpm: 60,
+  beatsPerBar: 4,
+  countInBeats: 4,
+  latencyMs: 0,
+  durationSec: 12,
+  local: { accuracy: 1, correct: 1, wrong: 0, missing: 0, bars: [] },
+});
+
+describe("the strip and the score", () => {
+  const section = { start_measure: 9, end_measure: 11, score_crop: "/submissions/s1/crops/0", score_page: 2 };
+
+  it("shows how the last runs went bar by bar before the next one", async () => {
+    const heat = { attempts: 3, bars: [{ bar: 1, attempts: 3, accuracy: 1, wrong: 0, missing: 0 }, { bar: 2, attempts: 3, accuracy: 0.4, wrong: 4, missing: 3 }] };
+    const { node, api } = setup({ heat });
+    await choose(node);
+    expect(api.keyboardHeat).toHaveBeenCalledWith("e1", { start_bar: 1, end_bar: 12 });
+    expect(node.querySelector(".heat-caption").textContent).toBe("Your last 3 runs here, bar by bar");
+    expect([...node.querySelectorAll(".heat-cell")].map((cell) => cell.className.match(/heat-(good|fair|bad)/)[1])).toEqual(["good", "bad"]);
+  });
+
+  it("shows nothing when there is no history yet", async () => {
+    const { node } = setup();
+    await choose(node);
+    expect(node.querySelector(".keyboard-board").hidden).toBe(true);
+  });
+
+  it("puts the strip directly above the crop of the chosen passage", async () => {
+    const heat = { attempts: 2, bars: [{ bar: 9, attempts: 2, accuracy: 0.5, wrong: 2, missing: 2 }] };
+    const { node, api } = setup({ heat, overview: { sections: [section] } });
+    await choose(node);
+    const passage = node.querySelector('select[aria-label="Passage"]');
+    passage.value = "7";
+    passage.dispatchEvent(new Event("change"));
+    await flush();
+    await flush();
+    expect(api.pieceOverview).toHaveBeenCalledWith(5);
+    expect(api.blob).toHaveBeenCalledWith("/submissions/s1/crops/0");
+    const board = node.querySelector(".keyboard-board");
+    expect(board.classList.contains("has-crop")).toBe(true);
+    const order = [...board.children].map((child) => child.className.split(" ")[0]);
+    expect(order.indexOf("heat")).toBeLessThan(order.indexOf("keyboard-crop-image"));
+    expect(board.querySelector(".keyboard-crop-image img").getAttribute("src")).toBe("blob:crop");
+    expect(board.querySelector(".keyboard-crop-image img").alt).toBe("Bars 9 to 11 from your score");
+  });
+
+  it("only fetches the overview once and has no crop for bars that were not marked", async () => {
+    const { node, api } = setup({ overview: { sections: [section] } });
+    await choose(node);
+    const passage = node.querySelector('select[aria-label="Passage"]');
+    passage.value = "custom";
+    passage.dispatchEvent(new Event("change"));
+    await flush();
+    passage.value = "7";
+    passage.dispatchEvent(new Event("change"));
+    await flush();
+    await flush();
+    passage.value = "whole";
+    passage.dispatchEvent(new Event("change"));
+    await flush();
+    expect(api.pieceOverview).toHaveBeenCalledTimes(1);
+    expect(node.querySelector(".keyboard-crop-image").hidden).toBe(true);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:crop");
+  });
+
+  it("marks the bars of the run just played above the same crop", async () => {
+    const { node, runs } = setup({ overview: { sections: [section] } });
+    await choose(node);
+    const passage = node.querySelector('select[aria-label="Passage"]');
+    passage.value = "7";
+    passage.dispatchEvent(new Event("change"));
+    await flush();
+    await flush();
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish(finishedRun());
+    await flush();
+    expect(node.querySelector(".heat-caption").textContent).toBe("How each bar went");
+    expect(node.querySelectorAll(".heat-cell")).toHaveLength(2);
+    expect(node.querySelector(".keyboard-board").classList.contains("has-crop")).toBe(true);
+  });
+});
+
+describe("feeding the session, XP and review", () => {
+  const fed = { session_id: "s9", session_minutes: 7, xp_awarded: 15, next_review_at: new Date(Date.now() + 5.4 * 86400000).toISOString() };
+
+  it("tells the player what they earned and when to come back", async () => {
+    const { node, runs, onSession } = setup({ attempt: attemptResult(fed) });
+    await choose(node);
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish(finishedRun());
+    await flush();
+    const text = node.querySelector(".keyboard-result").textContent;
+    expect(text).toContain("+15 XP for clearing a new tempo");
+    expect(text).toContain("This session: 7 minutes of keyboard practice so far.");
+    expect(text).toContain("Come back to this piece in about 5 days");
+    expect(onSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishes the session on request so the minutes count for the streak and XP", async () => {
+    const { node, runs, api, onSession } = setup({ attempt: attemptResult(fed) });
+    await choose(node);
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish(finishedRun());
+    await flush();
+    const finish = [...node.querySelectorAll("button")].find((button) => button.textContent === "Finish session");
+    finish.click();
+    await flush();
+    await flush();
+    expect(api.closeSession).toHaveBeenCalledWith("s9", {});
+    expect(node.querySelector(".keyboard-session-line").textContent).toContain("Session finished");
+    expect([...node.querySelectorAll("button")].some((button) => button.textContent === "Finish session")).toBe(false);
+    expect(onSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the button if the session could not be closed", async () => {
+    const { node, runs, api } = setup({ attempt: attemptResult(fed) });
+    await choose(node);
+    api.closeSession.mockRejectedValueOnce(Object.assign(new Error("no"), { detail: "that practice session is already closed" }));
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish(finishedRun());
+    await flush();
+    const finish = [...node.querySelectorAll("button")].find((button) => button.textContent === "Finish session");
+    finish.click();
+    await flush();
+    await flush();
+    expect(finish.disabled).toBe(false);
+    expect(document.body.textContent).toContain("already closed");
+  });
+
+  it("says nothing about a session when no minutes were counted", async () => {
+    const { node, runs } = setup({ attempt: attemptResult({ session_id: null, session_minutes: null, xp_awarded: 0, next_review_at: null }) });
+    await choose(node);
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish(finishedRun());
+    await flush();
+    const text = node.querySelector(".keyboard-result").textContent;
+    expect(text).not.toContain("This session");
+    expect(text).not.toContain("XP");
+    expect(text).not.toContain("Come back");
+  });
+});
+
+describe("review wording", () => {
+  const now = new Date("2026-10-19T12:00:00Z");
+
+  it("says how soon to come back", () => {
+    expect(reviewLine("2026-10-19T09:00:00Z", now)).toBe("This piece is due for another look today.");
+    expect(reviewLine("2026-10-20T12:00:00Z", now)).toBe("Come back to this piece tomorrow to keep it fresh.");
+    expect(reviewLine("2026-10-26T12:00:00Z", now)).toBe("Come back to this piece in about 7 days to keep it fresh.");
+    expect(reviewLine(null, now)).toBeNull();
   });
 });

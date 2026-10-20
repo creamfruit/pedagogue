@@ -1,22 +1,29 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import uuid
 from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.storage import Storage, storage as default_storage
 from app.models.models import (
+    ORBITAL_DECAY_HALF_LIFE_DAYS,
     KeyboardAttempt,
     KeyboardAttemptBar,
+    LedgerEntry,
+    LedgerReason,
     Passage,
     PdfSubmission,
+    PracticeMode,
     RepertoireEntry,
+    SessionItem,
     User,
 )
 from app.services.keyboard_scoring import (
@@ -26,12 +33,19 @@ from app.services.keyboard_scoring import (
     PlayedNote,
     RefNote,
     ladder_state,
+    refreshed_practice_time,
 )
+from app.services.economy import EconomyService
 from app.services.onboarding import BaseService
+from app.services.practice import PracticeSessionService
 
 DIGITAL_SUFFIXES = {".musicxml": ".musicxml", ".xml": ".xml", ".mxl": ".mxl", ".mid": ".mid", ".midi": ".midi", ".kar": ".mid"}
 REFERENCE_CACHE_SIZE = 8
 HISTORY_LENGTH = 12
+HEAT_ATTEMPTS = 5
+RUNG_XP = 15
+REVIEW_DECAY = 0.35
+COUNT_IN_SLACK_SEC = 10.0
 
 NO_REFERENCE_MESSAGE = (
     "Note checking isn't available for this piece because it has no MusicXML or MIDI reference. "
@@ -177,6 +191,21 @@ def target_tempo_for(entry: RepertoireEntry, reference: Optional[Reference]) -> 
     return DEFAULT_TARGET_TEMPO
 
 
+def counted_seconds(notes, duration_sec: float, count_in_sec: float) -> float:
+    if not notes:
+        return 0.0
+    times = [note.time_ms for note in notes]
+    span = (max(times) - min(times)) / 1000.0
+    return round(min(max(duration_sec, 0.0), span + count_in_sec + COUNT_IN_SLACK_SEC), 1)
+
+
+def review_due_at(last_practiced_at: datetime, difficulty_score) -> datetime:
+    difficulty = float(difficulty_score) if difficulty_score else 40.0
+    half_life = max(ORBITAL_DECAY_HALF_LIFE_DAYS * (1.4 - difficulty / 200.0), 6.0)
+    days = half_life * math.log(1.0 / (1.0 - REVIEW_DECAY)) / math.log(2.0)
+    return last_practiced_at + timedelta(days=days)
+
+
 def to_decimal(value, places: int = 1) -> Optional[Decimal]:
     if value is None:
         return None
@@ -251,6 +280,142 @@ class KeyboardService(BaseService):
         await self.session.flush()
         await self.session.refresh(attempt, ["created_at"])
         return attempt
+
+
+    @staticmethod
+    def passage_filter(passage_id: Optional[int]):
+        return KeyboardAttempt.passage_id.is_(None) if passage_id is None else KeyboardAttempt.passage_id == passage_id
+
+    async def seconds_in_session(self, session_id: uuid.UUID, entry_id: uuid.UUID, passage_id: Optional[int]) -> float:
+        stmt = select(func.coalesce(func.sum(KeyboardAttempt.duration_sec), 0)).where(
+            KeyboardAttempt.session_id == session_id,
+            KeyboardAttempt.repertoire_entry_id == entry_id,
+            self.passage_filter(passage_id),
+        )
+        return float((await self.session.execute(stmt)).scalar_one() or 0)
+
+    async def feed(
+        self,
+        user: User,
+        entry: RepertoireEntry,
+        attempt: KeyboardAttempt,
+        score: AttemptScore,
+        ladder: Optional[LadderState],
+        reference: Optional[Reference],
+    ) -> dict:
+        outcome = {"session_id": None, "session_minutes": None, "xp_awarded": 0, "next_review_at": None}
+        if float(attempt.duration_sec or 0) <= 0:
+            return outcome
+        practice = PracticeSessionService(self.session)
+        session = await practice.open_session(user)
+        if session is None:
+            session = await practice.start(user, PracticeMode.KEYBOARD)
+        attempt.session_id = session.id
+        await self.session.flush()
+        previous = entry.last_practiced_at
+        seconds = await self.seconds_in_session(session.id, entry.id, attempt.passage_id)
+        minutes = max(1, math.ceil(seconds / 60.0))
+        found = await self.session.execute(
+            select(SessionItem).where(
+                SessionItem.session_id == session.id,
+                SessionItem.repertoire_entry_id == entry.id,
+                SessionItem.passage_id.is_(None) if attempt.passage_id is None else SessionItem.passage_id == attempt.passage_id,
+            )
+        )
+        item = found.scalars().first()
+        if item is None:
+            await practice.add_item(user, session.id, minutes, entry.id, attempt.passage_id)
+        else:
+            item.minutes = minutes
+            item.load_units = await practice.compute_load(item)
+        entry.last_practiced_at = refreshed_practice_time(previous, datetime.now(timezone.utc), float(score.overall))
+        whole_piece = reference is not None and attempt.start_bar == reference.first_bar and attempt.end_bar == reference.last_bar
+        if score.mode == "scored" and score.clean and whole_piece and score.tempo_bpm:
+            entry.current_tempo_bpm = max(entry.current_tempo_bpm or 0, score.tempo_bpm)
+        outcome["xp_awarded"] = await self.reward_rung(user, entry, attempt, score, ladder)
+        await self.session.flush()
+        logged = await self.session.execute(select(func.coalesce(func.sum(SessionItem.minutes), 0)).where(SessionItem.session_id == session.id))
+        outcome["session_id"] = session.id
+        outcome["session_minutes"] = int(logged.scalar_one() or 0)
+        if entry.last_practiced_at is not None:
+            outcome["next_review_at"] = review_due_at(entry.last_practiced_at, entry.piece.difficulty_score if entry.piece else None)
+        return outcome
+
+    async def reward_rung(self, user: User, entry: RepertoireEntry, attempt: KeyboardAttempt, score: AttemptScore, ladder: Optional[LadderState]) -> int:
+        if ladder is None or not (ladder.raised and score.clean) or score.mode not in {"scored", "free"}:
+            return 0
+        ref_id = f"{entry.id.hex[:12]}-{score.mode}-{attempt.start_bar or 0}-{attempt.end_bar or 0}-{ladder.current_tempo}"
+        done = await self.session.execute(
+            select(LedgerEntry.id).where(LedgerEntry.user_id == user.id, LedgerEntry.ref_type == "keyboard_rung", LedgerEntry.ref_id == ref_id)
+        )
+        if done.first() is not None:
+            return 0
+        await EconomyService(self.session).award(
+            user,
+            RUNG_XP,
+            0,
+            LedgerReason.PRACTICE_SESSION,
+            detail=f"Cleared the tempo ladder at {ladder.current_tempo} bpm",
+            ref_type="keyboard_rung",
+            ref_id=ref_id,
+        )
+        return RUNG_XP
+
+    async def recent(self, entry_id: uuid.UUID, limit: int = 10) -> list:
+        stmt = (
+            select(KeyboardAttempt)
+            .options(selectinload(KeyboardAttempt.bars))
+            .where(KeyboardAttempt.repertoire_entry_id == entry_id)
+            .order_by(KeyboardAttempt.created_at.desc())
+            .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def heat(self, entry_id: uuid.UUID, start_bar: int, end_bar: int, limit: int = HEAT_ATTEMPTS) -> dict:
+        stmt = (
+            select(KeyboardAttempt)
+            .options(selectinload(KeyboardAttempt.bars))
+            .where(
+                KeyboardAttempt.repertoire_entry_id == entry_id,
+                KeyboardAttempt.mode.in_(["scored", "wait"]),
+                KeyboardAttempt.start_bar <= end_bar,
+                KeyboardAttempt.end_bar >= start_bar,
+            )
+            .order_by(KeyboardAttempt.created_at.desc())
+            .limit(limit)
+        )
+        attempts = list((await self.session.execute(stmt)).scalars().all())
+        bars: dict[int, dict] = {}
+        for attempt in attempts:
+            for row in attempt.bars:
+                if not start_bar <= row.bar <= end_bar:
+                    continue
+                item = bars.setdefault(row.bar, {"attempts": 0, "accuracy": [], "wrong": 0, "missing": 0, "late": 0, "early": 0, "tempo": []})
+                item["attempts"] += 1
+                if row.accuracy is not None:
+                    item["accuracy"].append(float(row.accuracy))
+                if row.tempo_bpm is not None:
+                    item["tempo"].append(float(row.tempo_bpm))
+                item["wrong"] += row.wrong
+                item["missing"] += row.missing
+                item["late"] += row.late
+                item["early"] += row.early
+        out = []
+        for number in sorted(bars):
+            item = bars[number]
+            out.append(
+                {
+                    "bar": number,
+                    "attempts": item["attempts"],
+                    "accuracy": round(sum(item["accuracy"]) / len(item["accuracy"]), 4) if item["accuracy"] else None,
+                    "wrong": item["wrong"],
+                    "missing": item["missing"],
+                    "late": item["late"],
+                    "early": item["early"],
+                    "tempo_bpm": round(sum(item["tempo"]) / len(item["tempo"]), 1) if item["tempo"] else None,
+                }
+            )
+        return {"attempts": len(attempts), "bars": out}
 
 
 def played_notes(payload) -> list:

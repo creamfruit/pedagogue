@@ -10,6 +10,8 @@ from app.core.rate_limit import enforce
 from app.schemas.keyboard import (
     AttemptIn,
     AttemptOut,
+    BarOut,
+    HeatOut,
     LadderOut,
     PassagePick,
     ReferenceNotesOut,
@@ -19,6 +21,7 @@ from app.services.keyboard import (
     NO_REFERENCE_MESSAGE,
     KeyboardService,
     ReferenceService,
+    counted_seconds,
     played_notes,
     target_tempo_for,
 )
@@ -62,9 +65,10 @@ async def reference_summary(entry_id: uuid.UUID, user: CurrentUser, session: Ses
     reference = await service.for_entry(user, entry_id)
     passages = [PassagePick(**item) for item in await service.passages(entry, reference)]
     if reference is None:
-        return ReferenceOut(available=False, target_tempo_bpm=target_tempo_for(entry, None), passages=[], message=NO_REFERENCE_MESSAGE)
+        return ReferenceOut(available=False, piece_id=entry.piece_id, target_tempo_bpm=target_tempo_for(entry, None), passages=[], message=NO_REFERENCE_MESSAGE)
     return ReferenceOut(
         available=True,
+        piece_id=entry.piece_id,
         source=reference.source,
         first_bar=reference.first_bar,
         last_bar=reference.last_bar,
@@ -142,6 +146,7 @@ async def record_attempt(entry_id: uuid.UUID, payload: AttemptIn, user: CurrentU
     except ScoringError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     keyboard = KeyboardService(session)
+    count_in_sec = payload.count_in_beats * 60.0 / payload.tempo_bpm if payload.tempo_bpm else 0.0
     attempt = await keyboard.record(
         user,
         entry,
@@ -149,10 +154,39 @@ async def record_attempt(entry_id: uuid.UUID, payload: AttemptIn, user: CurrentU
         passage_id=payload.passage_id if await passage_belongs(session, payload.passage_id, entry) else None,
         start_bar=start_bar,
         end_bar=end_bar,
-        duration_sec=payload.duration_sec,
+        duration_sec=counted_seconds(played, payload.duration_sec, count_in_sec),
     )
     state = await keyboard.ladder(entry, payload.mode, start_bar, end_bar, reference) if score.tempo_bpm is not None else None
-    return attempt_out(attempt, score, state)
+    fed = await keyboard.feed(user, entry, attempt, score, state, reference)
+    return attempt_out(attempt, score, state, fed)
+
+
+@router.get("/entries/{entry_id}/attempts", response_model=list[AttemptOut])
+async def recent_attempts(
+    entry_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    storage: StorageDep,
+    limit: int = Query(default=10, ge=1, le=50),
+) -> list[AttemptOut]:
+    await load_entry(ReferenceService(session, storage), user, entry_id)
+    attempts = await KeyboardService(session).recent(entry_id, limit)
+    return [stored_attempt_out(attempt) for attempt in attempts]
+
+
+@router.get("/entries/{entry_id}/heat", response_model=HeatOut)
+async def heat(
+    entry_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    storage: StorageDep,
+    start_bar: int = Query(ge=0),
+    end_bar: int = Query(ge=0),
+) -> HeatOut:
+    await load_entry(ReferenceService(session, storage), user, entry_id)
+    if end_bar < start_bar:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="the last bar can't come before the first")
+    return HeatOut(**await KeyboardService(session).heat(entry_id, start_bar, end_bar))
 
 
 async def passage_belongs(session, passage_id: Optional[int], entry) -> bool:
@@ -166,11 +200,61 @@ async def passage_belongs(session, passage_id: Optional[int], entry) -> bool:
     return found.first() is not None
 
 
-def attempt_out(attempt, score, state) -> AttemptOut:
+def stored_attempt_out(attempt) -> AttemptOut:
+    free = attempt.mode == "free"
+    return AttemptOut(
+        id=attempt.id,
+        created_at=attempt.created_at,
+        mode=attempt.mode,
+        passage_id=attempt.passage_id,
+        start_bar=attempt.start_bar,
+        end_bar=attempt.end_bar,
+        tempo_bpm=attempt.tempo_bpm,
+        achieved_tempo_bpm=float(attempt.achieved_tempo_bpm) if attempt.achieved_tempo_bpm is not None else None,
+        expected=attempt.expected,
+        correct=attempt.correct,
+        wrong=attempt.wrong,
+        missing=attempt.missing,
+        played=attempt.played,
+        accuracy=float(attempt.accuracy) if attempt.accuracy is not None else None,
+        timing=float(attempt.timing) if attempt.timing is not None else None,
+        evenness=float(attempt.evenness) if attempt.evenness is not None else None,
+        overall=float(attempt.overall),
+        clean=attempt.clean,
+        late=attempt.late,
+        early=attempt.early,
+        duration_sec=float(attempt.duration_sec or 0),
+        bars=[
+            BarOut(
+                bar=row.bar,
+                expected=row.expected,
+                correct=row.correct,
+                wrong=row.wrong,
+                missing=row.missing,
+                accuracy=float(row.accuracy) if row.accuracy is not None else None,
+                tempo_bpm=float(row.tempo_bpm) if row.tempo_bpm is not None else None,
+                timing_error_ms=float(row.timing_error_ms) if row.timing_error_ms is not None else None,
+                timing_score=float(row.timing_score) if row.timing_score is not None else None,
+                late=row.late,
+                early=row.early,
+            )
+            for row in attempt.bars
+        ],
+        session_id=attempt.session_id,
+        note_checking=not free,
+    )
+
+
+def attempt_out(attempt, score, state, fed=None) -> AttemptOut:
+    fed = fed or {}
     data = asdict(score)
     data.pop("bars")
     return AttemptOut(
         **data,
+        session_id=fed.get("session_id"),
+        session_minutes=fed.get("session_minutes"),
+        xp_awarded=fed.get("xp_awarded", 0),
+        next_review_at=fed.get("next_review_at"),
         id=attempt.id,
         created_at=attempt.created_at,
         passage_id=attempt.passage_id,
