@@ -3,11 +3,13 @@ import uuid
 from dataclasses import asdict
 from typing import Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.deps import CurrentUser, SessionDep, StorageDep
 from app.core.rate_limit import enforce
+from app.core.storage import FileTooLarge, QuotaExceeded, UnsupportedMediaType
 from app.schemas.keyboard import (
+    AttachedOut,
     AttemptIn,
     AttemptOut,
     BarOut,
@@ -62,13 +64,20 @@ def check_range(reference, start_bar: int, end_bar: int) -> list:
 async def reference_summary(entry_id: uuid.UUID, user: CurrentUser, session: SessionDep, storage: StorageDep) -> ReferenceOut:
     service = ReferenceService(session, storage)
     entry = await load_entry(service, user, entry_id)
-    reference = await service.for_entry(user, entry_id)
+    return await summary(service, user, entry)
+
+
+async def summary(service: ReferenceService, user, entry) -> ReferenceOut:
+    reference = await service.for_entry(user, entry.id)
+    track = await service.track(entry.id)
+    attached = AttachedOut(filename=track.filename, source=track.source_kind, created_at=track.created_at) if track is not None else None
     passages = [PassagePick(**item) for item in await service.passages(entry, reference)]
     if reference is None:
-        return ReferenceOut(available=False, piece_id=entry.piece_id, target_tempo_bpm=target_tempo_for(entry, None), passages=[], message=NO_REFERENCE_MESSAGE)
+        return ReferenceOut(available=False, piece_id=entry.piece_id, attached=attached, target_tempo_bpm=target_tempo_for(entry, None), passages=[], message=NO_REFERENCE_MESSAGE)
     return ReferenceOut(
         available=True,
         piece_id=entry.piece_id,
+        attached=attached,
         source=reference.source,
         first_bar=reference.first_bar,
         last_bar=reference.last_bar,
@@ -78,6 +87,31 @@ async def reference_summary(entry_id: uuid.UUID, user: CurrentUser, session: Ses
         target_tempo_bpm=target_tempo_for(entry, reference),
         passages=passages,
     )
+
+
+@router.post("/entries/{entry_id}/reference", response_model=ReferenceOut, status_code=status.HTTP_201_CREATED)
+async def attach_reference(entry_id: uuid.UUID, user: CurrentUser, session: SessionDep, storage: StorageDep, file: UploadFile = File(...)) -> ReferenceOut:
+    await enforce("upload", str(user.id))
+    service = ReferenceService(session, storage)
+    entry = await load_entry(service, user, entry_id)
+    try:
+        await service.attach(user, entry, file.filename or "", file.file)
+    except UnsupportedMediaType as exc:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc))
+    except (FileTooLarge, QuotaExceeded) as exc:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    return await summary(service, user, entry)
+
+
+@router.delete("/entries/{entry_id}/reference", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+async def detach_reference(entry_id: uuid.UUID, user: CurrentUser, session: SessionDep, storage: StorageDep) -> Response:
+    service = ReferenceService(session, storage)
+    await load_entry(service, user, entry_id)
+    if not await service.detach(entry_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no reference file is attached to this piece")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/entries/{entry_id}/reference/notes", response_model=ReferenceNotesOut)

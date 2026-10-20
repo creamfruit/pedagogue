@@ -117,9 +117,16 @@ class HeatOut(BaseModel):
     bars: list[HeatBarOut] = Field(default_factory=list)
 
 
+class AttachedOut(BaseModel):
+    filename: str
+    source: str
+    created_at: Optional[datetime] = None
+
+
 class ReferenceOut(BaseModel):
     available: bool
     piece_id: Optional[int] = None
+    attached: Optional[AttachedOut] = None
     source: Optional[str] = None
     first_bar: Optional[int] = None
     last_bar: Optional[int] = None

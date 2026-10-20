@@ -237,6 +237,12 @@ export const api = {
   keyboardLadder: (entryId, params) => request(`/keyboard/entries/${entryId}/ladder`, { params }),
   keyboardAttempt: (entryId, body) => request(`/keyboard/entries/${entryId}/attempts`, { method: "POST", body }),
   keyboardHeat: (entryId, params) => request(`/keyboard/entries/${entryId}/heat`, { params }),
+  keyboardAttach: (entryId, file) => {
+    const form = new FormData();
+    form.append("file", file, file.name || "reference.mid");
+    return request(`/keyboard/entries/${entryId}/reference`, { method: "POST", form });
+  },
+  keyboardDetach: (entryId) => request(`/keyboard/entries/${entryId}/reference`, { method: "DELETE" }),
   linkSummary: (sourceId, targetId, linkType) =>
     request(`/catalog/links/${sourceId}/${targetId}`, { params: { link_type: linkType } }),
   searchComposers: (q) => request("/catalog/composers", { params: { q } }),

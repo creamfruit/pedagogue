@@ -986,6 +986,19 @@ class SessionItem(UUIDPrimaryKeyMixin, Base):
         return self.load_units
 
 
+class ReferenceTrack(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "reference_tracks"
+    __table_args__ = (UniqueConstraint("repertoire_entry_id", name="uq_reference_tracks_repertoire_entry_id"),)
+
+    repertoire_entry_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repertoire_entries.id", ondelete="CASCADE"), index=True)
+    source_kind: Mapped[str] = mapped_column(String(10))
+    filename: Mapped[str] = mapped_column(String(200))
+    storage_key: Mapped[str] = mapped_column(Text)
+    quarter_bpm: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 1))
+    note_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    bar_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
 class KeyboardAttempt(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "keyboard_attempts"
     __table_args__ = (

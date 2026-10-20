@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { keyboardSession, reviewLine } from "../src/views/keyboardSession.js";
+import { isReferenceFile, keyboardSession, reviewLine } from "../src/views/keyboardSession.js";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -57,6 +57,8 @@ function setup({ reference = REFERENCE, status = "ready", attempt = attemptResul
     pieceOverview: vi.fn(async () => overview),
     blob: vi.fn(async () => new Blob(["png"])),
     closeSession: vi.fn(async () => ({})),
+    keyboardAttach: vi.fn(async () => ({})),
+    keyboardDetach: vi.fn(async () => null),
   };
   const controller = { state: { status, selectedId: status === "ready" ? "k1" : "" }, onNote: () => () => {} };
   const runs = [];
@@ -517,5 +519,100 @@ describe("review wording", () => {
     expect(reviewLine("2026-10-20T12:00:00Z", now)).toBe("Come back to this piece tomorrow to keep it fresh.");
     expect(reviewLine("2026-10-26T12:00:00Z", now)).toBe("Come back to this piece in about 7 days to keep it fresh.");
     expect(reviewLine(null, now)).toBeNull();
+  });
+});
+
+describe("attaching a reference file", () => {
+  const NONE = { available: false, message: "Note checking isn't available for this piece because it has no MusicXML or MIDI reference.", passages: [], target_tempo_bpm: 100, beats_per_bar: 4 };
+  const midiFile = () => new File([new Uint8Array([77, 84, 104, 100])], "tune.mid", { type: "audio/midi" });
+
+  function pick(node, file) {
+    const input = node.querySelector('input[aria-label="Reference file"]');
+    Object.defineProperty(input, "files", { value: file ? [file] : [], configurable: true });
+    return input;
+  }
+
+  const button = (node, text) => [...node.querySelectorAll("button")].find((item) => item.textContent === text);
+
+  it("invites the player to attach a file when the piece has no reference", async () => {
+    const { node } = setup({ reference: NONE });
+    expect(node.querySelector(".keyboard-reference").hidden).toBe(true);
+    await choose(node);
+    expect(node.querySelector(".keyboard-reference").hidden).toBe(false);
+    expect(node.querySelector(".keyboard-reference").textContent).toContain("Attach it to turn note checking on. Bar numbers come from the file.");
+    expect(button(node, "Attach file")).toBeTruthy();
+    expect(button(node, "Remove file").hidden).toBe(true);
+  });
+
+  it("uploads the file, reloads the piece and unlocks the scored modes", async () => {
+    const { node, api } = setup({ reference: NONE });
+    await choose(node);
+    api.keyboardReference.mockResolvedValue({ ...REFERENCE, attached: { filename: "tune.mid", source: "midi" } });
+    const file = midiFile();
+    pick(node, file);
+    button(node, "Attach file").click();
+    await flush();
+    await flush();
+    await flush();
+    expect(api.keyboardAttach).toHaveBeenCalledWith("e1", file);
+    expect(api.keyboardReference).toHaveBeenCalledTimes(2);
+    expect([...node.querySelector('select[aria-label="How to play"]').options].map((option) => option.value)).toEqual(["scored", "wait", "free"]);
+    expect(node.querySelector(".keyboard-reference").textContent).toContain("Note checking uses tune.mid. Bar numbers follow that file.");
+    expect(button(node, "Replace file")).toBeTruthy();
+    expect(button(node, "Remove file").hidden).toBe(false);
+    expect(document.body.textContent).toContain("Reference file attached");
+  });
+
+  it("will not upload something that is not MIDI or MusicXML", async () => {
+    const { node, api } = setup({ reference: NONE });
+    await choose(node);
+    pick(node, new File(["%PDF"], "score.pdf", { type: "application/pdf" }));
+    button(node, "Attach file").click();
+    await flush();
+    expect(api.keyboardAttach).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Choose a MIDI (.mid) or MusicXML");
+  });
+
+  it("asks for a file before uploading", async () => {
+    const { node, api } = setup({ reference: NONE });
+    await choose(node);
+    pick(node, null);
+    button(node, "Attach file").click();
+    await flush();
+    expect(api.keyboardAttach).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Choose a MIDI or MusicXML file first.");
+  });
+
+  it("shows why the server refused a file and stays as it was", async () => {
+    const { node, api } = setup({ reference: NONE });
+    await choose(node);
+    api.keyboardAttach.mockRejectedValueOnce(Object.assign(new Error("bad"), { detail: "Couldn't read any notes from that file." }));
+    pick(node, midiFile());
+    button(node, "Attach file").click();
+    await flush();
+    await flush();
+    expect(document.body.textContent).toContain("Couldn't read any notes from that file.");
+    expect(api.keyboardReference).toHaveBeenCalledTimes(1);
+    expect(button(node, "Attach file").disabled).toBe(false);
+  });
+
+  it("removes an attached file and goes back to what the piece had", async () => {
+    const { node, api } = setup({ reference: { ...REFERENCE, attached: { filename: "tune.mid", source: "midi" } } });
+    await choose(node);
+    expect(node.querySelector(".keyboard-reference").textContent).toContain("tune.mid");
+    api.keyboardReference.mockResolvedValue(REFERENCE);
+    button(node, "Remove file").click();
+    await flush();
+    await flush();
+    await flush();
+    expect(api.keyboardDetach).toHaveBeenCalledWith("e1");
+    expect(node.querySelector(".keyboard-reference").textContent).toContain("Note checking uses the score you uploaded.");
+    expect(button(node, "Remove file").hidden).toBe(true);
+  });
+
+  it("recognises MIDI and MusicXML files by name", () => {
+    for (const name of ["a.mid", "A.MIDI", "song.kar", "x.musicxml", "x.xml", "x.mxl"]) expect(isReferenceFile({ name })).toBe(true);
+    for (const name of ["a.pdf", "a.mp3", "midi", ""]) expect(isReferenceFile({ name })).toBe(false);
+    expect(isReferenceFile(undefined)).toBe(false);
   });
 });

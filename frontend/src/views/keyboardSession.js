@@ -8,6 +8,7 @@ import { notify } from "../lib/toast.js";
 const LATENCY_KEY = "pp.midi-latency";
 const FREE_MAX_SECONDS = 120;
 const BEAT_CHOICES = [2, 3, 4, 5, 6, 7, 9, 12];
+const REFERENCE_EXTENSIONS = [".mid", ".midi", ".kar", ".musicxml", ".xml", ".mxl"];
 
 export const NOTE_CHECKING_UNAVAILABLE = "Note checking isn't available for this piece, so free play can only measure how evenly you play against the metronome.";
 
@@ -41,6 +42,11 @@ function stat(label, value, unit = "") {
   return el("div", { class: "keyboard-stat" }, el("span", { class: "stat", style: "font-size:22px" }, `${value}${value === "—" ? "" : unit}`), el("span", { class: "stat-label" }, label));
 }
 
+export function isReferenceFile(file) {
+  const name = (file?.name || "").toLowerCase();
+  return REFERENCE_EXTENSIONS.some((extension) => name.endsWith(extension));
+}
+
 export function reviewLine(iso, now = new Date()) {
   if (!iso) return null;
   const due = new Date(iso);
@@ -64,6 +70,11 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
 
   const entrySelect = el("select", { "aria-label": "Piece to practise" }, el("option", { value: "" }, "Loading your pieces…"));
   const info = el("p", { class: "keyboard-message faint", role: "status", hidden: true });
+  const attachedNote = el("p", { class: "faint", style: "margin:0;font-size:12.5px" });
+  const fileInput = el("input", { type: "file", accept: REFERENCE_EXTENSIONS.join(","), "aria-label": "Reference file" });
+  const attachButton = el("button", { type: "button", class: "btn btn-small" }, "Attach file");
+  const detachButton = el("button", { type: "button", class: "btn btn-small btn-ghost" }, "Remove file");
+  const referenceBox = el("div", { class: "keyboard-reference", hidden: true }, attachedNote, el("div", { class: "row" }, fileInput, attachButton, detachButton));
   const modeSelect = el("select", { "aria-label": "How to play" });
   const modeHint = el("p", { class: "faint", style: "margin:0;font-size:12px" });
   const passageSelect = el("select", { "aria-label": "Passage" });
@@ -97,7 +108,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     )
   );
   const advancedBox = el("div", {}, advanced.button, advanced.region);
-  const controls = [entrySelect, modeSelect, passageSelect, fromInput, toInput, tempoInput, ladderBox, beatsSelect, countIn, latency];
+  const controls = [entrySelect, modeSelect, passageSelect, fromInput, toInput, tempoInput, ladderBox, beatsSelect, countIn, latency, fileInput, attachButton, detachButton];
 
   function currentMode() {
     return modeSelect.value;
@@ -133,6 +144,17 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     if (choice === "custom") return { start: Number(fromInput.value), end: Number(toInput.value), passage: null };
     const pick = reference.passages.find((item) => String(item.id) === choice);
     return { start: pick.start_bar, end: pick.end_bar, passage: pick.id };
+  }
+
+  function describeReference() {
+    referenceBox.hidden = !entrySelect.value || !reference;
+    if (referenceBox.hidden) return;
+    const attached = reference.attached;
+    detachButton.hidden = !attached;
+    attachButton.textContent = attached ? "Replace file" : "Attach file";
+    if (attached) attachedNote.textContent = `Note checking uses ${attached.filename}. Bar numbers follow that file.`;
+    else if (hasReference()) attachedNote.textContent = "Note checking uses the score you uploaded. Attach a MIDI or MusicXML file to use different notes instead.";
+    else attachedNote.textContent = "Have a MIDI or MusicXML file for this piece? Attach it to turn note checking on. Bar numbers come from the file.";
   }
 
   function offeredModes() {
@@ -268,6 +290,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
       info.hidden = true;
       syncModes();
       describeMode();
+      describeReference();
       refreshControls();
       return;
     }
@@ -281,6 +304,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
       info.textContent = error.detail || "Couldn't load this piece for keyboard practice.";
       syncModes();
       describeMode();
+      describeReference();
       refreshControls();
       return;
     }
@@ -302,6 +326,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     }
     tempoInput.value = String(Math.max(40, Math.round((reference.target_tempo_bpm * 0.6) / 2) * 2));
     describeMode();
+    describeReference();
     refreshControls();
     await Promise.all([refreshLadder(), refreshBoard()]);
   }
@@ -530,6 +555,40 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     manualTempo = false;
     if (ladderBox.checked && ladder) tempoInput.value = String(ladder.recommended_tempo);
   });
+  attachButton.addEventListener("click", async () => {
+    const file = fileInput.files[0];
+    if (!file) {
+      notify.error("Choose a MIDI or MusicXML file first.");
+      return;
+    }
+    if (!isReferenceFile(file)) {
+      notify.error("Choose a MIDI (.mid) or MusicXML (.musicxml, .xml, .mxl) file.");
+      return;
+    }
+    attachButton.disabled = true;
+    try {
+      await api.keyboardAttach(entrySelect.value, file);
+      fileInput.value = "";
+      notify.success("Reference file attached");
+      await loadEntry();
+    } catch (error) {
+      notify.error(error.detail || "Couldn't attach that file.");
+    } finally {
+      attachButton.disabled = false;
+    }
+  });
+  detachButton.addEventListener("click", async () => {
+    detachButton.disabled = true;
+    try {
+      await api.keyboardDetach(entrySelect.value);
+      notify.success("Reference file removed");
+      await loadEntry();
+    } catch (error) {
+      notify.error(error.detail || "Couldn't remove that file.");
+    } finally {
+      detachButton.disabled = false;
+    }
+  });
   start.addEventListener("click", begin);
   stop.addEventListener("click", () => run && run.stop());
 
@@ -538,6 +597,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     { class: "keyboard-session" },
     el("div", { class: "row" }, el("label", { class: "faint", style: "font-size:12px" }, "Piece"), entrySelect),
     info,
+    referenceBox,
     el("div", { class: "keyboard-options" }, modeSelect, modeHint, passageBox, beatsSelect, tempoRow, ladderNote, advancedBox),
     el("div", { class: "row" }, start, stop),
     status,

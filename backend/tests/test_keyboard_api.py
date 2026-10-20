@@ -105,7 +105,7 @@ async def world(tmp_path, monkeypatch):
     app.dependency_overrides[get_file_storage] = lambda: storage
     limiter.reset()
     try:
-        yield SimpleNamespace(ids=ids, factory=factory, current=current)
+        yield SimpleNamespace(ids=ids, factory=factory, current=current, storage=storage)
     finally:
         app.dependency_overrides.clear()
         async with factory() as session:

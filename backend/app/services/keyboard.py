@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import math
 import uuid
 from collections import Counter, OrderedDict
@@ -12,7 +13,14 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from app.core.storage import Storage, storage as default_storage
+from app.core.storage import (
+    SCORE_KINDS,
+    FileTooLarge,
+    Storage,
+    UnsupportedMediaType,
+    sniff_score,
+    storage as default_storage,
+)
 from app.models.models import (
     ORBITAL_DECAY_HALF_LIFE_DAYS,
     KeyboardAttempt,
@@ -22,6 +30,7 @@ from app.models.models import (
     Passage,
     PdfSubmission,
     PracticeMode,
+    ReferenceTrack,
     RepertoireEntry,
     SessionItem,
     User,
@@ -46,6 +55,10 @@ HEAT_ATTEMPTS = 5
 RUNG_XP = 15
 REVIEW_DECAY = 0.35
 COUNT_IN_SLACK_SEC = 10.0
+
+REFERENCE_KINDS = {"midi": ".mid", "musicxml": ".musicxml", "mxl": ".mxl"}
+ATTACH_LABEL = "a MIDI (.mid) or MusicXML (.musicxml, .xml, .mxl) file"
+UNREADABLE_MESSAGE = "Couldn't read any notes from that file. Check it is a MIDI or MusicXML score for piano and try again."
 
 NO_REFERENCE_MESSAGE = (
     "Note checking isn't available for this piece because it has no MusicXML or MIDI reference. "
@@ -146,7 +159,81 @@ class ReferenceService(BaseService):
             raise LookupError("repertoire entry not found")
         return entry
 
+    async def track(self, entry_id: uuid.UUID) -> Optional[ReferenceTrack]:
+        found = await self.session.execute(select(ReferenceTrack).where(ReferenceTrack.repertoire_entry_id == entry_id))
+        return found.scalar_one_or_none()
+
+    async def load(self, key: str, suffix: str) -> Optional[Reference]:
+        if key in _cache:
+            _cache.move_to_end(key)
+            return _cache[key]
+        if not self.storage.exists(key):
+            return None
+        with self.storage.open(key) as handle:
+            data = handle.read()
+        try:
+            reference = await asyncio.to_thread(parse_reference, data, suffix)
+        except Exception:
+            return None
+        return remember(key, reference) if reference.notes else None
+
+    async def attach(self, user: User, entry: RepertoireEntry, filename: str, stream) -> ReferenceTrack:
+        limit = self.storage.max_bytes
+        data = stream.read(limit + 1)
+        if len(data) > limit:
+            raise FileTooLarge(f"file exceeds {limit // (1024 * 1024)} MB limit")
+        try:
+            kind = sniff_score(data[:8192], filename)
+        except UnsupportedMediaType:
+            raise UnsupportedMediaType(f"expected {ATTACH_LABEL}") from None
+        if kind not in REFERENCE_KINDS:
+            raise UnsupportedMediaType(f"expected {ATTACH_LABEL}, not a PDF")
+        suffix = REFERENCE_KINDS[kind]
+        try:
+            reference = await asyncio.to_thread(parse_reference, data, suffix)
+        except Exception:
+            raise ValueError(UNREADABLE_MESSAGE) from None
+        if not reference.notes:
+            raise ValueError(UNREADABLE_MESSAGE)
+        key = self.storage.build_key(user.id, SCORE_KINDS[kind], filename or f"reference{suffix}")
+        self.storage.save_for_user(io.BytesIO(data), key, user.id)
+        existing = await self.track(entry.id)
+        if existing is not None:
+            self.storage.delete(existing.storage_key)
+            forget(existing.storage_key)
+            await self.session.delete(existing)
+            await self.session.flush()
+        track = ReferenceTrack(
+            repertoire_entry_id=entry.id,
+            source_kind=reference.source,
+            filename=(filename or f"reference{suffix}")[:200],
+            storage_key=key,
+            quarter_bpm=to_decimal(reference.quarter_bpm),
+            note_count=len(reference.notes),
+            bar_count=len(reference.bars),
+        )
+        self.session.add(track)
+        await self.session.flush()
+        await self.session.refresh(track, ["created_at"])
+        remember(key, reference)
+        return track
+
+    async def detach(self, entry_id: uuid.UUID) -> bool:
+        existing = await self.track(entry_id)
+        if existing is None:
+            return False
+        self.storage.delete(existing.storage_key)
+        forget(existing.storage_key)
+        await self.session.delete(existing)
+        await self.session.flush()
+        return True
+
     async def for_entry(self, user: User, entry_id: uuid.UUID) -> Optional[Reference]:
+        track = await self.track(entry_id)
+        if track is not None:
+            attached = await self.load(track.storage_key, suffix_of(track.storage_key))
+            if attached is not None:
+                return attached
         stmt = (
             select(PdfSubmission)
             .join(RepertoireEntry, RepertoireEntry.id == PdfSubmission.repertoire_entry_id)
