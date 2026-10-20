@@ -167,7 +167,7 @@ export async function practiceView(outlet) {
       const modeSelect = el(
         "select",
         { style: "max-width:200px" },
-        ...["free", "live_listening", "forge_drill", "sight_reading", "polyrhythm"].filter((mode) => features.audio || mode !== "live_listening").map((mode) =>
+        ...["free", "keyboard", "live_listening", "forge_drill", "sight_reading", "polyrhythm"].filter((mode) => features.audio || mode !== "live_listening").map((mode) =>
           el("option", { value: mode }, mode.replace(/_/g, " "))
         )
       );

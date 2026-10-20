@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
 from app.api.deps import CurrentUser, SessionDep
+from app.core.config import settings
 from app.core.database import SessionFactory
 from app.core.security import tokens
 from app.models.models import PracticeMode, PracticeSession, User
@@ -29,6 +30,8 @@ router = APIRouter(prefix="/practice", tags=["practice"])
 async def start_session(
     payload: PracticeSessionStart, user: CurrentUser, session: SessionDep
 ) -> PracticeSessionRead:
+    if payload.mode == PracticeMode.LIVE_LISTENING and not settings.audio_features_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Audio recordings are coming soon.")
     try:
         practice = await PracticeSessionService(session).start(user, payload.mode, payload.notes)
     except ValueError as exc:
@@ -134,6 +137,9 @@ async def acknowledge_alert(
 
 @router.websocket("/live")
 async def live_listening(websocket: WebSocket, token: str = Query(...), target_bpm: Optional[int] = Query(default=None)):
+    if not settings.audio_features_enabled:
+        await websocket.close(code=4403)
+        return
     subject = tokens.subject(token)
     if subject is None:
         await websocket.close(code=4401)
