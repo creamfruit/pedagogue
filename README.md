@@ -387,6 +387,11 @@ The backend refuses what a plan doesn't cover with `402` and a `plan_limit` body
 
 Pro is bought on the website through Stripe Checkout, with a 7-day trial, and managed in the Stripe customer portal. The webhook at `/api/v1/billing/webhook` sets and clears it. The apps hide every price, upgrade button, Stripe link and the donation button; `frontend/src/lib/inAppPurchases.js` is where RevenueCat plugs in later. Setup is in `DEPLOY.md` under "Billing with Stripe (Pro)".
 
+## Public pages and share cards
+
+- **Public pages.** `/welcome` (landing page with a demo and the pricing summary), `/music` and `/composers` (one server-rendered page per catalogue piece and composer, with how hard it is, the hardest sections, the techniques, the story and similar pieces), `/sitemap.xml` and `/robots.txt` come from `backend/app/api/public.py`. Each has a title, description, canonical link, Open Graph tags and JSON-LD. Setup and what is public: `DEPLOY.md`, "Public pages and search".
+- **Share cards.** Pro members can share a streak card, a constellation card and a piece difficulty card (`frontend/src/lib/shareCards.js`). The apps open the share sheet; the website downloads a PNG. Each public piece page also has a server-drawn card, used as its share image.
+
 ## Keyboard practice
 
 The Practice screen has a Keyboard panel for playing a piece on a MIDI keyboard and seeing how it went.

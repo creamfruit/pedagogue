@@ -55,6 +55,16 @@ the samples were changed. We ship a subset of notes converted to MP3.
 
 Links to IMSLP and MuseScore on piece pages are search links only. Nothing is copied from either.
 
+## What the public pages show
+
+The public piece, composer and landing pages (see `DEPLOY.md`, "Public pages and search") use only what is listed above:
+
+- difficulty, load figures, techniques and our own notes, which are ours;
+- the hardest sections of catalogue pieces, which for Chopin are measurements from the First Editions of Fryderyk Chopin's Music (CC BY 4.0). Pages for pieces measured from it carry the credit lines, the licence link and a statement that we changed the material;
+- short histories taken from Wikipedia (CC BY-SA 4.0), each with a link to its article, the contributors' credit, the licence link and a note that the text is shortened. Nothing else on those pages is taken from Wikipedia.
+
+They never show the Classical Piano MIDI excerpts or the Salamander samples, pieces added by users, passages a user assessed or that were found in a user's own score, or anything a user uploaded.
+
 ## Removed before launch
 
 | Source | Licence | What it was used for |

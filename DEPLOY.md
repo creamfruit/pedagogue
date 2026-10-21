@@ -206,6 +206,26 @@ Deleting an account cancels its subscription first. If Stripe can't be reached, 
 
 To try it locally, run `stripe listen --forward-to localhost:8000/api/v1/billing/webhook`, put the `whsec_...` it prints in `STRIPE_WEBHOOK_SECRET`, and use Stripe's test cards. Administrators (`ADMIN_EMAILS`) see a Subscribers list under Settings > Plan.
 
+## Public pages and search
+
+The landing page, the piece and composer pages, the sitemap and robots.txt are rendered by the API (`/public/...`, templates in `backend/app/templates/public`) and appear on the website's own address through rewrite rules in `render.yaml`:
+
+| Website address | Served by |
+|---|---|
+| `/welcome` | landing page with the practice demo and pricing summary |
+| `/music`, `/music/<id-slug>` | catalogue index and one page per piece |
+| `/music/<id-slug>/card.png` | the piece's 1200x630 difficulty card (also its `og:image`) |
+| `/composers`, `/composers/<id-slug>` | composer index and one page per composer |
+| `/sitemap.xml`, `/robots.txt` | generated from the catalogue |
+
+- **The rewrite destination is hard-coded.** The rules in `render.yaml` point at `https://pedagogue-api.onrender.com`. If the API has another address (for example `https://api.pedagogue.app`), change all seven destinations to match before deploying, or those pages will 404. They must stay above the final `/*` rule.
+- **`WEBSITE_URL` must be the website's real address.** Every canonical link, sitemap entry, share image and call to action is built from it. Pages are cached for an hour by the host (`s-maxage=3600`).
+- **Only production is indexable.** With `ENVIRONMENT` set to anything else, `robots.txt` disallows everything.
+- **What is public.** Only seeded catalogue pieces that have a difficulty score and a composer. Pieces users add themselves, their scores, their uploaded files and the bars found in their scores are never on these pages. Wikipedia text is shown only with its link, credit and CC BY-SA 4.0 notice, and Chopin measurements carry the Fryderyk Chopin Institute credit; see `LICENSES.md`.
+- **New or renamed pieces** appear within ten minutes (the catalogue index is cached in memory). Old addresses redirect to the current one, because the number at the start of the slug is what identifies the page.
+- **Submit the sitemap** (`https://<website>/sitemap.xml`) in Google Search Console and Bing Webmaster Tools once the domain is live.
+- **The front door.** On the website a signed-out visitor at `/` is sent to `/welcome`; the apps never are. The service worker is told not to answer for these paths, so a returning visitor still gets the server's page.
+
 ## Backups and restoring
 
 ### What runs

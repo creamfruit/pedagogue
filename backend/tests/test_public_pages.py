@@ -655,3 +655,19 @@ def test_the_website_forwards_the_landing_page_to_the_api():
     web = next(service for service in blueprint["services"] if service["name"] == "pedagogue-web")
     destinations = {route["source"]: route["destination"] for route in web["routes"]}
     assert destinations["/welcome"].endswith("/public/welcome")
+
+
+def test_every_public_rewrite_points_at_the_same_api_and_the_docs_say_so():
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    blueprint = yaml.safe_load((root / "render.yaml").read_text(encoding="utf-8"))
+    web = next(service for service in blueprint["services"] if service["name"] == "pedagogue-web")
+    forwarded = [route for route in web["routes"] if route["source"] != "/*"]
+    assert len(forwarded) == 7
+    origins = {route["destination"].split("/public/")[0] for route in forwarded}
+    assert len(origins) == 1 and origins.pop().startswith("https://")
+    deploy = (root / "DEPLOY.md").read_text(encoding="utf-8")
+    assert "Public pages and search" in deploy and "change all seven destinations" in deploy
