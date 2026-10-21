@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.main import app
 from app.services import public_pages
 from app.services.public_pages import parse_slug, piece_slug_for, slugify, trimmed
+from tests.test_billing import stripe_on  # noqa: F401
 
 TEST_DB = os.environ.get("PIANO_TEST_DATABASE_URL")
 needs_db = pytest.mark.skipif(not TEST_DB, reason="set PIANO_TEST_DATABASE_URL to a disposable, migrated database to run")
@@ -416,7 +417,7 @@ async def test_the_sitemap_lists_every_piece_and_composer_page_and_nothing_priva
     assert f"{SITE}/composers/{library.slugs.composer}" in urls
     assert f"{SITE}/music" in urls and f"{SITE}/composers" in urls
     assert not [url for url in urls if f"/music/{library.ids.private}-" in url or f"/music/{library.ids.unrated}-" in url]
-    assert all(re.match(r"^https://pedagogue\.test/(music|composers)(/[0-9a-z-]+)?$", url) for url in urls)
+    assert all(re.match(r"^https://pedagogue\.test/(welcome|music|composers)(/[0-9a-z-]+)?$", url) for url in urls)
 
 
 @needs_db
@@ -530,3 +531,127 @@ async def test_cards_are_only_made_for_public_pieces_and_redirect_from_old_addre
         old = await http.get(f"/public/music/{library.ids.main}-old/card.png", follow_redirects=False)
     assert private.status_code == 404
     assert old.status_code == 301 and old.headers["location"] == f"{SITE}/music/{library.slugs.main}/card.png"
+
+
+def test_prices_are_written_the_way_people_read_them():
+    from app.services.landing import money, priced, savings_percent
+
+    assert money(900, "usd") == "$9.00" and money(7900, "EUR") == "€79.00" and money(1234567, "jpy") == "12,345.67 JPY"
+    assert money(None, "usd") == "" and money(900, None) == ""
+    options = [{"interval": "month", "amount": 900, "currency": "usd"}, {"interval": "year", "amount": 7900, "currency": "usd"}]
+    assert [item["text"] for item in priced(options)] == ["$9.00 / month", "$79.00 / year"]
+    assert savings_percent(priced(options)) == 27
+    assert savings_percent(priced(options[:1])) == 0
+    assert priced([{"interval": "month", "amount": None, "currency": None}]) == []
+
+
+def test_the_pricing_table_is_built_from_the_plan_definitions():
+    from app.core.plans import FREE
+    from app.services.landing import pricing_rows
+
+    rows = {row["feature"]: row for row in pricing_rows()}
+    assert rows["Pieces in progress"] == {"feature": "Pieces in progress", "free": f"Up to {FREE.active_pieces}", "pro": "Unlimited"}
+    assert rows["Keyboard run history"]["free"] == f"Last {FREE.keyboard_history_attempts} runs"
+    assert rows["PDF score reading"] == {"feature": "PDF score reading", "free": "Not included", "pro": "Included"}
+    assert rows["Tempo ladder"]["free"] == f"Up to {round(FREE.tempo_ladder_ceiling * 100)}% of your target"
+
+
+@needs_db
+async def test_the_landing_page_shows_the_practice_flow_and_the_pricing_summary(library, monkeypatch):
+    from app.core.plans import FREE
+    from app.services.landing import DEMO_STEPS
+
+    for name in ("stripe_secret_key", "stripe_price_monthly", "stripe_price_yearly"):
+        monkeypatch.setattr(settings, name, "")
+    async with client() as http:
+        response = await http.get("/public/welcome")
+    html = response.text
+    assert response.status_code == 200 and "s-maxage" in response.headers["cache-control"]
+    assert "<h1>Find what's hard.<br>Practise it properly.</h1>" in html
+    for index, step in enumerate(DEMO_STEPS):
+        assert f'data-step="{index}"' in html and step["title"] in html
+        assert f'data-scene="{index}"' in html
+    assert "An example, not a recording." in html
+    assert f"Up to {FREE.active_pieces}" in html and "Unlimited" in html and "PDF score reading" in html
+    assert "Pro isn't open for sign-up yet" in html
+    assert "price-row" not in html.split('<section class="card" id="pricing"')[1]
+    assert f'href="{SITE}/register?utm_source=welcome&amp;utm_content=hero"' in html
+    assert f'href="{SITE}/music"' in html and f'href="{SITE}/composers"' in html
+    assert "Browse the music" in html
+
+
+@needs_db
+async def test_the_landing_page_shows_the_real_prices_and_the_trial_when_pro_is_on_sale(library, stripe_on):
+    async with client() as http:
+        html = (await http.get("/public/welcome")).text
+    pricing = html.split('<section class="card" id="pricing"')[1]
+    assert "$9.00 / month" in pricing and "$79.00 / year" in pricing and "Save 27%" in pricing
+    assert "Try Pro free for 7 days" in pricing
+    assert f'href="{SITE}/pricing"' in pricing
+    assert "Pro isn't open" not in html
+
+
+@needs_db
+async def test_the_landing_page_survives_stripe_being_down(library, stripe_on):
+    def broken(price_id):
+        raise RuntimeError("stripe is down")
+
+    stripe_on.price_summary = broken
+    async with client() as http:
+        response = await http.get("/public/welcome")
+    assert response.status_code == 200
+    assert "$9.00" not in response.text and "Unlimited" in response.text
+
+
+@needs_db
+async def test_the_landing_page_has_its_own_title_description_and_structured_data(library, stripe_on):
+    async with client() as http:
+        html = (await http.get("/public/welcome")).text
+    title = head_value(html, r"<title>(.*?)</title>")
+    description = head_value(html, r'<meta name="description" content="(.*?)">')
+    assert title.startswith("Pedagogue: practise the hard bars") and len(title) <= 70
+    assert 100 < len(description) <= 200
+    assert f'<link rel="canonical" href="{SITE}/welcome">' in html
+    graph = {item["@type"]: item for item in structured(html)[0]["@graph"]}
+    app_data = graph["WebApplication"]
+    assert app_data["applicationCategory"] == "EducationalApplication" and app_data["url"] == f"{SITE}/welcome"
+    offers = {offer["name"]: offer for offer in app_data["offers"]}
+    assert offers["Free"]["price"] == "0"
+    assert offers["Pro, monthly"]["price"] == "9.00" and offers["Pro, yearly"]["priceCurrency"] == "USD"
+
+
+@needs_db
+async def test_the_demo_works_without_scripts_and_the_page_loads_nothing_from_elsewhere(library):
+    import re
+
+    async with client() as http:
+        html = (await http.get("/public/welcome")).text
+    assert "html.js .scene{display:none" in html
+    assert html.count('data-scene="') == 4
+    assert not re.findall(r"<script[^>]+src=", html)
+    assert "fonts.googleapis.com" not in html and "fonts.gstatic.com" not in html
+    assert not re.findall(r'<link[^>]+rel="stylesheet"', html)
+    script = html.split("<script>")[1].split("</script>")[0]
+    assert "prefers-reduced-motion" in script
+    assert "//" not in script.replace("https://", "")
+
+
+@needs_db
+async def test_the_sitemap_includes_the_landing_page(library):
+    from xml.etree import ElementTree
+
+    async with client() as http:
+        sitemap = (await http.get("/public/sitemap.xml")).text
+    urls = {node.text for node in ElementTree.fromstring(sitemap).iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")}
+    assert f"{SITE}/welcome" in urls
+
+
+def test_the_website_forwards_the_landing_page_to_the_api():
+    from pathlib import Path
+
+    import yaml
+
+    blueprint = yaml.safe_load((Path(__file__).resolve().parents[2] / "render.yaml").read_text(encoding="utf-8"))
+    web = next(service for service in blueprint["services"] if service["name"] == "pedagogue-web")
+    destinations = {route["source"]: route["destination"] for route in web["routes"]}
+    assert destinations["/welcome"].endswith("/public/welcome")

@@ -22,6 +22,8 @@ export default defineConfig(({ command, mode }) => {
       proxy: {
         "/api": { target: apiTarget, changeOrigin: true },
         "/health": { target: apiTarget, changeOrigin: true },
+        "^/(welcome|music|composers)(/.*)?$": { target: apiTarget, changeOrigin: true, rewrite: (path) => `/public${path}` },
+        "^/(sitemap\\.xml|robots\\.txt)$": { target: apiTarget, changeOrigin: true, rewrite: (path) => `/public${path}` },
       },
     },
     build: {
@@ -60,7 +62,7 @@ export default defineConfig(({ command, mode }) => {
           globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
           maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
           navigateFallback: "index.html",
-          navigateFallbackDenylist: [/^\/api/, /^\/health/],
+          navigateFallbackDenylist: [/^\/api/, /^\/health/, /^\/(welcome|music|composers)(\/|$)/, /^\/sitemap\.xml$/, /^\/robots\.txt$/],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           runtimeCaching: [

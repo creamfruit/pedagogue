@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -15,6 +16,9 @@ from app.models.models import BillingEvent, RepertoireEntry, RepertoireStatus, S
 from app.services.onboarding import BaseService
 
 logger = logging.getLogger("piano.billing")
+
+PRICE_CACHE_SECONDS = 3600
+_price_cache: dict[str, tuple[float, dict]] = {}
 
 ACTIVE_STATUSES = (RepertoireStatus.LEARNING, RepertoireStatus.POLISHING)
 
@@ -90,6 +94,23 @@ LIVE_STATUSES = PRO_STATUSES | {"incomplete"}
 
 class CheckoutRefused(Exception):
     pass
+
+
+async def price_options(gateway) -> list[dict]:
+    found = []
+    for interval, price_id in settings.stripe_prices.items():
+        summary: dict = {}
+        cached = _price_cache.get(price_id)
+        if cached and cached[0] > time.monotonic():
+            summary = cached[1]
+        elif settings.stripe_secret_key.strip():
+            try:
+                summary = await asyncio.to_thread(gateway.price_summary, price_id)
+                _price_cache[price_id] = (time.monotonic() + PRICE_CACHE_SECONDS, summary)
+            except Exception:
+                summary = {}
+        found.append({"interval": interval, "amount": summary.get("amount"), "currency": summary.get("currency")})
+    return found
 
 
 def moment(value) -> Optional[datetime]:

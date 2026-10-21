@@ -221,6 +221,9 @@ services:
         value: public, max-age=31536000, immutable
     routes:
       - type: rewrite
+        source: /welcome
+        destination: https://pedagogue-api.onrender.com/public/welcome
+      - type: rewrite
         source: /sitemap.xml
         destination: https://pedagogue-api.onrender.com/public/sitemap.xml
       - type: rewrite

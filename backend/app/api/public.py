@@ -1,14 +1,17 @@
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.api.deps import SessionDep
-from app.services import cards, seo
+from app.services import cards, landing, seo
+from app.services.billing import price_options
 from app.services.public_pages import PublicPieceService, parse_slug
 from app.services.seo import site
+from app.services.stripe_gateway import StripeGateway, get_gateway
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 CACHE = "public, max-age=300, s-maxage=3600"
@@ -32,6 +35,13 @@ def not_found() -> HTMLResponse:
 
 def moved(path: str) -> RedirectResponse:
     return RedirectResponse(site(path), status_code=status.HTTP_301_MOVED_PERMANENTLY)
+
+
+@router.get("/welcome")
+async def welcome(session: SessionDep, gateway: Annotated[StripeGateway, Depends(get_gateway)]) -> Response:
+    listing = await PublicPieceService(session).listing()
+    context = landing.landing_context(await price_options(gateway), listing["count"], len(listing["groups"]))
+    return render("public/landing.html", seo=landing.landing_seo(context), **context)
 
 
 @router.get("/music")
@@ -94,7 +104,7 @@ async def composer_page(slug: str, session: SessionDep) -> Response:
 @router.get("/sitemap.xml")
 async def sitemap(session: SessionDep) -> Response:
     entries = await PublicPieceService(session).sitemap_entries()
-    return Response(seo.sitemap_xml(entries, ["/music", "/composers"]), media_type="application/xml", headers={"Cache-Control": CACHE})
+    return Response(seo.sitemap_xml(entries, ["/welcome", "/music", "/composers"]), media_type="application/xml", headers={"Cache-Control": CACHE})
 
 
 @router.get("/robots.txt")

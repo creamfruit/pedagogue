@@ -1,4 +1,6 @@
 import { el } from "../lib/dom.js";
+import { LANDING_PATH } from "../lib/landing.js";
+import { isNative } from "../lib/platform.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
@@ -11,7 +13,8 @@ function legalLinks(lead) {
   const terms = el("a", { href: "/terms", "data-link": true }, lead ? "terms of use" : "Terms of use");
   const privacy = el("a", { href: "/privacy", "data-link": true }, lead ? "privacy policy" : "Privacy policy");
   if (lead) return el("p", { class: "faint auth-legal" }, lead, terms, " and the ", privacy, ".");
-  return el("p", { class: "faint auth-legal" }, privacy, " · ", terms);
+  const about = isNative ? null : el("a", { href: LANDING_PATH }, "About Pedagogue");
+  return el("p", { class: "faint auth-legal" }, ...[about, privacy, terms].filter(Boolean).flatMap((node, index) => (index ? [" · ", node] : [node])));
 }
 
 const LAST_EMAIL = "pp.lastEmail";

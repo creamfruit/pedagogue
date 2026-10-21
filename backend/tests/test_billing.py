@@ -7,7 +7,7 @@ import uuid
 import pytest
 import stripe
 
-from app.api.v1 import billing as billing_api
+from app.services import billing as billing_service
 from app.core.config import Settings, settings
 from app.main import app
 from app.services.stripe_gateway import BadWebhook, BillingUnavailable, StripeGateway, get_gateway, verify_webhook
@@ -85,7 +85,7 @@ def stripe_on(monkeypatch):
     monkeypatch.setattr(settings, "stripe_price_yearly", YEAR)
     monkeypatch.setattr(settings, "stripe_trial_days", 7)
     monkeypatch.setattr(settings, "website_url", "https://pedagogue.test")
-    billing_api._price_cache.clear()
+    billing_service._price_cache.clear()
     fake = FakeGateway()
     app.dependency_overrides[get_gateway] = lambda: fake
     yield fake

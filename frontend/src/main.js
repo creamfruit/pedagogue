@@ -4,6 +4,7 @@ import { closeTopModal, el } from "./lib/dom.js";
 import { isOnline, onConnectivity, watchConnectivity } from "./lib/connectivity.js";
 import { hideSplash, setupNative } from "./lib/native.js";
 import { flushNotes, onOutboxChange, pendingNotes } from "./lib/outbox.js";
+import { landingTarget } from "./lib/landing.js";
 import { isNative } from "./lib/platform.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
@@ -284,6 +285,11 @@ async function boot() {
   subscribe(setChrome);
   subscribe((state) => identifyUser(state.user?.id));
   await store.hydrate();
+  const landing = store.serverDown ? null : landingTarget({ pathname: window.location.pathname, authenticated: store.isAuthenticated, native: isNative });
+  if (landing) {
+    window.location.replace(landing);
+    return;
+  }
   setChrome();
 
   const app = document.getElementById("app");

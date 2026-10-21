@@ -1,0 +1,179 @@
+{% extends "public/base.html" %}
+{% block title %}{{ seo.title }}{% endblock %}
+{% block meta %}{% include "public/seo.html" %}{% endblock %}
+{% block style %}
+.hero{padding:28px 0 8px;text-align:center}
+.hero h1{font-size:clamp(2rem,6vw,3.2rem);margin:12px 0}
+.hero p.lead{font-size:1.15rem;color:var(--dim);max-width:640px;margin:0 auto 16px}
+.small-print{font-size:13px;color:var(--dim);margin-top:10px}
+.demo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px;align-items:start}
+@media (max-width:720px){.demo{grid-template-columns:minmax(0,1fr)}}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.steps button{width:100%;text-align:left;background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:12px 14px;color:var(--text);font:inherit;cursor:pointer}
+.steps button[aria-current="true"]{border-color:var(--accent);background:var(--accent-wash)}
+.steps b{display:block}
+.steps span{display:block;color:var(--dim);font-size:14px;margin-top:2px}
+.stage{position:relative;background:var(--sunk);border:1px solid var(--line-strong);border-radius:8px;padding:18px;min-height:250px}
+.stage .tag{position:absolute;top:10px;right:12px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.scene{display:block;margin-bottom:18px}
+html.js .scene{display:none;margin-bottom:0}
+html.js .scene.on{display:block}
+.scene h3{margin:0 0 10px;font-size:1rem}
+.bars{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin:10px 0}
+.bars i{display:block;height:46px;border-radius:3px;background:var(--raised);border:1px solid var(--line);font-style:normal;font-size:11px;color:var(--dim);padding:2px 4px}
+.bars i.hot{background:#4a2a30;border-color:var(--hot);color:var(--text)}
+.bars i.warn{background:#463b21;border-color:var(--warn);color:var(--text)}
+.bars i.good{background:#1d4035;border-color:var(--good);color:var(--text)}
+.keys{display:flex;gap:3px;margin:12px 0}
+.keys span{flex:1;height:70px;border-radius:0 0 4px 4px;background:#d8e2e2}
+.keys span.down{background:var(--accent);box-shadow:0 0 12px rgba(206,233,226,.6)}
+.meterrow{display:flex;align-items:center;gap:10px;font-size:14px}
+.pulse{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+@media (prefers-reduced-motion:no-preference){.pulse{animation:beat .83s infinite}}
+@keyframes beat{0%,60%{opacity:.25}10%{opacity:1}}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.features .item h3{margin-bottom:4px}
+.price-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.price{background:var(--sunk);border:1px solid var(--line-strong);border-radius:6px;padding:16px}
+.price b{font-size:1.4rem;display:block}
+{% endblock %}
+{% block content %}
+<section class="hero">
+<h1>Find what's hard.<br>Practise it properly.</h1>
+<p class="lead">Pedagogue shows you the hardest bars of the piano music you're learning, then helps you practise them with a metronome, your MIDI keyboard and a tempo that only rises when you play cleanly.</p>
+<a class="btn" href="{{ site('/register') }}?utm_source=welcome&amp;utm_content=hero">Create a free account</a>
+<a class="btn ghost" href="#demo">See how it works</a>
+<p class="small-print">Free to start: five pieces at a time, no card needed.</p>
+</section>
+
+<section class="card" id="demo" aria-labelledby="demo-title">
+<h2 id="demo-title">How a practice session goes</h2>
+<div class="demo">
+<ol class="steps" aria-label="Steps">
+{% for step in steps %}
+<li><button type="button" data-step="{{ loop.index0 }}" aria-current="{{ 'true' if loop.first else 'false' }}"><b>{{ loop.index }}. {{ step.title }}</b><span>{{ step.text }}</span></button></li>
+{% endfor %}
+</ol>
+<div class="stage" aria-hidden="true">
+<span class="tag">Example</span>
+<div class="scene on" data-scene="0">
+<h3>Nocturne in E-flat major, Op. 9 No. 2</h3>
+<div class="meter"><span style="width:52%"></span></div>
+<div class="scale"><span>Beginner</span><span>Intermediate</span><span>Virtuoso</span></div>
+<p class="small dim" style="margin-top:10px">Difficulty 52 of 100 · late intermediate · ornamented melody over a wide left hand</p>
+</div>
+<div class="scene" data-scene="1">
+<h3>Your score, with the hard bars marked</h3>
+<div class="bars"><i>1</i><i>2</i><i>3</i><i class="warn">4</i><i class="hot">5</i><i class="hot">6</i><i>7</i><i>8</i></div>
+<p class="small dim">Bars 5–6 · fast double notes in the right hand</p>
+</div>
+<div class="scene" data-scene="2">
+<h3>Count-in, then play</h3>
+<div class="meterrow"><span class="pulse"></span> ♩ = 72 · count-in 1 2 3 4</div>
+<div class="keys"><span></span><span class="down"></span><span></span><span class="down"></span><span></span><span></span><span class="down"></span><span></span></div>
+<p class="small dim">Each note is checked for pitch, timing and evenness</p>
+</div>
+<div class="scene" data-scene="3">
+<h3>Run after run</h3>
+<p class="small dim" style="margin:0">First run</p>
+<div class="bars"><i class="good">1</i><i class="good">2</i><i class="good">3</i><i class="warn">4</i><i class="hot">5</i><i class="hot">6</i><i class="good">7</i><i class="good">8</i></div>
+<p class="small dim" style="margin:0">Two runs later</p>
+<div class="bars"><i class="good">1</i><i class="good">2</i><i class="good">3</i><i class="good">4</i><i class="good">5</i><i class="warn">6</i><i class="good">7</i><i class="good">8</i></div>
+<p class="small dim">Two clean runs at ♩ = 72 raise the next one to ♩ = 76</p>
+</div>
+</div>
+</div>
+<p class="small-print">An example, not a recording. Keyboard practice needs a MIDI keyboard and Chrome, Edge or Opera on a computer or Android phone, or Firefox on a computer.</p>
+</section>
+
+<section aria-labelledby="features-title">
+<h2 id="features-title">What you get</h2>
+<div class="features">
+{% for title, text in features %}
+<div class="item"><h3>{{ title }}</h3><p class="small dim" style="margin:0">{{ text }}</p></div>
+{% endfor %}
+</div>
+</section>
+
+<section class="card" id="pricing" aria-labelledby="pricing-title">
+<h2 id="pricing-title">Free to use. Pro when you want more.</h2>
+<table>
+<thead><tr><th scope="col">What you get</th><th scope="col">Free</th><th scope="col" class="pro">Pro</th></tr></thead>
+<tbody>
+{% for row in rows %}
+<tr><th scope="row" style="font-weight:400">{{ row.feature }}</th><td>{{ row.free }}</td><td class="pro">{{ row.pro }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% if prices %}
+<div class="price-row">
+{% for price in prices %}
+<div class="price"><span class="dim small">{{ 'Monthly' if price.interval == 'month' else 'Yearly' if price.interval == 'year' else price.interval|title }}</span><b>{{ price.text }}</b>{% if price.interval == 'year' and savings %}<span class="pill good">Save {{ savings }}%</span>{% endif %}</div>
+{% endfor %}
+</div>
+{% endif %}
+{% if checkout_open %}
+<p class="dim">{% if trial_days %}Try Pro free for {{ trial_days }} days. You add a card at checkout and aren't charged until the trial ends; cancel before then and you pay nothing. {% endif %}Pro is bought on the website.</p>
+<a class="btn" href="{{ site('/register') }}?utm_source=welcome&amp;utm_content=pricing">Start free</a>
+<a class="btn ghost" href="{{ site('/pricing') }}">Full pricing</a>
+{% else %}
+<p class="dim">Pro isn't open for sign-up yet. Everything on the Free plan works today.</p>
+<a class="btn" href="{{ site('/register') }}?utm_source=welcome&amp;utm_content=pricing">Create a free account</a>
+{% endif %}
+</section>
+
+{% if pieces %}
+<section aria-labelledby="browse-title">
+<h2 id="browse-title">Look before you sign up</h2>
+<p class="dim">See how hard {{ pieces }} piano pieces by {{ composers }} composers are, which bars are hardest and which techniques they use.</p>
+<a class="btn ghost" href="{{ site('/music') }}">Browse the music</a>
+<a class="btn ghost" href="{{ site('/composers') }}">Browse the composers</a>
+</section>
+{% endif %}
+
+<section class="cta" aria-labelledby="final-title">
+<h2 id="final-title">Start with the bar that's been tripping you up</h2>
+<p class="dim">Free to start. No card needed.</p>
+<a class="btn" href="{{ site('/register') }}?utm_source=welcome&amp;utm_content=footer">Create a free account</a>
+<a class="btn ghost" href="{{ site('/login') }}">Sign in</a>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var root = document.documentElement;
+  root.className += " js";
+  var buttons = Array.prototype.slice.call(document.querySelectorAll("[data-step]"));
+  var scenes = Array.prototype.slice.call(document.querySelectorAll("[data-scene]"));
+  if (!buttons.length) return;
+  var current = 0;
+  var timer = null;
+  function show(index) {
+    current = index;
+    buttons.forEach(function (button, position) {
+      button.setAttribute("aria-current", position === index ? "true" : "false");
+    });
+    scenes.forEach(function (scene, position) {
+      scene.className = position === index ? "scene on" : "scene";
+    });
+  }
+  function stop() {
+    if (timer) window.clearInterval(timer);
+    timer = null;
+  }
+  buttons.forEach(function (button, position) {
+    button.addEventListener("click", function () {
+      stop();
+      show(position);
+    });
+  });
+  show(0);
+  var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!still) {
+    timer = window.setInterval(function () {
+      show((current + 1) % scenes.length);
+    }, 4500);
+  }
+})();
+</script>
+{% endblock %}

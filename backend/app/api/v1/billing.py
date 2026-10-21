@@ -1,5 +1,3 @@
-import asyncio
-import time
 from typing import Annotated, Optional
 
 import stripe
@@ -9,16 +7,13 @@ from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.core.config import settings
 from app.core.rate_limit import enforce
 from app.schemas.billing import CheckoutIn, PlanOut, PriceOut, PricesOut, SubscribersOut, UrlOut
-from app.services.billing import BillingService, CheckoutRefused, PlanService
+from app.services.billing import BillingService, CheckoutRefused, PlanService, price_options
 from app.services.stripe_gateway import BadWebhook, BillingUnavailable, StripeGateway, get_gateway, verify_webhook
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 GatewayDep = Annotated[StripeGateway, Depends(get_gateway)]
-
-PRICE_CACHE_SECONDS = 3600
-_price_cache: dict[str, tuple[float, dict]] = {}
 
 
 def unavailable(error: Exception) -> HTTPException:
@@ -36,19 +31,7 @@ async def current_plan(user: CurrentUser, session: SessionDep) -> PlanOut:
 
 @router.get("/prices", response_model=PricesOut)
 async def prices(gateway: GatewayDep) -> PricesOut:
-    found = []
-    for interval, price_id in settings.stripe_prices.items():
-        summary = {}
-        cached = _price_cache.get(price_id)
-        if cached and cached[0] > time.monotonic():
-            summary = cached[1]
-        elif settings.stripe_secret_key.strip():
-            try:
-                summary = await asyncio.to_thread(gateway.price_summary, price_id)
-                _price_cache[price_id] = (time.monotonic() + PRICE_CACHE_SECONDS, summary)
-            except Exception:
-                summary = {}
-        found.append(PriceOut(interval=interval, amount=summary.get("amount"), currency=summary.get("currency")))
+    found = [PriceOut(**item) for item in await price_options(gateway)]
     return PricesOut(available=settings.stripe_checkout_ready, trial_days=settings.stripe_trial_days, prices=found)
 
 
