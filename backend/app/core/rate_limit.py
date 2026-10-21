@@ -121,6 +121,7 @@ MESSAGES = {
     "upload": "You've uploaded a lot in a short time. Try again later.",
     "pdf_analysis": "You've sent a lot of scores to be read in a short time. Try again later.",
     "keyboard_attempt": "You've saved a lot of keyboard runs in a short time. Take a breather and try again soon.",
+    "billing": "You've opened billing a lot in a short time. Try again later.",
 }
 
 

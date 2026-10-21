@@ -79,7 +79,12 @@ class Settings(BaseSettings):
     rate_limit_upload: str = "30/hour"
     rate_limit_pdf_analysis: str = "20/hour"
     rate_limit_keyboard_attempt: str = "120/hour"
+    rate_limit_billing: str = "20/hour"
 
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_monthly: str = ""
+    stripe_price_yearly: str = ""
     stripe_trial_days: int = Field(default=7, ge=0, le=90)
 
     sentry_dsn: str = ""
@@ -123,6 +128,22 @@ class Settings(BaseSettings):
     @property
     def admin_emails(self) -> set[str]:
         return {email.strip().lower() for email in self.admin_emails_raw.split(",") if email.strip()}
+
+    @property
+    def stripe_prices(self) -> dict[str, str]:
+        found = {"month": self.stripe_price_monthly.strip(), "year": self.stripe_price_yearly.strip()}
+        return {interval: price for interval, price in found.items() if price}
+
+    @property
+    def stripe_checkout_ready(self) -> bool:
+        return bool(self.stripe_secret_key.strip() and self.stripe_prices)
+
+    @property
+    def return_base_url(self) -> str:
+        if self.website_url:
+            return self.website_url.strip().rstrip("/")
+        local = [origin for origin in self.cors_origins if origin not in CAPACITOR_ORIGINS]
+        return local[0] if local else "http://localhost:5173"
 
     @property
     def is_production(self) -> bool:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 
@@ -36,6 +36,12 @@ class UpgradeCopyOut(BaseModel):
     upgrade: str
 
 
+class BillingStateOut(BaseModel):
+    checkout: bool = False
+    portal: bool = False
+    intervals: list[str] = []
+
+
 class PlanOut(BaseModel):
     plan: str
     name: str
@@ -45,3 +51,24 @@ class PlanOut(BaseModel):
     can_start_trial: bool
     trial_days: int
     messages: dict[str, UpgradeCopyOut] = {}
+    billing: BillingStateOut = BillingStateOut()
+
+
+class CheckoutIn(BaseModel):
+    interval: Literal["month", "year"]
+
+
+class UrlOut(BaseModel):
+    url: str
+
+
+class PriceOut(BaseModel):
+    interval: str
+    amount: Optional[int] = None
+    currency: Optional[str] = None
+
+
+class PricesOut(BaseModel):
+    available: bool
+    trial_days: int
+    prices: list[PriceOut]

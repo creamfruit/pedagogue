@@ -1077,6 +1077,14 @@ class Subscription(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     user: Mapped[User] = relationship()
 
 
+class BillingEvent(Base):
+    __tablename__ = "billing_events"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(80))
+    received_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+
+
 class LoadAlert(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "load_alerts"
     __table_args__ = (UniqueConstraint("user_id", "week_start", name="uq_load_alerts_user_week"),)

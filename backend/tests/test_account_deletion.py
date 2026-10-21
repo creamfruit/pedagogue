@@ -72,8 +72,12 @@ def signed_in(tmp_path, monkeypatch):
     async def fake_session():
         yield SimpleNamespace()
 
+    async def no_subscription(self, user_id):
+        return False
+
     storage = LocalStorage(root=str(tmp_path))
     monkeypatch.setattr("app.api.v1.auth.delete_account", fake_delete)
+    monkeypatch.setattr("app.api.v1.auth.BillingService.cancel_for_deletion", no_subscription)
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_session] = fake_session
     app.dependency_overrides[get_file_storage] = lambda: storage

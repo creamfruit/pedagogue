@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -9,6 +10,8 @@ from app.core.security import hasher, tokens
 from app.models.models import User
 from app.schemas.schemas import AccountDeletion, Token, UserLogin, UserRead, UserRegister
 from app.services.account import delete_account
+from app.services.billing import BillingService
+from app.services.stripe_gateway import BillingUnavailable, StripeGateway, get_gateway
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -68,10 +71,23 @@ async def me(user: CurrentUser) -> UserRead:
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def delete_me(payload: AccountDeletion, user: CurrentUser, session: SessionDep, storage: StorageDep) -> Response:
+async def delete_me(
+    payload: AccountDeletion,
+    user: CurrentUser,
+    session: SessionDep,
+    storage: StorageDep,
+    gateway: Annotated[StripeGateway, Depends(get_gateway)],
+) -> Response:
     if payload.confirmation.strip().upper() != "DELETE":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="type DELETE to confirm")
     if not hasher.verify(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="that password is incorrect")
+    try:
+        await BillingService(session, gateway).cancel_for_deletion(user.id)
+    except (BillingUnavailable, stripe.StripeError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We could not cancel your Pro subscription just now, so your account has not been deleted. Try again in a few minutes.",
+        )
     await delete_account(session, user, storage)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
