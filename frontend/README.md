@@ -184,7 +184,29 @@ Native-only code is kept behind `lib/platform.js` (`isNative`, `isIOS`,
 | `lib/share.js` | Share sheet for links, the constellation image and downloads |
 | `lib/haptics.js` | Light tap on streaks, achievements and scores |
 | `lib/features.js` | Feature flags: audio (Coming soon), paid offers (web only) |
-| `lib/purchases.js` | Placeholder for in-app purchases; disabled |
+| `lib/billing.js` | The one place that sells Pro: Stripe on the website, nothing in the apps until a purchase provider is registered |
+| `lib/inAppPurchases.js` | The interface RevenueCat plugs into later; no provider is registered today |
+
+### Billing and in-app purchases
+
+Everything that sells Pro goes through `lib/billing.js`. It has three modes:
+
+- `stripe`: the website. Prices come from `GET /billing/prices`, "Start free trial" opens Stripe Checkout, and "Manage billing" opens the Stripe customer portal.
+- `none`: inside the iOS and Android apps while no purchase provider is registered (today). `offersVisible()` is false, so the Pricing page, upgrade buttons, "See Pro" links, Stripe calls and the donation button are all absent. The apps still show what a plan includes and what is limited, and a plan bought on the website still applies to the account.
+- `in-app`: the apps once a provider is registered. The same Pricing page and buttons then use the provider and never Stripe.
+
+To add RevenueCat, write a provider and register it once at start-up with `registerInAppPurchaseProvider(provider)` from `lib/inAppPurchases.js`. A provider is an object with:
+
+| Member | Returns |
+|---|---|
+| `name` | A short string, for example `"revenuecat"` |
+| `isAvailable()` | `true` once the SDK is configured and the store can sell |
+| `loadOfferings()` | A list of `{ id, interval: "month" or "year", price: "$9.00", trialDays }` |
+| `purchase(offering)` | Resolves when the store sale completes; throws if it fails or is cancelled |
+| `restore()` | `{ restored: boolean }` |
+| `manage()` | Opens the store's subscription settings |
+
+After a purchase or restore the app reloads the plan from the backend, so the backend must also learn about the sale. The intended route is a RevenueCat webhook that writes the `subscriptions` row with `provider = "revenuecat"`; the table and `grants_pro` already work for any provider. Nothing else in the front end needs to change.
 
 The service worker is only registered on the website. Store releases are
 described in [`../MOBILE_RELEASE.md`](../MOBILE_RELEASE.md).

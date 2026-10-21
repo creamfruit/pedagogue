@@ -7,7 +7,6 @@ function setting(name, fallback) {
 export const features = {
   audio: ["on", "true"].includes(setting("VITE_AUDIO_FEATURES", "coming-soon")),
   paidOffers: !isNative,
-  inAppPurchases: false,
 };
 
 export const COMING_SOON = "Coming soon";
