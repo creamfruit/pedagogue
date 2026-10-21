@@ -421,7 +421,7 @@ Where to look:
 
 Native features: offline use (turn on Airplane Mode: the repertoire and piece pages still open, and notes written offline are sent when the connection returns), local notifications, haptic feedback on streaks and scores, the share sheet and the Files picker.
 
-Recording uploads and live listening are shown as "Coming soon" and are not part of this version. There are no in-app purchases, subscriptions, ads or external payment links. XP and gold are earned only by practising and cannot be bought.
+Recording uploads and live listening are shown as "Coming soon" and are not part of this version. There are no in-app purchases, ads or external payment links. Pedagogue Pro is sold on the website only; the apps show no price, no upgrade button, no Stripe link and no donation link, and say only what the Free plan limits (a Pro plan bought on the website applies to the account). When RevenueCat is added later, the store listings and this section must be updated first. XP and gold are earned only by practising and cannot be bought.
 
 Privacy policy: https://pedagogue.app/privacy
 ```

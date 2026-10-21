@@ -508,3 +508,27 @@ async def test_the_subscriber_list_shows_who_has_what_and_can_filter_to_pro(worl
         page = (await http.get("/api/v1/admin/subscribers", params={"limit": 1})).json()
         assert len(page["items"]) == 1 and page["total"] == everyone["total"]
         assert (await http.get("/api/v1/admin/subscribers", params={"limit": 0})).status_code == 422
+
+
+def test_every_billing_setting_is_documented_and_in_the_blueprint():
+    import yaml
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    deploy = (root / "DEPLOY.md").read_text(encoding="utf-8")
+    example = (root / "backend" / ".env.example").read_text(encoding="utf-8")
+    blueprint = yaml.safe_load((root / "render.yaml").read_text(encoding="utf-8"))
+    api = next(service for service in blueprint["services"] if service["name"] == "pedagogue-api")
+    declared = {item["key"] for item in api["envVars"]}
+    names = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_MONTHLY", "STRIPE_PRICE_YEARLY", "STRIPE_TRIAL_DAYS", "RATE_LIMIT_BILLING"]
+    for name in names:
+        assert f"`{name}`" in deploy, name
+        assert f"{name}=" in example, name
+    for name in names[:-1]:
+        assert name in declared, name
+    assert "`VITE_DONATION_URL`" in deploy
+
+
+def test_the_billing_settings_have_matching_environment_names():
+    for field in ("stripe_secret_key", "stripe_webhook_secret", "stripe_price_monthly", "stripe_price_yearly", "stripe_trial_days", "rate_limit_billing"):
+        assert field in Settings.model_fields

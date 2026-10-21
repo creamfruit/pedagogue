@@ -370,6 +370,23 @@ On any piece page, Scores & notes takes a PDF, MusicXML or MIDI file.
 
 Audio recordings, the listening coach, graded run-throughs and verification takes are switched off for now (`AUDIO_FEATURES_ENABLED` on the backend, `VITE_AUDIO_FEATURES` on the frontend).
 
+## Free and Pro
+
+The two plans are defined in `backend/app/core/plans.py`.
+
+| | Free | Pro |
+|---|---|---|
+| Pieces in progress | 5 | unlimited |
+| PDF score reading | no (MusicXML and MIDI scores still work) | yes |
+| Keyboard runs in view | last 3 | 50 per piece, all stored |
+| Tempo ladder | up to 80% of the target tempo | to the target |
+| Share cards | no | yes |
+| Cloud sync (offline copy and queued notes) | no | yes |
+
+The backend refuses what a plan doesn't cover with `402` and a `plan_limit` body, and caps keyboard history and the ladder. Share cards and cloud sync run on the device, so the front end enforces those two from the plan it reads at `GET /billing/plan`. Existing data is never removed when someone returns to Free; runs are stored in full so upgrading brings the history back.
+
+Pro is bought on the website through Stripe Checkout, with a 7-day trial, and managed in the Stripe customer portal. The webhook at `/api/v1/billing/webhook` sets and clears it. The apps hide every price, upgrade button, Stripe link and the donation button; `frontend/src/lib/inAppPurchases.js` is where RevenueCat plugs in later. Setup is in `DEPLOY.md` under "Billing with Stripe (Pro)".
+
 ## Keyboard practice
 
 The Practice screen has a Keyboard panel for playing a piece on a MIDI keyboard and seeing how it went.

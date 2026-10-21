@@ -27,6 +27,19 @@ describe("privacy policy", () => {
     expect(text).toContain("are not kept");
   });
 
+  it("names Stripe and what the subscription record holds", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "");
+    const text = await policyText();
+    expect(text).toContain("handled by Stripe");
+    expect(text).toContain("we never see or store them");
+    expect(text).toContain("Deleting your account cancels any Pro subscription");
+  });
+
+  it("says offline copies come with Pro", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "");
+    expect(await policyText()).toContain("With Pro, the app keeps a copy");
+  });
+
   it("names Sentry and what it receives when error reporting is on", async () => {
     vi.stubEnv("VITE_SENTRY_DSN", "https://key@o0.ingest.sentry.io/1");
     const text = await policyText();
