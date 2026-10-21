@@ -290,3 +290,191 @@ def test_the_website_hands_the_public_pages_to_the_api_before_the_single_page_ap
 def test_the_public_routes_are_not_part_of_the_documented_api():
     paths = app.openapi()["paths"]
     assert not [path for path in paths if path.startswith("/public")]
+
+
+def structured(html):
+    import json
+    import re
+
+    blocks = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+    return [json.loads(block) for block in blocks]
+
+
+def head_value(html, pattern):
+    import re
+
+    found = re.search(pattern, html)
+    return found.group(1) if found else None
+
+
+@needs_db
+async def test_a_piece_page_has_a_title_description_and_canonical_link(library):
+    async with client() as http:
+        html = (await http.get(f"/public/music/{library.slugs.main}")).text
+    title = head_value(html, r"<title>(.*?)</title>")
+    description = head_value(html, r'<meta name="description" content="(.*?)">')
+    assert f"Etude {library.ids.tag}" in title and "how hard is it?" in title
+    assert 0 < len(title) <= 70
+    assert 60 < len(description) <= 155
+    assert "advanced piece" in description and f"Thumb under {library.ids.tag}" in description
+    assert f'<link rel="canonical" href="{SITE}/music/{library.slugs.main}">' in html
+    assert '<meta name="robots" content="index, follow">' in html
+    assert f'<meta property="og:url" content="{SITE}/music/{library.slugs.main}">' in html
+    assert '<meta property="og:type" content="article">' in html
+    assert '<meta name="twitter:card" content="summary">' in html
+
+
+@needs_db
+async def test_a_piece_page_carries_structured_data_that_matches_the_page(library):
+    async with client() as http:
+        html = (await http.get(f"/public/music/{library.slugs.main}")).text
+    blocks = structured(html)
+    assert len(blocks) == 1 and blocks[0]["@context"] == "https://schema.org"
+    graph = {item["@type"]: item for item in blocks[0]["@graph"]}
+    work = graph["MusicComposition"]
+    assert work["name"] == f"Etude {library.ids.tag}"
+    assert work["url"] == f"{SITE}/music/{library.slugs.main}"
+    assert work["composer"]["@type"] == "Person" and work["composer"]["name"] == f"Quillon {library.ids.tag}"
+    assert work["composer"]["birthDate"] == "1801" and work["composer"]["url"] == f"{SITE}/composers/{library.slugs.composer}"
+    assert work["musicalKey"] == "Q major" and work["dateCreated"] == "1832" and work["identifier"] == "Op. 9 No. 1"
+    assert work["additionalProperty"]["value"] == 72.0
+    crumbs = graph["BreadcrumbList"]["itemListElement"]
+    assert [item["name"] for item in crumbs] == ["Music", f"Quillon {library.ids.tag}", f"Etude {library.ids.tag}"]
+    assert [item["position"] for item in crumbs] == [1, 2, 3]
+    questions = {item["name"]: item["acceptedAnswer"]["text"] for item in graph["FAQPage"]["mainEntity"]}
+    assert questions[f"How hard is Etude {library.ids.tag}?"].startswith(f"Etude {library.ids.tag} is an advanced piece")
+    assert "Running thirds" in questions[f"Which sections of Etude {library.ids.tag} are hardest?"]
+    assert f"Thumb under {library.ids.tag}" in questions[f"Which techniques does Etude {library.ids.tag} use?"]
+    assert "SECRET" not in html
+
+
+@needs_db
+async def test_questions_without_an_answer_are_left_out_of_the_structured_data(library):
+    async with client() as http:
+        html = (await http.get(f"/public/music/{library.slugs.sibling}")).text
+    questions = [item["name"] for item in structured(html)[0]["@graph"][2]["mainEntity"]]
+    assert questions[0].startswith("How hard is Prelude")
+    assert not any("sections" in question for question in questions)
+
+
+@needs_db
+async def test_structured_data_cannot_break_out_of_its_script_tag(library):
+    from app.models.models import Piece
+
+    async with library.factory() as session:
+        piece = await session.get(Piece, library.ids.sibling)
+        piece.title = f"Prelude </script><script>alert(1)</script> {library.ids.tag}"
+        await session.commit()
+    public_pages.forget_catalogue()
+    async with client() as http:
+        moved = await http.get(f"/public/music/{library.ids.sibling}", follow_redirects=False)
+        response = await http.get("/public" + moved.headers["location"].removeprefix(SITE))
+    assert "</script><script>alert(1)" not in response.text
+    assert structured(response.text)
+
+
+@needs_db
+async def test_a_composer_page_has_person_and_list_data(library):
+    async with client() as http:
+        html = (await http.get(f"/public/composers/{library.slugs.composer}")).text
+    assert f"Quillon {library.ids.tag}" in head_value(html, r"<title>(.*?)</title>")
+    assert f'<link rel="canonical" href="{SITE}/composers/{library.slugs.composer}">' in html
+    graph = {item["@type"]: item for item in structured(html)[0]["@graph"]}
+    assert graph["Person"]["nationality"] == "Freedonian" and graph["Person"]["deathDate"] == "1870"
+    items = graph["ItemList"]["itemListElement"]
+    assert [item["name"] for item in items][:2] == [f"Prelude {library.ids.tag}", f"Etude {library.ids.tag}"]
+    assert items[0]["url"] == f"{SITE}/music/{library.slugs.sibling}"
+    assert [item["name"] for item in graph["BreadcrumbList"]["itemListElement"]] == ["Composers", f"Quillon {library.ids.tag}"]
+
+
+@needs_db
+async def test_the_listing_pages_have_their_own_titles_and_lists(library):
+    async with client() as http:
+        music = (await http.get("/public/music")).text
+        composers = (await http.get("/public/composers")).text
+    assert head_value(music, r"<title>(.*?)</title>").startswith("Piano pieces and how hard they are")
+    assert f'<link rel="canonical" href="{SITE}/music">' in music
+    assert structured(music)[0]["@graph"][0]["@type"] == "CollectionPage"
+    assert head_value(composers, r"<title>(.*?)</title>").startswith("Piano composers")
+    listed = structured(composers)[0]["@graph"][0]["itemListElement"]
+    assert f"{SITE}/composers/{library.slugs.composer}" in [item["url"] for item in listed]
+
+
+@needs_db
+async def test_the_sitemap_lists_every_piece_and_composer_page_and_nothing_private(library):
+    import re
+    from xml.etree import ElementTree
+
+    async with client() as http:
+        response = await http.get("/public/sitemap.xml")
+    assert response.status_code == 200 and response.headers["content-type"].startswith("application/xml")
+    root = ElementTree.fromstring(response.text)
+    namespace = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+    urls = [node.text for node in root.findall("s:url/s:loc", namespace)]
+    assert len(urls) == len(set(urls))
+    assert f"{SITE}/music/{library.slugs.main}" in urls and f"{SITE}/music/{library.slugs.sibling}" in urls
+    assert f"{SITE}/composers/{library.slugs.composer}" in urls
+    assert f"{SITE}/music" in urls and f"{SITE}/composers" in urls
+    assert not [url for url in urls if f"/music/{library.ids.private}-" in url or f"/music/{library.ids.unrated}-" in url]
+    assert all(re.match(r"^https://pedagogue\.test/(music|composers)(/[0-9a-z-]+)?$", url) for url in urls)
+
+
+@needs_db
+async def test_every_catalogue_page_is_in_the_sitemap(library):
+    import re
+    from xml.etree import ElementTree
+
+    async with client() as http:
+        listing = (await http.get("/public/music")).text
+        sitemap = (await http.get("/public/sitemap.xml")).text
+    linked = set(re.findall(r'href="(https://pedagogue\.test/music/[^"]+)"', listing))
+    urls = {node.text for node in ElementTree.fromstring(sitemap).iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")}
+    assert linked and linked <= urls
+
+
+def test_titles_are_cut_to_a_sensible_length():
+    from app.services.seo import fit_title
+
+    assert fit_title("Short") == "Short · Pedagogue"
+    long = fit_title("A very long work title that would never fit in a search result " * 3)
+    assert len(long) <= 65 and long.endswith("…")
+
+
+def test_sitemap_text_is_escaped():
+    from app.services.seo import sitemap_xml
+
+    xml = sitemap_xml({"pieces": [("1-a&b", None)], "composers": []}, [])
+    assert "1-a&amp;b" in xml
+
+
+async def test_robots_lets_search_engines_in_but_keeps_them_out_of_private_pages(monkeypatch):
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "website_url", SITE)
+    async with client() as http:
+        response = await http.get("/public/robots.txt")
+    lines = response.text.splitlines()
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "User-agent: *" in lines and "Allow: /" in lines
+    for path in ("/api/", "/settings", "/repertoire", "/practice", "/admin/"):
+        assert f"Disallow: {path}" in lines
+    assert "Disallow: /music" not in lines and "Disallow: /composers" not in lines
+    assert f"Sitemap: {SITE}/sitemap.xml" in lines
+
+
+async def test_robots_keeps_staging_sites_out_of_search_engines(monkeypatch):
+    monkeypatch.setattr(settings, "environment", "staging")
+    async with client() as http:
+        response = await http.get("/public/robots.txt")
+    assert response.text.strip().splitlines() == ["User-agent: *", "Disallow: /"]
+
+
+def test_the_website_forwards_the_sitemap_and_robots_to_the_api():
+    from pathlib import Path
+
+    import yaml
+
+    blueprint = yaml.safe_load((Path(__file__).resolve().parents[2] / "render.yaml").read_text(encoding="utf-8"))
+    web = next(service for service in blueprint["services"] if service["name"] == "pedagogue-web")
+    destinations = {route["source"]: route["destination"] for route in web["routes"]}
+    assert destinations["/sitemap.xml"].endswith("/public/sitemap.xml")
+    assert destinations["/robots.txt"].endswith("/public/robots.txt")

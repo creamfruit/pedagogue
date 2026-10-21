@@ -5,17 +5,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.api.deps import SessionDep
-from app.core.config import settings
+from app.services import seo
 from app.services.public_pages import PublicPieceService, parse_slug
+from app.services.seo import site
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 CACHE = "public, max-age=300, s-maxage=3600"
 
 router = APIRouter(prefix="/public", tags=["public"], include_in_schema=False)
-
-
-def site(path: str = "/") -> str:
-    return f"{settings.return_base_url}{path}"
 
 
 environment = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=select_autoescape(["html", "xml"]), trim_blocks=True, lstrip_blocks=True)
@@ -39,8 +36,7 @@ def moved(path: str) -> RedirectResponse:
 @router.get("/music")
 async def music_index(session: SessionDep) -> Response:
     listing = await PublicPieceService(session).listing()
-    seo = {"title": "Piano pieces and how hard they are · Pedagogue", "description": "", "canonical": site("/music")}
-    return render("public/listing.html", seo=seo, **listing)
+    return render("public/listing.html", seo=seo.listing_seo(listing["count"], len(listing["groups"])), **listing)
 
 
 @router.get("/music/{slug}")
@@ -51,15 +47,13 @@ async def music_page(slug: str, session: SessionDep) -> Response:
         return not_found()
     if slug != page["slug"]:
         return moved(f"/music/{page['slug']}")
-    seo = {"title": f"{page['full_title']} · Pedagogue", "description": "", "canonical": site(f"/music/{page['slug']}")}
-    return render("public/piece.html", seo=seo, **page)
+    return render("public/piece.html", seo=seo.piece_seo(page), **page)
 
 
 @router.get("/composers")
 async def composers_index(session: SessionDep) -> Response:
     listing = await PublicPieceService(session).listing()
-    seo = {"title": "Piano composers · Pedagogue", "description": "", "canonical": site("/composers")}
-    return render("public/composers.html", seo=seo, **listing)
+    return render("public/composers.html", seo=seo.composers_seo(listing["groups"]), **listing)
 
 
 @router.get("/composers/{slug}")
@@ -70,5 +64,15 @@ async def composer_page(slug: str, session: SessionDep) -> Response:
         return not_found()
     if slug != page["slug"]:
         return moved(f"/composers/{page['slug']}")
-    seo = {"title": f"{page['composer'].name} · Pedagogue", "description": "", "canonical": site(f"/composers/{page['slug']}")}
-    return render("public/composer.html", seo=seo, **page)
+    return render("public/composer.html", seo=seo.composer_seo(page), **page)
+
+
+@router.get("/sitemap.xml")
+async def sitemap(session: SessionDep) -> Response:
+    entries = await PublicPieceService(session).sitemap_entries()
+    return Response(seo.sitemap_xml(entries, ["/music", "/composers"]), media_type="application/xml", headers={"Cache-Control": CACHE})
+
+
+@router.get("/robots.txt")
+async def robots() -> Response:
+    return Response(seo.robots_txt(), media_type="text/plain", headers={"Cache-Control": CACHE})
