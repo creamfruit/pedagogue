@@ -1,0 +1,20 @@
+{% extends "public/base.html" %}
+{% from "public/macros.html" import signup_cta, band_class with context %}
+{% block title %}{{ seo.title }}{% endblock %}
+{% block meta %}{% include "public/seo.html" %}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">Music</nav>
+<h1>Piano pieces, and how hard they are</h1>
+<p class="dim">{{ count }} pieces from {{ groups|length }} composers, each with a difficulty score, its hardest sections, the techniques it uses and the story behind it.</p>
+{% for group in groups %}
+<section class="card" aria-labelledby="c{{ group.composer.id }}">
+<h2 id="c{{ group.composer.id }}"><a href="{{ site('/composers/' ~ group.slug) }}">{{ group.composer.name }}</a></h2>
+<ul class="plain">
+{% for work in group.works %}
+<li><a href="{{ site('/music/' ~ work.slug) }}">{{ work.title }}</a> <span class="pill {{ band_class(work.difficulty) }}">{{ work.band }} · {{ work.difficulty|round(0)|int }}</span></li>
+{% endfor %}
+</ul>
+</section>
+{% endfor %}
+{{ signup_cta("your next piece", "music-index") }}
+{% endblock %}

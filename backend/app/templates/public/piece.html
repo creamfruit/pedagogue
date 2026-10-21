@@ -1,0 +1,120 @@
+{% extends "public/base.html" %}
+{% from "public/macros.html" import signup_cta, band_class with context %}
+{% block title %}{{ seo.title }}{% endblock %}
+{% block meta %}{% include "public/seo.html" %}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">
+<a href="{{ site('/music') }}">Music</a> ›
+{% if composer %}<a href="{{ site('/composers/' ~ composer_slug) }}">{{ composer.name }}</a> ›{% endif %}
+{% if parent and parent.listed %}<a href="{{ site('/music/' ~ parent.slug) }}">{{ parent.title }}</a> ›{% endif %}
+{{ title }}
+</nav>
+<h1>{{ title }}{% if piece.catalog_number and piece.catalog_number not in title %}, {{ piece.catalog_number }}{% endif %}</h1>
+<p class="byline">{% if composer %}by <a href="{{ site('/composers/' ~ composer_slug) }}">{{ composer.name }}</a>{% if composer.lifespan %} ({{ composer.lifespan }}){% endif %}{% endif %}</p>
+<ul class="chips">
+{% if key %}<li>{{ key }}</li>{% endif %}
+{% if year %}<li>{{ year }}</li>{% endif %}
+{% if tempo_marking %}<li>{{ tempo_marking }}</li>{% endif %}
+{% if duration %}<li>{{ duration }}</li>{% endif %}
+{% if era %}<li>{{ era }}</li>{% endif %}
+{% if genre %}<li>{{ genre }}</li>{% endif %}
+</ul>
+
+<section class="card" id="difficulty" aria-labelledby="how-hard">
+<h2 id="how-hard">How hard is {{ title }}?</h2>
+<p class="score">{{ difficulty.score }}<small> / 100</small></p>
+<div class="meter" role="img" aria-label="Difficulty {{ difficulty.score }} out of 100"><span style="width:{{ difficulty.score }}%"></span></div>
+<div class="scale"><span>Beginner</span><span>Intermediate</span><span>Virtuoso</span></div>
+<p style="margin-top:14px">{{ title }} is {{ difficulty.band_phrase }}{% if difficulty.grade and difficulty.grade != 'Unrated' %}, about the level of {{ difficulty.grade }}{% endif %}. On Pedagogue's 0 to 100 scale it scores {{ difficulty.score }}{% if difficulty.harder_than %}, which is harder than {{ difficulty.harder_than }}% of the pieces in the catalogue{% else %}, which makes it one of the easiest pieces in the catalogue{% endif %}.</p>
+<div class="facts">
+{% if difficulty.mechanical_load is not none %}<div class="fact"><b>{{ difficulty.mechanical_load|round(0)|int }}</b><span>physical load, out of 100</span></div>{% endif %}
+{% if load.max_stretch_cm %}<div class="fact"><b>{{ load.max_stretch_cm }} cm</b><span>widest hand stretch</span></div>{% endif %}
+{% if load.peak_notes_per_second %}<div class="fact"><b>{{ load.peak_notes_per_second }}</b><span>peak notes per second</span></div>{% endif %}
+{% if load.octave_density is not none %}<div class="fact"><b>{{ (load.octave_density * 100)|round(0)|int }}%</b><span>of the notes in octaves</span></div>{% endif %}
+</div>
+<p class="small dim" style="margin-top:14px">Where this number comes from: {{ difficulty.basis_text }}</p>
+</section>
+
+<section class="card" id="sections" aria-labelledby="hard-sections">
+<h2 id="hard-sections">Which sections of {{ title }} are hardest?</h2>
+{% if sections %}
+<ol class="plain">
+{% for section in sections %}
+<li class="item">
+<h3>{{ section.label or ("Bars " ~ section.start_measure ~ "–" ~ section.end_measure) }} <span class="dim small">· {{ section.measure_span }}</span>
+{% if section.difficulty_score is not none %}<span class="pill {% if section.difficulty_score|float >= 70 %}hot{% elif section.difficulty_score|float >= 45 %}warn{% else %}good{% endif %}">difficulty {{ section.difficulty_score|float|round(0)|int }}</span>{% endif %}</h3>
+<p style="margin:6px 0 0">{{ section.description }}</p>
+{% if section.practice_cue %}<p class="small dim" style="margin:6px 0 0"><b>Practice cue:</b> {{ section.practice_cue }}</p>{% endif %}
+{% if section.techniques %}<p class="small" style="margin:6px 0 0">{% for name in section.techniques %}<span class="pill">{{ name }}</span>{% endfor %}</p>{% endif %}
+</li>
+{% endfor %}
+</ol>
+{% else %}
+<p>We haven't measured the individual sections of {{ title }} yet. Add your own score to Pedagogue and it will mark the hardest bars in your copy, so you can practise them first.</p>
+{% endif %}
+</section>
+
+<section class="card" id="techniques" aria-labelledby="technique-list">
+<h2 id="technique-list">Which techniques does {{ title }} use?</h2>
+{% if techniques %}
+<ul class="plain">
+{% for technique in techniques %}
+<li class="item">
+<h3>{{ technique.name }}</h3>
+{% if technique.description %}<p style="margin:6px 0 0">{{ technique.description }}</p>{% endif %}
+{% if technique.mechanic %}<p class="small dim" style="margin:6px 0 0"><b>How it works:</b> {{ technique.mechanic }}</p>{% endif %}
+{% if technique.common_fault %}<p class="small dim" style="margin:6px 0 0"><b>Common fault:</b> {{ technique.common_fault }}</p>{% endif %}
+</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>The techniques in {{ title }} haven't been listed yet.</p>
+{% endif %}
+</section>
+
+<section class="card" id="story" aria-labelledby="story-title">
+<h2 id="story-title">The story behind {{ title }}</h2>
+{% if story.history or story.fun_fact or story.scene %}
+{% if story.scene %}<p>{{ story.scene }}</p>{% endif %}
+{% if story.history %}<p>{{ story.history }}</p>{% endif %}
+{% if story.from_wikipedia %}
+<blockquote class="source">From the Wikipedia article <a href="{{ story.wikipedia_url }}" rel="noopener nofollow">{{ story.wikipedia_label }}</a>, shortened. Text by Wikipedia's contributors, available under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a>.</blockquote>
+{% endif %}
+{% if story.fun_fact %}<p><b>Worth knowing:</b> {{ story.fun_fact }}</p>{% endif %}
+{% else %}
+<p>We haven't written the story of {{ title }} yet.{% if composer and composer.bio %} Read about <a href="{{ site('/composers/' ~ composer_slug) }}">{{ composer.name }}</a> in the meantime.{% endif %}</p>
+{% endif %}
+</section>
+
+{% if movements %}
+<section class="card" id="movements" aria-labelledby="movement-list">
+<h2 id="movement-list">Movements</h2>
+<ol class="plain">
+{% for movement in movements %}<li class="item">{% if movement.listed %}<a href="{{ site('/music/' ~ movement.slug) }}">{{ movement.title }}</a>{% else %}{{ movement.title }}{% endif %}</li>{% endfor %}
+</ol>
+</section>
+{% endif %}
+
+<section class="card" id="similar" aria-labelledby="similar-title">
+<h2 id="similar-title">Pieces similar to {{ title }}</h2>
+{% if similar %}
+<ul class="plain">
+{% for other in similar %}
+<li class="item">
+<h3><a href="{{ site('/music/' ~ other.slug) }}">{{ other.full_title }}</a> <span class="pill {{ band_class(other.difficulty) }}">{{ other.band }} · {{ other.difficulty|round(0)|int }}</span></h3>
+<p class="small dim" style="margin:6px 0 0">{% if other.shared_techniques %}Shares {{ other.shared_techniques|join(', ') }}.{% endif %}{% if other.reasons %} In common: {{ other.reasons|join(', ') }}.{% endif %}</p>
+</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>No close matches in the catalogue yet.</p>
+{% endif %}
+</section>
+
+{{ signup_cta(title, "piece-" ~ id) }}
+{% endblock %}
+{% block footer_extra %}
+{% if library_credit %}
+<p>Bar counts, note density and hard-bar measurements for Chopin's works are adapted from the first editions in <i>First Editions of Fryderyk Chopin's Music</i>, copyright 2017–2021 The Fryderyk Chopin Institute (<a href="https://nifc.pl" rel="noopener">nifc.pl</a>), <a href="https://chopinscores.org" rel="noopener">chopinscores.org</a>, licensed under <a href="https://creativecommons.org/licenses/by/4.0" rel="noopener">CC BY 4.0</a>. We measured the scores and wrote our own descriptions; the changes are ours.</p>
+{% endif %}
+{% endblock %}

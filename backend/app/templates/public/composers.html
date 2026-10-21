@@ -1,0 +1,14 @@
+{% extends "public/base.html" %}
+{% block title %}{{ seo.title }}{% endblock %}
+{% block meta %}{% include "public/seo.html" %}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb">Composers</nav>
+<h1>Piano composers</h1>
+<p class="dim">Every composer in the catalogue, with how hard their pieces are.</p>
+<ul class="plain">
+{% for group in groups %}
+<li class="item"><h3><a href="{{ site('/composers/' ~ group.slug) }}">{{ group.composer.name }}</a></h3>
+<p class="small dim" style="margin:4px 0 0">{{ group.composer.lifespan }}{% if group.composer.nationality %} · {{ group.composer.nationality }}{% endif %} · {{ group.works|length }} piece{{ '' if group.works|length == 1 else 's' }}</p></li>
+{% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% macro band_class(score) %}{% if score|float >= 60 %}hot{% elif score|float >= 30 %}warn{% else %}good{% endif %}{% endmacro %}
+{% macro signup_cta(title, source) %}
+<section class="cta" aria-labelledby="cta-title">
+<h2 id="cta-title">Practise {{ title }} with Pedagogue</h2>
+<p class="dim">Add it to your repertoire, find the hard bars in your own copy of the score, and practise them with a metronome and your MIDI keyboard. Free to start: five pieces at a time, no card needed.</p>
+<a class="btn" href="{{ site('/register') }}?utm_source=pages&amp;utm_content={{ source }}">Create a free account</a>
+<a class="btn ghost" href="{{ site('/login') }}">Sign in</a>
+</section>
+{% endmacro %}

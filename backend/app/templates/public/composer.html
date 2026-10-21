@@ -1,0 +1,35 @@
+{% extends "public/base.html" %}
+{% from "public/macros.html" import signup_cta, band_class with context %}
+{% block title %}{{ seo.title }}{% endblock %}
+{% block meta %}{% include "public/seo.html" %}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb"><a href="{{ site('/composers') }}">Composers</a> › {{ composer.name }}</nav>
+<h1>{{ composer.name }}</h1>
+<p class="byline">{{ composer.byline }}</p>
+<ul class="chips">
+{% if composer.era %}<li>{{ composer.era.name }}</li>{% endif %}
+{% if composer.nationality %}<li>{{ composer.nationality }}</li>{% endif %}
+<li>{{ works|length }} piece{{ '' if works|length == 1 else 's' }} in the catalogue</li>
+</ul>
+{% if composer.bio or composer.signature_sound or composer.fun_fact %}
+<section class="card" id="about" aria-labelledby="about-title">
+<h2 id="about-title">About {{ composer.name }}</h2>
+{% if composer.bio %}<p>{{ composer.bio }}</p>{% endif %}
+{% if composer.signature_sound %}<p><b>The sound:</b> {{ composer.signature_sound }}</p>{% endif %}
+{% if composer.fun_fact %}<p><b>Worth knowing:</b> {{ composer.fun_fact }}</p>{% endif %}
+</section>
+{% endif %}
+<section class="card" id="works" aria-labelledby="works-title">
+<h2 id="works-title">How hard are {{ composer.name }}'s piano pieces?</h2>
+{% if works %}
+<p class="dim">From easiest to hardest. {% if easiest and hardest and easiest.id != hardest.id %}The gentlest here is <a href="{{ site('/music/' ~ works[0].slug) }}">{{ works[0].title }}</a> and the toughest is <a href="{{ site('/music/' ~ works[-1].slug) }}">{{ works[-1].title }}</a>.{% endif %}</p>
+<ol class="plain">
+{% for work in works %}
+<li class="item"><h3><a href="{{ site('/music/' ~ work.slug) }}">{{ work.title }}</a> <span class="pill {{ band_class(work.difficulty) }}">{{ work.band }} · {{ work.difficulty|round(0)|int }}</span></h3>
+<p class="small dim" style="margin:4px 0 0">{{ [work.key, work.year]|select|join(' · ') }}</p></li>
+{% endfor %}
+</ol>
+{% endif %}
+</section>
+{{ signup_cta(composer.name ~ "'s music", "composer-" ~ id) }}
+{% endblock %}

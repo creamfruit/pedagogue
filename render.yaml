@@ -221,5 +221,17 @@ services:
         value: public, max-age=31536000, immutable
     routes:
       - type: rewrite
+        source: /music
+        destination: https://pedagogue-api.onrender.com/public/music
+      - type: rewrite
+        source: /music/*
+        destination: https://pedagogue-api.onrender.com/public/music/*
+      - type: rewrite
+        source: /composers
+        destination: https://pedagogue-api.onrender.com/public/composers
+      - type: rewrite
+        source: /composers/*
+        destination: https://pedagogue-api.onrender.com/public/composers/*
+      - type: rewrite
         source: /*
         destination: /index.html

@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import settings
+from app.api.public import router as public_router
 from app.api.v1.router import api_router
 from app.core.database import dispose_engine, ping
 from app.core.health import health_report
@@ -65,6 +66,7 @@ app.add_middleware(
 
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+app.include_router(public_router)
 
 
 @app.exception_handler(RequestValidationError)
