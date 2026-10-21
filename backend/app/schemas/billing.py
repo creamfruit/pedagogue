@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Literal, Optional
 
@@ -72,3 +73,28 @@ class PricesOut(BaseModel):
     available: bool
     trial_days: int
     prices: list[PriceOut]
+
+
+class SubscriberOut(BaseModel):
+    user_id: uuid.UUID
+    email: str
+    name: Optional[str] = None
+    status: str
+    is_pro: bool
+    interval: Optional[str] = None
+    provider: str
+    trial_end: Optional[datetime] = None
+    current_period_end: Optional[datetime] = None
+    cancel_at_period_end: bool = False
+    started_at: datetime
+
+
+class SubscriberCountsOut(BaseModel):
+    pro: int
+    by_status: dict[str, int]
+
+
+class SubscribersOut(BaseModel):
+    total: int
+    items: list[SubscriberOut]
+    counts: SubscriberCountsOut

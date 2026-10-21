@@ -253,6 +253,7 @@ export const api = {
   billingPrices: () => request("/billing/prices", { auth: false }),
   billingCheckout: (body) => request("/billing/checkout", { method: "POST", body }),
   billingPortal: () => request("/billing/portal", { method: "POST" }),
+  billingSubscribers: (params) => request("/admin/subscribers", { params }),
   keyboardReference: (entryId) => request(`/keyboard/entries/${entryId}/reference`),
   keyboardNotes: (entryId, params) => request(`/keyboard/entries/${entryId}/reference/notes`, { params }),
   keyboardLadder: (entryId, params) => request(`/keyboard/entries/${entryId}/ladder`, { params }),

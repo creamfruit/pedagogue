@@ -39,6 +39,8 @@ function stripeOption(price, trialDays) {
     interval: price.interval,
     label: INTERVAL_LABEL[price.interval] || price.interval,
     price: formatPrice(price.amount, price.currency),
+    amount: price.amount,
+    currency: price.currency,
     trialDays,
   };
 }

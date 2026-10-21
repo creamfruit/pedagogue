@@ -24,6 +24,9 @@ import { shopView } from "./views/shop.js";
 import { notFoundView } from "./views/notfound.js";
 import { privacyView, termsView } from "./views/legal.js";
 import { creditsView } from "./views/credits.js";
+import { pricingView } from "./views/pricing.js";
+import { subscribersView } from "./views/subscribers.js";
+import { PRICING_PATH, offersVisible } from "./lib/billing.js";
 
 const PUBLIC_ROUTES = new Set(["/login", "/register"]);
 const ROOT_ROUTES = new Set(["/", "/login", "/onboarding"]);
@@ -47,9 +50,12 @@ route("/register", registerView, { public: true });
 route("/privacy", privacyView, { open: true });
 route("/terms", termsView, { open: true });
 route("/credits", creditsView, { open: true });
+route(PRICING_PATH, pricingView, { open: true });
+route("/admin/subscribers", subscribersView);
 setNotFound(notFoundView);
 
 setGuard(({ pathname, entry }) => {
+  if (pathname === PRICING_PATH && !offersVisible()) return store.isAuthenticated ? "/settings" : "/login";
   if (entry?.open) return null;
   const isPublic = PUBLIC_ROUTES.has(pathname);
   if (!store.isAuthenticated && !isPublic) return "/login";

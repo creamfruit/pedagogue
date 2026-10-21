@@ -1,18 +1,19 @@
 import asyncio
 import time
-from typing import Annotated
+from typing import Annotated, Optional
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import AdminUser, CurrentUser, SessionDep
 from app.core.config import settings
 from app.core.rate_limit import enforce
-from app.schemas.billing import CheckoutIn, PlanOut, PriceOut, PricesOut, UrlOut
+from app.schemas.billing import CheckoutIn, PlanOut, PriceOut, PricesOut, SubscribersOut, UrlOut
 from app.services.billing import BillingService, CheckoutRefused, PlanService
 from app.services.stripe_gateway import BadWebhook, BillingUnavailable, StripeGateway, get_gateway, verify_webhook
 
 router = APIRouter(prefix="/billing", tags=["billing"])
+admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 GatewayDep = Annotated[StripeGateway, Depends(get_gateway)]
 
@@ -97,3 +98,14 @@ async def webhook(request: Request, session: SessionDep, gateway: GatewayDep) ->
     except stripe.StripeError:
         raise trouble()
     return {"received": True, "outcome": outcome}
+
+
+@admin_router.get("/subscribers", response_model=SubscribersOut)
+async def subscribers(
+    admin: AdminUser,
+    session: SessionDep,
+    status_filter: Optional[str] = Query(default=None, alias="status", max_length=24),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> SubscribersOut:
+    return SubscribersOut(**await BillingService(session).subscribers(limit=limit, offset=offset, status=status_filter))

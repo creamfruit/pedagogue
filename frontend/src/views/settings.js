@@ -11,6 +11,7 @@ import {
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
+import { billingSection, confirmCheckout } from "./billingSection.js";
 
 const LEVELS = [
   ["beginner", "Beginner"],
@@ -416,10 +417,14 @@ function accountSection() {
 }
 
 export async function settingsView(outlet) {
-  const sections = [profileSection(), tiersSection(), remindersSection(), socialSection(), dataSection(), supportSection(), accountSection()];
+  const planHost = el("div", { class: "plan-host" }, billingSection());
+  const sections = [profileSection(), planHost, tiersSection(), remindersSection(), socialSection(), dataSection(), supportSection(), accountSection()];
   outlet.append(
     backButton("/"),
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),
     el("div", { class: "settings-stack" }, ...sections.filter(Boolean))
   );
+  confirmCheckout().then((returned) => {
+    if (returned && planHost.isConnected) planHost.replaceChildren(billingSection());
+  });
 }

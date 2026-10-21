@@ -281,3 +281,43 @@ class BillingService(PlanService):
             row.last_event_at = happened
         await self.session.flush()
         return "applied"
+
+    async def subscribers(self, *, limit: int, offset: int, status: Optional[str] = None) -> dict:
+        conditions = []
+        if status == "pro":
+            conditions.append(Subscription.status.in_(sorted(PRO_STATUSES)))
+        elif status:
+            conditions.append(Subscription.status == status)
+        total = (await self.session.execute(select(func.count()).select_from(Subscription).where(*conditions))).scalar_one()
+        rows = await self.session.execute(
+            select(Subscription, User.email, User.display_name)
+            .join(User, User.id == Subscription.user_id)
+            .where(*conditions)
+            .order_by(Subscription.updated_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        grouped = await self.session.execute(select(Subscription.status, func.count()).group_by(Subscription.status))
+        by_status = {name: int(count) for name, count in grouped.all()}
+        now = datetime.now(timezone.utc)
+        items = [
+            {
+                "user_id": row.user_id,
+                "email": email,
+                "name": display_name,
+                "status": row.status,
+                "is_pro": grants_pro(row, now),
+                "interval": row.billing_interval,
+                "provider": row.provider,
+                "trial_end": row.trial_end,
+                "current_period_end": row.current_period_end,
+                "cancel_at_period_end": row.cancel_at_period_end,
+                "started_at": row.created_at,
+            }
+            for row, email, display_name in rows.all()
+        ]
+        return {
+            "total": int(total),
+            "items": items,
+            "counts": {"by_status": by_status, "pro": sum(count for name, count in by_status.items() if name in PRO_STATUSES)},
+        }

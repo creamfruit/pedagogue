@@ -458,3 +458,53 @@ async def test_deleting_a_free_account_never_calls_stripe(world, stripe_on, monk
         gone = await http.request("DELETE", "/api/v1/auth/me", json={"confirmation": "DELETE", "password": "whatever"})
         assert gone.status_code == 204
     assert not [call for call in stripe_on.calls if call[0] == "cancel"]
+
+
+async def email_of(world, user_id):
+    from sqlalchemy import select
+
+    from app.models.models import User
+
+    async with world.factory() as session:
+        return (await session.execute(select(User.email).where(User.id == user_id))).scalar_one()
+
+
+async def give_subscription(world, user_id, status):
+    from app.models.models import Subscription
+
+    async with world.factory() as session:
+        session.add(Subscription(user_id=user_id, status=status, stripe_customer_id=f"cus_{uuid.uuid4().hex[:12]}", billing_interval="month"))
+        await session.commit()
+
+
+@needs_db
+async def test_the_subscriber_list_is_for_admins_only(world, monkeypatch):
+    async with client() as http:
+        assert (await http.get("/api/v1/admin/subscribers")).status_code == 403
+        assert (await http.get("/api/v1/auth/me")).json()["is_admin"] is False
+        monkeypatch.setattr(settings, "admin_emails_raw", (await email_of(world, world.ids.user)).upper())
+        assert (await http.get("/api/v1/auth/me")).json()["is_admin"] is True
+        assert (await http.get("/api/v1/admin/subscribers")).status_code == 200
+
+
+@needs_db
+async def test_the_subscriber_list_shows_who_has_what_and_can_filter_to_pro(world, monkeypatch):
+    await give_subscription(world, world.ids.other, "canceled")
+    monkeypatch.setattr(settings, "admin_emails_raw", await email_of(world, world.ids.user))
+    mine = await email_of(world, world.ids.user)
+    theirs = await email_of(world, world.ids.other)
+    async with client() as http:
+        everyone = (await http.get("/api/v1/admin/subscribers", params={"limit": 200})).json()
+        rows = {item["email"]: item for item in everyone["items"]}
+        assert rows[mine]["status"] == "active" and rows[mine]["is_pro"] is True and rows[mine]["provider"] == "stripe"
+        assert rows[theirs]["status"] == "canceled" and rows[theirs]["is_pro"] is False
+        assert everyone["total"] >= 2 and everyone["counts"]["pro"] >= 1
+        assert everyone["counts"]["by_status"]["canceled"] >= 1
+        pro_only = (await http.get("/api/v1/admin/subscribers", params={"status": "pro", "limit": 200})).json()
+        emails = {item["email"] for item in pro_only["items"]}
+        assert mine in emails and theirs not in emails
+        canceled = (await http.get("/api/v1/admin/subscribers", params={"status": "canceled", "limit": 200})).json()
+        assert theirs in {item["email"] for item in canceled["items"]}
+        page = (await http.get("/api/v1/admin/subscribers", params={"limit": 1})).json()
+        assert len(page["items"]) == 1 and page["total"] == everyone["total"]
+        assert (await http.get("/api/v1/admin/subscribers", params={"limit": 0})).status_code == 422
