@@ -1,6 +1,6 @@
 import { api } from "../api/client.js";
+import { supportSection } from "../components/donate.js";
 import { backButton, el, openModal, reveal, sectionBlock } from "../lib/dom.js";
-import { DONATION_URL, paidOffer } from "../lib/features.js";
 import {
   DEFAULT_REMINDER_TIME,
   cancelDailyReminder,
@@ -309,17 +309,6 @@ function dataSection() {
     el("div", { style: "margin-bottom:var(--space-3)" }, button),
     list.button,
     list.region
-  );
-}
-
-function supportSection() {
-  if (!DONATION_URL) return null;
-  return paidOffer(() =>
-    sectionBlock(
-      "Support Pedagogue",
-      { caption: "Pedagogue is free. If it helps your practice, you can chip in towards hosting." },
-      el("a", { class: "btn btn-small btn-ghost", href: DONATION_URL, target: "_blank", rel: "noopener noreferrer" }, "Make a donation")
-    )
   );
 }
 

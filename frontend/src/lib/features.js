@@ -11,8 +11,9 @@ export const features = {
 
 export const COMING_SOON = "Coming soon";
 
-export const DONATION_URL = features.paidOffers ? String(import.meta.env.VITE_DONATION_URL || "").trim() : "";
-
-export function paidOffer(render) {
-  return features.paidOffers ? render() : null;
+function webAddress(value) {
+  const found = String(value || "").trim();
+  return /^https?:\/\//i.test(found) ? found : "";
 }
+
+export const DONATION_URL = features.paidOffers ? webAddress(import.meta.env.VITE_DONATION_URL) : "";

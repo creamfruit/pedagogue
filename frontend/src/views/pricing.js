@@ -1,3 +1,4 @@
+import { donateNote } from "../components/donate.js";
 import { backButton, el } from "../lib/dom.js";
 import { billingMode, loadOptions, manageBilling, offersVisible, subscribe } from "../lib/billing.js";
 import { comparisonRows, describePlan, savingsPercent } from "../lib/planSummary.js";
@@ -125,7 +126,8 @@ export async function pricingView(outlet) {
       el("h1", {}, "Pedagogue Pro"),
       el("p", { class: "faint" }, "Pedagogue is free to use. Pro takes the limits off for people who practise a lot."),
       comparisonTable(),
-      host
+      host,
+      donateNote()
     )
   );
 
