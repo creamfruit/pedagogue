@@ -1,5 +1,6 @@
 import { api, pollSubmission } from "../api/client.js";
 import { difficultyPair, pieceOverview } from "../components/overview.js";
+import { shareCardButton } from "../components/shareCardButton.js";
 import { explainFailure, showUpgrade, upgradeNotice } from "../components/upgradePrompt.js";
 import { backButton, el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { canUse } from "../lib/plan.js";
@@ -12,6 +13,7 @@ import { navigate } from "../router.js";
 import { store } from "../lib/store.js";
 import { COMING_SOON, features } from "../lib/features.js";
 import { renderScore } from "../lib/score.js";
+import { CARD_COPY, pieceCardModel, renderPieceCard } from "../lib/shareCards.js";
 
 const ALL_PRACTICE_MODES = [
   { mode: "free", icon: "\u{1F3B9}", title: "Free practice", description: "Open-ended time at the keys, logged minutes and load only." },
@@ -1398,7 +1400,13 @@ export async function entryDetailView(outlet, context) {
           "div",
           { class: "row" },
           el("button", { type: "button", class: "btn btn-small", onclick: () => openPracticeModal() }, "Practice this piece"),
-          el("button", { type: "button", class: "btn btn-ghost btn-small", onclick: () => sharePiece(entry) }, "Share")
+          el("button", { type: "button", class: "btn btn-ghost btn-small", onclick: () => sharePiece(entry) }, "Share"),
+          overview
+            ? shareCardButton({
+                label: "Share card",
+                build: async () => ({ canvas: await renderPieceCard(overview), copy: CARD_COPY.piece(pieceCardModel(overview)) }),
+              })
+            : null
         )
       ),
       summary,

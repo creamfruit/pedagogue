@@ -321,7 +321,7 @@ async def test_a_piece_page_has_a_title_description_and_canonical_link(library):
     assert '<meta name="robots" content="index, follow">' in html
     assert f'<meta property="og:url" content="{SITE}/music/{library.slugs.main}">' in html
     assert '<meta property="og:type" content="article">' in html
-    assert '<meta name="twitter:card" content="summary">' in html
+    assert '<meta name="twitter:card" content="summary_large_image">' in html
 
 
 @needs_db
@@ -478,3 +478,55 @@ def test_the_website_forwards_the_sitemap_and_robots_to_the_api():
     destinations = {route["source"]: route["destination"] for route in web["routes"]}
     assert destinations["/sitemap.xml"].endswith("/public/sitemap.xml")
     assert destinations["/robots.txt"].endswith("/public/robots.txt")
+
+
+def png_size(data):
+    import io
+
+    from PIL import Image
+
+    image = Image.open(io.BytesIO(data))
+    image.load()
+    return image.format, image.size
+
+
+def test_a_piece_card_is_a_1200_by_630_png_even_with_awkward_text():
+    from app.services.cards import piece_card
+
+    plain = piece_card(title="Nocturne", composer="Chopin", score=58.5, band="late intermediate", hardest="Opening · bars 1-4", techniques=["Octaves", "Leaps"])
+    assert plain.startswith(b"\x89PNG\r\n\x1a\n")
+    assert png_size(plain) == ("PNG", (1200, 630))
+    awkward = piece_card(title="A " + "very long title " * 20, composer="", score=100, band="", hardest="", techniques=["An unusually long technique name that cannot fit beside the others"] * 5)
+    assert png_size(awkward) == ("PNG", (1200, 630))
+    empty = piece_card(title="", composer="", score=0, band="", hardest="", techniques=[])
+    assert png_size(empty) == ("PNG", (1200, 630))
+
+
+def test_cards_colour_the_score_by_difficulty():
+    from app.services.cards import GOOD, HOT, WARN, band_colour
+
+    assert (band_colour(5), band_colour(45), band_colour(90)) == (GOOD, WARN, HOT)
+
+
+@needs_db
+async def test_each_piece_page_offers_its_card_and_names_it_as_the_share_image(library):
+    async with client() as http:
+        html = (await http.get(f"/public/music/{library.slugs.main}")).text
+        card = await http.get(f"/public/music/{library.slugs.main}/card.png")
+    image = f"{SITE}/music/{library.slugs.main}/card.png"
+    assert f'<meta property="og:image" content="{image}">' in html
+    assert f'<meta name="twitter:image" content="{image}">' in html
+    assert '<meta name="twitter:card" content="summary_large_image">' in html
+    assert f'href="{image}" download=' in html
+    assert card.status_code == 200 and card.headers["content-type"] == "image/png"
+    assert png_size(card.content) == ("PNG", (1200, 630))
+    assert "s-maxage" in card.headers["cache-control"]
+
+
+@needs_db
+async def test_cards_are_only_made_for_public_pieces_and_redirect_from_old_addresses(library):
+    async with client() as http:
+        private = await http.get(f"/public/music/{library.ids.private}/card.png")
+        old = await http.get(f"/public/music/{library.ids.main}-old/card.png", follow_redirects=False)
+    assert private.status_code == 404
+    assert old.status_code == 301 and old.headers["location"] == f"{SITE}/music/{library.slugs.main}/card.png"

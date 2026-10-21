@@ -138,7 +138,7 @@ def piece_seo(page: dict) -> dict:
         "robots": "index, follow",
         "og_type": "article",
         "og_title": fit_title(f"{page['full_title']}: how hard is it?", "", 90),
-        "image": None,
+        "image": site(f"/music/{page['slug']}/card.png"),
         "jsonld": [{"@context": "https://schema.org", "@graph": [work, breadcrumbs(trail), faq]}],
     }
 

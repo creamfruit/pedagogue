@@ -1,11 +1,12 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.api.deps import SessionDep
-from app.services import seo
+from app.services import cards, seo
 from app.services.public_pages import PublicPieceService, parse_slug
 from app.services.seo import site
 
@@ -48,6 +49,29 @@ async def music_page(slug: str, session: SessionDep) -> Response:
     if slug != page["slug"]:
         return moved(f"/music/{page['slug']}")
     return render("public/piece.html", seo=seo.piece_seo(page), **page)
+
+
+@router.get("/music/{slug}/card.png")
+async def music_card(slug: str, session: SessionDep) -> Response:
+    piece_id = parse_slug(slug)
+    page = await PublicPieceService(session).piece_page(piece_id) if piece_id is not None else None
+    if page is None:
+        return not_found()
+    if slug != page["slug"]:
+        return moved(f"/music/{page['slug']}/card.png")
+    top = page["sections"][0] if page["sections"] else None
+    hardest = f"{top['label'] or 'Bars'} · {top['measure_span']}" if top else ""
+    image = cards.piece_card(
+        title=page["title"],
+        composer=page["composer"].name if page["composer"] else "",
+        score=page["difficulty"]["score"],
+        band=page["difficulty"]["band"],
+        hardest=hardest,
+        techniques=[technique["name"] for technique in page["techniques"]],
+        footer=urlparse(site("/")).netloc,
+        seed=page["id"],
+    )
+    return Response(image, media_type="image/png", headers={"Cache-Control": CACHE})
 
 
 @router.get("/composers")

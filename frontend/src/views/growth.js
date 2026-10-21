@@ -1,6 +1,8 @@
 import { api } from "../api/client.js";
+import { shareCardButton } from "../components/shareCardButton.js";
 import { el, empty, sectionBlock, skeletonBlock } from "../lib/dom.js";
 import { growthChart } from "../lib/growthChart.js";
+import { CARD_COPY, renderStreakCard, streakCardModel } from "../lib/shareCards.js";
 import { store } from "../lib/store.js";
 
 export function streakSummary(streak, { compact = false } = {}) {
@@ -20,7 +22,17 @@ export function streakSummary(streak, { compact = false } = {}) {
       {},
       el("div", { class: "streak-title" }, streak.current === 1 ? "day in a row" : "days in a row"),
       el("div", { class: "streak-status" }, status),
-      compact ? null : el("div", { class: "faint mono", style: "font-size:11px;margin-top:4px" }, `longest ${streak.longest} · a day counts from ${streak.min_minutes} logged minutes`)
+      compact ? null : el("div", { class: "faint mono", style: "font-size:11px;margin-top:4px" }, `longest ${streak.longest} · a day counts from ${streak.min_minutes} logged minutes`),
+      streak.current > 0
+        ? el(
+            "div",
+            { style: "margin-top:8px" },
+            shareCardButton({
+              label: "Share streak",
+              build: async () => ({ canvas: await renderStreakCard(streak), copy: CARD_COPY.streak(streakCardModel(streak)) }),
+            })
+          )
+        : null
     )
   );
 }

@@ -33,6 +33,7 @@
 {% if load.octave_density is not none %}<div class="fact"><b>{{ (load.octave_density * 100)|round(0)|int }}%</b><span>of the notes in octaves</span></div>{% endif %}
 </div>
 <p class="small dim" style="margin-top:14px">Where this number comes from: {{ difficulty.basis_text }}</p>
+<p class="small"><a href="{{ site('/music/' ~ slug ~ '/card.png') }}" download="pedagogue-{{ slug }}.png">Download this as a share card</a></p>
 </section>
 
 <section class="card" id="sections" aria-labelledby="hard-sections">

@@ -71,7 +71,7 @@ function toBlob(canvas) {
   });
 }
 
-export async function shareCanvas(canvas, { title, text, fileName, background }) {
+export async function shareCanvas(canvas, { title, text, fileName, background, webShare = true }) {
   const image = snapshot(canvas, background);
   try {
     if (isNative) {
@@ -86,7 +86,7 @@ export async function shareCanvas(canvas, { title, text, fileName, background })
     }
     const blob = await toBlob(image);
     const file = new File([blob], fileName, { type: "image/png" });
-    if (navigator.canShare?.({ files: [file] })) {
+    if (webShare && navigator.canShare?.({ files: [file] })) {
       await navigator.share({ title, text, files: [file] });
       return "shared";
     }

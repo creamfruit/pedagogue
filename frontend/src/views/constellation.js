@@ -1,12 +1,10 @@
 import { api } from "../api/client.js";
-import { showUpgrade } from "../components/upgradePrompt.js";
+import { shareCardButton } from "../components/shareCardButton.js";
 import { linkSummaryPanel } from "../components/overview.js";
 import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
 import { features } from "../lib/features.js";
-import { canUse } from "../lib/plan.js";
-import { shareCanvas } from "../lib/share.js";
+import { CARD_COPY, constellationCardModel, renderConstellationCard } from "../lib/shareCards.js";
 import { store } from "../lib/store.js";
-import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
 import { familyTreeView } from "./familyTree.js";
 import { drawFigures, figureAt, layoutFigures, markNewFigures, toFigureSpace } from "../lib/achievementSky.js";
@@ -238,28 +236,14 @@ export async function constellationView(outlet, context = {}) {
       },
       "recentre"
     ),
-    el(
-      "button",
-      {
-        type: "button",
-        class: "legend-reset",
-        onclick: async () => {
-          if (!canUse("share_cards")) return showUpgrade("share_cards");
-          try {
-            const result = await shareCanvas(canvas, {
-              title: "My constellation",
-              text: `My piano repertoire as a constellation: ${graph.nodes.length} star${graph.nodes.length === 1 ? "" : "s"} on Pedagogue.`,
-              fileName: "pedagogue-constellation.png",
-              background: colors.bgSunk,
-            });
-            if (result === "downloaded") notify.success("Saved the sky as an image");
-          } catch (error) {
-            notify.error(error.message || "Could not share the sky");
-          }
-        },
-      },
-      canUse("share_cards") ? "share" : "share · Pro"
-    )
+    shareCardButton({
+      label: "share",
+      className: "legend-reset",
+      build: async () => ({
+        canvas: await renderConstellationCard(canvas, graph.nodes.length, colors.bgSunk),
+        copy: CARD_COPY.constellation(constellationCardModel(graph.nodes.length)),
+      }),
+    })
   );
 
   const starStyle = (loadout && loadout.star_color && loadout.star_color.payload) || { mode: "era" };
