@@ -22,8 +22,16 @@ const OFFLINE_READS = [
   /^\/catalog\/(techniques|genres)$/,
 ];
 
+const ALWAYS_CACHED = /^\/billing\/plan$/;
+let offlineCaching = true;
+
+export function setOfflineCaching(enabled) {
+  offlineCaching = Boolean(enabled);
+}
+
 function offlineKey(path, url) {
-  return OFFLINE_READS.some((pattern) => pattern.test(path)) ? CACHE_PREFIX + url : null;
+  if (ALWAYS_CACHED.test(path)) return CACHE_PREFIX + url;
+  return offlineCaching && OFFLINE_READS.some((pattern) => pattern.test(path)) ? CACHE_PREFIX + url : null;
 }
 
 export class ApiError extends Error {
@@ -45,6 +53,14 @@ export class ApiError extends Error {
 
   get isOffline() {
     return this.status === 0;
+  }
+
+  get isPlanLimit() {
+    return this.status === 402 && this.payload?.detail?.code === "plan_limit";
+  }
+
+  get planFeature() {
+    return this.isPlanLimit ? this.payload.detail.feature : null;
   }
 }
 
@@ -106,6 +122,7 @@ function extractDetail(payload, status) {
   if (!payload) return `request failed with ${status}`;
   if (typeof payload === "string") return payload;
   if (typeof payload.detail === "string") return payload.detail;
+  if (typeof payload.detail?.message === "string") return payload.detail.message;
   if (Array.isArray(payload.errors) && payload.errors.length) {
     const first = payload.errors[0];
     const field = Array.isArray(first.loc) ? first.loc[first.loc.length - 1] : "field";
@@ -232,6 +249,7 @@ export const api = {
   importExternalPiece: (payload) => request("/catalog/external/import", { method: "POST", body: payload }),
   piece: (id) => request(`/catalog/pieces/${id}`),
   pieceOverview: (id) => request(`/catalog/pieces/${id}/overview`),
+  billingPlan: () => request("/billing/plan"),
   keyboardReference: (entryId) => request(`/keyboard/entries/${entryId}/reference`),
   keyboardNotes: (entryId, params) => request(`/keyboard/entries/${entryId}/reference/notes`, { params }),
   keyboardLadder: (entryId, params) => request(`/keyboard/entries/${entryId}/ladder`, { params }),

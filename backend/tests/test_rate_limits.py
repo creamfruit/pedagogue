@@ -8,13 +8,23 @@ from httpx import ASGITransport, AsyncClient
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.plans import PRO
 from app.core.rate_limit import Limit, MemoryBackend, RateLimited, RateLimiter, limiter, validate_limits
 from app.core.storage import LocalStorage, QuotaExceeded
 from app.main import app
+from app.services.billing import PlanService
 from app.services.repertoire import SubmissionService
 
 PDF = b"%PDF-1.7\n" + b"0" * 64
 MUSICXML = b'<?xml version="1.0"?><score-partwise version="4.0"></score-partwise>'
+
+
+@pytest.fixture(autouse=True)
+def everyone_is_pro(monkeypatch):
+    async def pro(self, user_id):
+        return PRO
+
+    monkeypatch.setattr(PlanService, "plan_for", pro)
 
 
 class FakeResult:

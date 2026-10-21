@@ -1053,6 +1053,30 @@ class KeyboardAttemptBar(Base):
     attempt: Mapped[KeyboardAttempt] = relationship(back_populates="bars")
 
 
+class Subscription(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_subscriptions_user_id"),
+        UniqueConstraint("stripe_customer_id", name="uq_subscriptions_stripe_customer_id"),
+        UniqueConstraint("stripe_subscription_id", name="uq_subscriptions_stripe_subscription_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(20), default="stripe", server_default="stripe")
+    stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(64))
+    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(24), default="incomplete", server_default="incomplete")
+    billing_interval: Mapped[Optional[str]] = mapped_column(String(8))
+    trial_end: Mapped[Optional[datetime]]
+    current_period_end: Mapped[Optional[datetime]]
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    trial_used: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    last_event_at: Mapped[Optional[datetime]]
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    user: Mapped[User] = relationship()
+
+
 class LoadAlert(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "load_alerts"
     __table_args__ = (UniqueConstraint("user_id", "week_start", name="uq_load_alerts_user_week"),)

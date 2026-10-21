@@ -1,7 +1,9 @@
 import { api } from "../api/client.js";
+import { showUpgrade } from "../components/upgradePrompt.js";
 import { linkSummaryPanel } from "../components/overview.js";
 import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
 import { features } from "../lib/features.js";
+import { canUse } from "../lib/plan.js";
 import { shareCanvas } from "../lib/share.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
@@ -242,6 +244,7 @@ export async function constellationView(outlet, context = {}) {
         type: "button",
         class: "legend-reset",
         onclick: async () => {
+          if (!canUse("share_cards")) return showUpgrade("share_cards");
           try {
             const result = await shareCanvas(canvas, {
               title: "My constellation",
@@ -255,7 +258,7 @@ export async function constellationView(outlet, context = {}) {
           }
         },
       },
-      "share"
+      canUse("share_cards") ? "share" : "share · Pro"
     )
   );
 

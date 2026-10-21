@@ -5,7 +5,7 @@ import io
 import math
 import uuid
 from collections import Counter, OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
@@ -13,6 +13,7 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from app.core.plans import Plan
 from app.core.storage import (
     SCORE_KINDS,
     FileTooLarge,
@@ -309,9 +310,14 @@ class KeyboardService(BaseService):
         ).order_by(KeyboardAttempt.created_at.desc()).limit(limit)
         return [(int(tempo), bool(clean)) for tempo, clean in (await self.session.execute(stmt)).all() if tempo is not None]
 
-    async def ladder(self, entry: RepertoireEntry, mode: str, start_bar: Optional[int], end_bar: Optional[int], reference: Optional[Reference]) -> LadderState:
+    async def ladder(self, entry: RepertoireEntry, mode: str, start_bar: Optional[int], end_bar: Optional[int], reference: Optional[Reference], plan: Plan) -> LadderState:
         history = await self.history(entry.id, "free" if mode == "free" else mode, start_bar, end_bar)
-        return ladder_state(history, target_tempo_for(entry, reference))
+        full = target_tempo_for(entry, reference)
+        reachable = plan.ladder_target(full)
+        state = ladder_state(history, reachable)
+        if reachable >= full:
+            return state
+        return replace(state, reached_target=False, full_target_tempo=full, at_plan_limit=state.reached_target)
 
     async def record(
         self,
@@ -448,7 +454,8 @@ class KeyboardService(BaseService):
         )
         return RUNG_XP
 
-    async def recent(self, entry_id: uuid.UUID, limit: int = 10) -> list:
+    async def recent(self, entry_id: uuid.UUID, plan: Plan, limit: int = 10) -> list:
+        limit = min(limit, plan.keyboard_history_attempts)
         stmt = (
             select(KeyboardAttempt)
             .options(selectinload(KeyboardAttempt.bars))
@@ -458,7 +465,8 @@ class KeyboardService(BaseService):
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
-    async def heat(self, entry_id: uuid.UUID, start_bar: int, end_bar: int, limit: int = HEAT_ATTEMPTS) -> dict:
+    async def heat(self, entry_id: uuid.UUID, start_bar: int, end_bar: int, plan: Plan, limit: int = HEAT_ATTEMPTS) -> dict:
+        limit = min(limit, plan.keyboard_history_attempts)
         stmt = (
             select(KeyboardAttempt)
             .options(selectinload(KeyboardAttempt.bars))

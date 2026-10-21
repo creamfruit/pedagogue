@@ -22,3 +22,8 @@ export function isScoreFile(file) {
   if (SCORE_EXTENSIONS.some((extension) => name.endsWith(extension))) return true;
   return SCORE_TYPES.includes((file?.type || "").toLowerCase());
 }
+
+export function isPdfFile(file) {
+  const name = (file?.name || "").toLowerCase();
+  return name.endsWith(".pdf") || (file?.type || "").toLowerCase() === "application/pdf";
+}

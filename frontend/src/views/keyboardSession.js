@@ -1,8 +1,10 @@
 import { api as realApi } from "../api/client.js";
 import { barsFromTally, heatStrip } from "../components/heatStrip.js";
+import { upgradeNotice } from "../components/upgradePrompt.js";
 import { el, reveal } from "../lib/dom.js";
 import { createRun as realCreateRun } from "../lib/keyboardRun.js";
 import { noteName } from "../lib/midi.js";
+import { planLimits } from "../lib/plan.js";
 import { notify } from "../lib/toast.js";
 
 const LATENCY_KEY = "pp.midi-latency";
@@ -85,6 +87,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   const tempoInput = el("input", { type: "number", min: "20", max: "400", value: "80", class: "keyboard-bar", "aria-label": "Tempo in beats per minute" });
   const ladderBox = el("input", { type: "checkbox", checked: true });
   const ladderNote = el("p", { class: "faint keyboard-ladder", style: "margin:0;font-size:12px" });
+  const ladderUpgrade = el("div", { hidden: true });
   const beatsSelect = el("select", { "aria-label": "Beats per bar" }, ...BEAT_CHOICES.map((beats) => el("option", { value: beats, selected: beats === 4 || null }, `${beats} beats per bar`)));
   const countIn = el("select", { "aria-label": "Count-in beats" }, ...[0, 2, 3, 4, 6, 8].map((beats) => el("option", { value: beats, selected: beats === 4 || null }, beats ? `${beats} beat count-in` : "No count-in")));
   const latency = el("input", { type: "number", min: "-200", max: "300", step: "5", value: String(storedLatency()), class: "keyboard-bar", "aria-label": "Keyboard delay in milliseconds" });
@@ -94,7 +97,8 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   const strip = heatStrip();
   const caption = el("figcaption", { class: "faint heat-caption" });
   const cropImage = el("div", { class: "keyboard-crop-image score-crop-frame", hidden: true });
-  const board = el("figure", { class: "keyboard-board", hidden: true }, caption, strip.node, cropImage);
+  const historyUpgrade = el("div", { hidden: true });
+  const board = el("figure", { class: "keyboard-board", hidden: true }, caption, strip.node, historyUpgrade, cropImage);
   const result = el("div", { class: "keyboard-result", hidden: true });
   const tempoRow = el("div", { class: "row" }, el("span", { class: "faint", style: "font-size:12px" }, "Tempo ♩ ="), tempoInput, el("label", { class: "check-label" }, ladderBox, "Raise it after clean runs"));
   const advanced = reveal(
@@ -218,6 +222,11 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
       if (token !== boardToken || busy || !result.hidden) return;
       if (!heat.attempts) return;
       caption.textContent = `Your last ${heat.attempts} ${heat.attempts === 1 ? "run" : "runs"} here, bar by bar`;
+      const limits = planLimits();
+      if (limits && !limits.is_pro && heat.attempts >= limits.keyboard_history_attempts) {
+        historyUpgrade.replaceChildren(upgradeNotice("keyboard_history"));
+        historyUpgrade.hidden = false;
+      }
       strip.update(heat.bars.map((item) => ({ ...item, expected: 0, correct: 0, pending: false })));
       syncBoard();
     } catch {
@@ -229,6 +238,8 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     clearCrop();
     strip.update([]);
     caption.textContent = "";
+    historyUpgrade.replaceChildren();
+    historyUpgrade.hidden = true;
     syncBoard();
     const token = boardToken;
     await Promise.all([loadCrop(token), showHistory(token)]);
@@ -237,6 +248,8 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   async function refreshLadder() {
     ladder = null;
     ladderNote.textContent = "";
+    ladderUpgrade.replaceChildren();
+    ladderUpgrade.hidden = true;
     const mode = currentMode();
     if (!reference || mode === "wait") return;
     const params = { mode };
@@ -256,7 +269,15 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   }
 
   function describeLadder() {
+    ladderUpgrade.replaceChildren();
+    ladderUpgrade.hidden = true;
     if (!ladder) return;
+    if (ladder.at_plan_limit) {
+      ladderNote.textContent = `You are at the top of the Free ladder, ♩ = ${ladder.target_tempo}. Your target is ♩ = ${ladder.full_target_tempo}.`;
+      ladderUpgrade.replaceChildren(upgradeNotice("tempo_ladder"));
+      ladderUpgrade.hidden = false;
+      return;
+    }
     if (ladder.current_tempo === null) {
       ladderNote.textContent = `Start at ♩ = ${ladder.recommended_tempo}. The tempo climbs towards ${ladder.target_tempo} after ${ladder.runs_needed} clean runs in a row.`;
     } else if (ladder.reached_target) {
@@ -286,6 +307,8 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     manualTempo = false;
     ladder = null;
     ladderNote.textContent = "";
+    ladderUpgrade.replaceChildren();
+    ladderUpgrade.hidden = true;
     if (!entrySelect.value) {
       info.hidden = true;
       syncModes();
@@ -361,6 +384,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
   function ladderLine(data) {
     const state = data.ladder;
     if (!state) return null;
+    if (state.at_plan_limit) return `Clean at the top of the Free ladder, ♩ = ${state.target_tempo}.`;
     if (state.raised) return `That is ${state.runs_needed} clean runs at ♩ = ${state.current_tempo}. Next run: ♩ = ${state.recommended_tempo}.`;
     if (state.reached_target) return `Clean at the target tempo of ♩ = ${state.target_tempo}.`;
     return `${state.clean_streak} of ${state.runs_needed} clean runs at ♩ = ${state.current_tempo}.`;
@@ -409,6 +433,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
             `${data.correct} right, ${data.wrong} wrong, ${data.missing} missed` + (data.mode === "scored" ? `, ${data.late} late, ${data.early} early` : "") + (data.achieved_tempo_bpm ? `. You played at about ♩ = ${Math.round(data.achieved_tempo_bpm)}.` : ".")
           ),
       ladderLine(data) ? el("p", { style: "margin:0" }, ladderLine(data)) : null,
+      data.ladder?.at_plan_limit ? upgradeNotice("tempo_ladder") : null,
       data.xp_awarded ? el("p", { class: "keyboard-reward", style: "margin:0" }, `+${data.xp_awarded} XP for clearing a new tempo.`) : null,
       review ? el("p", { class: "faint", style: "margin:0;font-size:13px" }, review) : null,
       sessionBlock(data),
@@ -598,7 +623,7 @@ export function keyboardSession({ controller, api = realApi, createRun = realCre
     el("div", { class: "row" }, el("label", { class: "faint", style: "font-size:12px" }, "Piece"), entrySelect),
     info,
     referenceBox,
-    el("div", { class: "keyboard-options" }, modeSelect, modeHint, passageBox, beatsSelect, tempoRow, ladderNote, advancedBox),
+    el("div", { class: "keyboard-options" }, modeSelect, modeHint, passageBox, beatsSelect, tempoRow, ladderNote, ladderUpgrade, advancedBox),
     el("div", { class: "row" }, start, stop),
     status,
     board,

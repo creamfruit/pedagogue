@@ -1,9 +1,11 @@
 import { api, pollSubmission } from "../api/client.js";
 import { difficultyPair, pieceOverview } from "../components/overview.js";
+import { explainFailure, showUpgrade, upgradeNotice } from "../components/upgradePrompt.js";
 import { backButton, el, empty, openModal, optionCard, reveal, sectionBlock, skeletonBlock } from "../lib/dom.js";
+import { canUse } from "../lib/plan.js";
 import { notify } from "../lib/toast.js";
 import { pendingNotes, queueNote } from "../lib/outbox.js";
-import { isScoreFile, scoreAccept } from "../lib/scoreFiles.js";
+import { isPdfFile, isScoreFile, scoreAccept } from "../lib/scoreFiles.js";
 import { shareLink, siteUrl } from "../lib/share.js";
 import { STATUS_LABEL, STATUS_ORDER, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { navigate } from "../router.js";
@@ -310,7 +312,7 @@ function catalogSearchPanel(statusSelect) {
           notify.success(`${entry.piece.title} added`);
           navigate(`/repertoire/${entry.id}`);
         } catch (error) {
-          notify.error(error.detail || "Could not add that piece");
+          explainFailure(error, "Could not add that piece");
           confirm.disabled = false;
         }
       },
@@ -417,7 +419,7 @@ function externalSearchPanel(statusSelect) {
                     notify.success(`${entry.piece.title} added. Its techniques and notes are being written in the background.`);
                     navigate(`/repertoire/${entry.id}`);
                   } catch (error) {
-                    notify.error(error.detail || "Could not import that piece");
+                    explainFailure(error, "Could not import that piece");
                     importButton.disabled = false;
                     importButton.textContent = "Import";
                   }
@@ -529,7 +531,7 @@ function customPiecePanel(statusSelect) {
           notify.success(`${entry.piece.title} added as a custom piece`);
           navigate(`/repertoire/${entry.id}`);
         } catch (error) {
-          notify.error(error.detail || "Could not create that piece");
+          explainFailure(error, "Could not create that piece");
           submit.disabled = false;
         }
       },
@@ -1168,6 +1170,10 @@ function writtenSubmissionPanel(entry, written, onChange) {
           await onChange();
         } catch (error) {
           if (error.isOffline) {
+            if (!canUse("cloud_sync")) {
+              showUpgrade("cloud_sync");
+              return;
+            }
             await queueNote(entry.id, body);
             textBody.value = "";
             notify.info("You're offline. The note is saved on this device and will be sent when you're back online.");
@@ -1193,6 +1199,7 @@ function writtenSubmissionPanel(entry, written, onChange) {
         const file = scoreInput.files[0];
         if (!file) return notify.error("Choose a score file first");
         if (!isScoreFile(file)) return notify.error("Choose a PDF, MusicXML (.musicxml, .xml, .mxl) or MIDI (.mid) file");
+        if (isPdfFile(file) && !canUse("pdf_score_reading")) return showUpgrade("pdf_score_reading");
         scoreSubmit.disabled = true;
         scoreStatus.hidden = false;
         scoreStatus.textContent = "Uploading and reading the score…";
@@ -1204,7 +1211,8 @@ function writtenSubmissionPanel(entry, written, onChange) {
           notify.success(summary ? `Score read: ${summary}` : "Score uploaded");
           await onChange();
         } catch (error) {
-          notify.error(error.isOffline ? "Scores can only be uploaded while you're online" : error.detail || "Could not upload that score");
+          if (error.isOffline) notify.error("Scores can only be uploaded while you're online");
+          else explainFailure(error, "Could not upload that score");
         } finally {
           scoreSubmit.disabled = false;
           scoreStatus.hidden = true;
@@ -1240,6 +1248,7 @@ function writtenSubmissionPanel(entry, written, onChange) {
         ),
         el("div", { class: "row" }, scoreInput, scoreSubmit),
         scoreStatus,
+        canUse("pdf_score_reading") ? null : upgradeNotice("pdf_score_reading"),
         findLinks
       ),
       el("div", { class: "field", style: "margin-bottom:0" }, el("label", {}, "Practice notes"), textBody, el("div", { style: "margin-top:8px" }, textSubmit))
@@ -1303,7 +1312,7 @@ export async function entryDetailView(outlet, context) {
             await render();
           } catch (error) {
             if (error.status === 423) notify.error(error.detail);
-            else notify.error(error.detail || "Could not update the status");
+            else explainFailure(error, "Could not update the status");
             event.target.disabled = false;
           }
         },

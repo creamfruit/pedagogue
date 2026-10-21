@@ -1,4 +1,4 @@
-import { api, forgetOfflineData, tokenStore } from "../api/client.js";
+import { api, forgetOfflineData, setOfflineCaching, tokenStore } from "../api/client.js";
 import { lightTap } from "./haptics.js";
 import { cancelDailyReminder } from "./reminders.js";
 
@@ -9,6 +9,7 @@ const state = {
   loadout: null,
   streak: null,
   nudge: null,
+  plan: null,
   ready: false,
   serverDown: false,
 };
@@ -50,6 +51,15 @@ async function loadProfile() {
   }
 }
 
+async function loadPlan() {
+  try {
+    state.plan = await api.billingPlan();
+  } catch {
+    state.plan = null;
+  }
+  setOfflineCaching(state.plan ? Boolean(state.plan.limits.cloud_sync) : true);
+}
+
 async function loadOnboarding() {
   try {
     state.onboarding = await api.onboardingStatus();
@@ -77,6 +87,9 @@ export const store = {
   get nudge() {
     return state.nudge;
   },
+  get plan() {
+    return state.plan;
+  },
   get ready() {
     return state.ready;
   },
@@ -97,7 +110,7 @@ export const store = {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         state.user = await api.me();
-        await Promise.all([loadProfile(), loadOnboarding()]);
+        await Promise.all([loadProfile(), loadOnboarding(), loadPlan()]);
         break;
       } catch (error) {
         state.user = null;
@@ -123,7 +136,7 @@ export const store = {
     const token = await api.login(email, password);
     tokenStore.set(token.access_token);
     state.user = await api.me();
-    await Promise.all([loadProfile(), loadOnboarding()]);
+    await Promise.all([loadProfile(), loadOnboarding(), loadPlan()]);
     emit();
     return state.user;
   },
@@ -131,7 +144,7 @@ export const store = {
     const token = await api.register(payload);
     tokenStore.set(token.access_token);
     state.user = await api.me();
-    await Promise.all([loadProfile(), loadOnboarding()]);
+    await Promise.all([loadProfile(), loadOnboarding(), loadPlan()]);
     emit();
     return state.user;
   },
@@ -146,7 +159,15 @@ export const store = {
     state.loadout = null;
     state.streak = null;
     state.nudge = null;
+    state.plan = null;
+    setOfflineCaching(true);
     emit();
+  },
+  async refreshPlan() {
+    if (!state.user) return null;
+    await loadPlan();
+    emit();
+    return state.plan;
   },
   async refreshProfile() {
     if (!state.user) return null;

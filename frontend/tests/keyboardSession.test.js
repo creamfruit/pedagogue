@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isReferenceFile, keyboardSession, reviewLine } from "../src/views/keyboardSession.js";
 
+const plan = vi.hoisted(() => ({ limits: null }));
+
+vi.mock("../src/lib/plan.js", () => ({
+  planLimits: () => plan.limits,
+  isPro: () => Boolean(plan.limits?.is_pro),
+  canUse: () => true,
+  upgradeCopy: (feature) => ({ message: `${feature} is limited on Free.`, upgrade: "Move to Pro." }),
+}));
+
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const REFERENCE = {
@@ -95,6 +104,7 @@ beforeEach(() => {
 afterEach(() => {
   document.body.replaceChildren();
   localStorage.clear();
+  plan.limits = null;
 });
 
 describe("choosing a piece", () => {
@@ -614,5 +624,61 @@ describe("attaching a reference file", () => {
     for (const name of ["a.mid", "A.MIDI", "song.kar", "x.musicxml", "x.xml", "x.mxl"]) expect(isReferenceFile({ name })).toBe(true);
     for (const name of ["a.pdf", "a.mp3", "midi", ""]) expect(isReferenceFile({ name })).toBe(false);
     expect(isReferenceFile(undefined)).toBe(false);
+  });
+});
+
+describe("the Free plan limits", () => {
+  const free = { is_pro: false, keyboard_history_attempts: 3 };
+  const capped = { recommended_tempo: 80, current_tempo: 80, clean_streak: 2, runs_needed: 2, target_tempo: 80, full_target_tempo: 100, raised: false, reached_target: false, at_plan_limit: true };
+
+  it("says where the Free ladder stops and offers Pro when the player is at the top of it", async () => {
+    plan.limits = free;
+    const { node, api } = setup();
+    api.keyboardLadder.mockResolvedValue(capped);
+    await choose(node);
+    expect(node.querySelector(".keyboard-ladder").textContent).toContain("top of the Free ladder, ♩ = 80");
+    expect(node.querySelector(".keyboard-ladder").textContent).toContain("Your target is ♩ = 100");
+    expect(node.querySelector('.upgrade-notice[data-feature="tempo_ladder"]')).not.toBe(null);
+  });
+
+  it("shows the same notice after a run that reaches the cap", async () => {
+    plan.limits = free;
+    const { node, runs } = setup({ attempt: attemptResult({ ladder: capped }) });
+    await choose(node);
+    startButton(node).click();
+    await flush();
+    await runs[0].config.onFinish({ mode: "scored", notes: [{ t: 0, midi: 60 }], tempoBpm: 80, beatsPerBar: 4, countInBeats: 4, latencyMs: 0, durationSec: 5, local: { accuracy: 1, correct: 1, wrong: 0, missing: 0, bars: [] } });
+    await flush();
+    const result = node.querySelector(".keyboard-result");
+    expect(result.textContent).toContain("Clean at the top of the Free ladder, ♩ = 80.");
+    expect(result.querySelector('.upgrade-notice[data-feature="tempo_ladder"]')).not.toBe(null);
+  });
+
+  it("shows no ladder notice for a ladder that is not capped", async () => {
+    plan.limits = { ...free, is_pro: true };
+    const { node } = setup();
+    await choose(node);
+    expect(node.querySelector(".upgrade-notice")).toBe(null);
+  });
+
+  it("points out that only the latest runs are kept in view once Free history is full", async () => {
+    plan.limits = free;
+    const heat = { attempts: 3, bars: [{ bar: 1, attempts: 3, accuracy: 1, wrong: 0, missing: 0 }] };
+    const { node } = setup({ heat });
+    await choose(node);
+    expect(node.querySelector('.upgrade-notice[data-feature="keyboard_history"]')).not.toBe(null);
+  });
+
+  it("leaves history alone while there is still room, and for Pro", async () => {
+    const heat = { attempts: 2, bars: [{ bar: 1, attempts: 2, accuracy: 1, wrong: 0, missing: 0 }] };
+    plan.limits = free;
+    const first = setup({ heat });
+    await choose(first.node);
+    expect(first.node.querySelector(".upgrade-notice")).toBe(null);
+    document.body.replaceChildren();
+    plan.limits = { is_pro: true, keyboard_history_attempts: 50 };
+    const second = setup({ heat: { ...heat, attempts: 3 } });
+    await choose(second.node);
+    expect(second.node.querySelector(".upgrade-notice")).toBe(null);
   });
 });

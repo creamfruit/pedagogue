@@ -60,6 +60,8 @@ class LadderOut(BaseModel):
     target_tempo: int
     raised: bool = False
     reached_target: bool = False
+    full_target_tempo: Optional[int] = None
+    at_plan_limit: bool = False
 
 
 class AttemptOut(BaseModel):

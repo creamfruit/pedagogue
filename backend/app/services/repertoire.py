@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectin_polymorphic, selectinload
 
 from app.core.config import settings
+from app.core.plans import require_piece_room
 from app.core.storage import (
     AUDIO_TYPES,
     SCORE_KINDS,
@@ -41,6 +42,7 @@ from app.schemas.schemas import (
     RepertoireEntryUpdate,
     RepertoireStats,
 )
+from app.services.billing import ACTIVE_STATUSES, PlanService
 from app.services.economy import AchievementEngine, EconomyService, LEARNED_STATUSES
 from app.services.onboarding import BaseService, CatalogService
 
@@ -51,6 +53,12 @@ class RepertoireService(BaseService):
         self.catalog = CatalogService(session)
         self.economy = EconomyService(session)
         self.achievements = AchievementEngine(session)
+        self.plans = PlanService(session)
+
+    async def ensure_room(self, user: User) -> None:
+        plan = await self.plans.plan_for(user.id)
+        if plan.active_pieces is not None:
+            require_piece_room(plan, await self.plans.active_pieces(user.id))
 
     @staticmethod
     def requires_grading(piece: Piece) -> bool:
@@ -155,6 +163,8 @@ class RepertoireService(BaseService):
         )
         if existing.scalar_one_or_none() is not None:
             raise ValueError("that piece is already in your repertoire")
+        if payload.status in ACTIVE_STATUSES:
+            await self.ensure_room(user)
         entry = RepertoireEntry(
             user_id=user.id,
             piece_id=piece.id,
@@ -193,6 +203,9 @@ class RepertoireService(BaseService):
                     f"{entry.piece.title} sits at difficulty {entry.piece.difficulty_score}. "
                     f"Record a full run-through and score {GRADED_PASS_SCORE:.0f} or higher to mark it learnt."
                 )
+
+        if target in ACTIVE_STATUSES and previous not in ACTIVE_STATUSES:
+            await self.ensure_room(user)
 
         for field, value in changes.items():
             setattr(entry, field, value)

@@ -6,6 +6,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.deps import CurrentUser, SessionDep, StorageDep
+from app.core.plans import Plan
 from app.core.rate_limit import enforce
 from app.core.storage import FileTooLarge, QuotaExceeded, UnsupportedMediaType
 from app.schemas.keyboard import (
@@ -19,6 +20,7 @@ from app.schemas.keyboard import (
     ReferenceNotesOut,
     ReferenceOut,
 )
+from app.services.billing import PlanService
 from app.services.keyboard import (
     NO_REFERENCE_MESSAGE,
     KeyboardService,
@@ -152,7 +154,8 @@ async def ladder(
     service = ReferenceService(session, storage)
     entry = await load_entry(service, user, entry_id)
     reference = await service.for_entry(user, entry_id) if mode != "free" else None
-    state = await KeyboardService(session).ladder(entry, mode, None if mode == "free" else start_bar, None if mode == "free" else end_bar, reference)
+    plan = await PlanService(session).plan_for(user.id)
+    state = await KeyboardService(session).ladder(entry, mode, None if mode == "free" else start_bar, None if mode == "free" else end_bar, reference, plan)
     return LadderOut(**asdict(state))
 
 
@@ -190,7 +193,8 @@ async def record_attempt(entry_id: uuid.UUID, payload: AttemptIn, user: CurrentU
         end_bar=end_bar,
         duration_sec=counted_seconds(played, payload.duration_sec, count_in_sec),
     )
-    state = await keyboard.ladder(entry, payload.mode, start_bar, end_bar, reference) if score.tempo_bpm is not None else None
+    plan = await PlanService(session).plan_for(user.id)
+    state = await keyboard.ladder(entry, payload.mode, start_bar, end_bar, reference, plan) if score.tempo_bpm is not None else None
     fed = await keyboard.feed(user, entry, attempt, score, state, reference)
     return attempt_out(attempt, score, state, fed)
 
@@ -204,7 +208,8 @@ async def recent_attempts(
     limit: int = Query(default=10, ge=1, le=50),
 ) -> list[AttemptOut]:
     await load_entry(ReferenceService(session, storage), user, entry_id)
-    attempts = await KeyboardService(session).recent(entry_id, limit)
+    plan = await PlanService(session).plan_for(user.id)
+    attempts = await KeyboardService(session).recent(entry_id, plan, limit)
     return [stored_attempt_out(attempt) for attempt in attempts]
 
 
@@ -220,7 +225,8 @@ async def heat(
     await load_entry(ReferenceService(session, storage), user, entry_id)
     if end_bar < start_bar:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="the last bar can't come before the first")
-    return HeatOut(**await KeyboardService(session).heat(entry_id, start_bar, end_bar))
+    plan = await PlanService(session).plan_for(user.id)
+    return HeatOut(**await KeyboardService(session).heat(entry_id, start_bar, end_bar, plan))
 
 
 async def passage_belongs(session, passage_id: Optional[int], entry) -> bool:

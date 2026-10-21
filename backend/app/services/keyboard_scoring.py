@@ -106,6 +106,8 @@ class LadderState:
     target_tempo: int
     raised: bool
     reached_target: bool
+    full_target_tempo: Optional[int] = None
+    at_plan_limit: bool = False
 
 
 def group_reference(notes: Sequence[RefNote]) -> list:

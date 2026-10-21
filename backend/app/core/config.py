@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     rate_limit_pdf_analysis: str = "20/hour"
     rate_limit_keyboard_attempt: str = "120/hour"
 
+    stripe_trial_days: int = Field(default=7, ge=0, le=90)
+
     sentry_dsn: str = ""
     sentry_environment: str = ""
     sentry_traces_sample_rate: float = 0.0

@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator
 
+from app.core.config import settings
 from app.models.models import (
     FlaggedBy,
     GenreFamily,
@@ -81,6 +82,11 @@ class UserRead(ORMModel):
     tier_quiz_completed_at: Optional[datetime] = None
     tastes_completed_at: Optional[datetime] = None
     created_at: datetime
+
+    @computed_field
+    @property
+    def is_admin(self) -> bool:
+        return str(self.email).lower() in settings.admin_emails
 
 
 class ProfileUpdate(BaseModel):

@@ -62,7 +62,7 @@ async def world(tmp_path, monkeypatch):
     from sqlalchemy import delete
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-    from app.models.models import PdfSubmission, Piece, RepertoireEntry, User
+    from app.models.models import PdfSubmission, Piece, RepertoireEntry, Subscription, User
 
     monkeypatch.setattr(settings, "rate_limit_enabled", False)
     keyboard_service._cache.clear()
@@ -75,6 +75,7 @@ async def world(tmp_path, monkeypatch):
         piece = Piece(title=f"Octave study {uuid.uuid4().hex[:6]}")
         session.add_all([me, other, piece])
         await session.flush()
+        session.add(Subscription(user_id=me.id, status="active", stripe_customer_id=f"cus_{uuid.uuid4().hex[:12]}"))
         entry = RepertoireEntry(user_id=me.id, piece_id=piece.id, target_tempo_bpm=100)
         spare = await new_piece(session)
         bare = RepertoireEntry(user_id=me.id, piece_id=spare.id)

@@ -15,6 +15,7 @@ from fastapi import (
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
+from app.core.plans import require_pdf_reading
 from app.core.rate_limit import enforce
 from app.core.storage import SCORE_MEDIA, FileTooLarge, QuotaExceeded, UnsupportedMediaType, score_format, storage
 from app.schemas.schemas import (
@@ -24,6 +25,7 @@ from app.schemas.schemas import (
     SubmissionRead,
     TextSubmissionCreate,
 )
+from app.services.billing import PlanService
 from app.services.coach_feedback import feedback_for
 from app.services.repertoire import SubmissionService
 from app.workers.queue import get_queue
@@ -112,6 +114,7 @@ async def submit_pdf(
     except UnsupportedMediaType as exc:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc))
     if kind == "pdf":
+        require_pdf_reading(await PlanService(session).plan_for(user.id))
         await enforce("pdf_analysis", str(user.id))
     service = SubmissionService(session)
     try:

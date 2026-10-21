@@ -4569,3 +4569,23 @@ body {
 .keyboard-reward {
   color: var(--ok);
 }
+
+.upgrade-notice {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-wash);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.upgrade-notice a {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.upgrade-prompt {
+  max-width: 420px;
+}
