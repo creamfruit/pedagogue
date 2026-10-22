@@ -4,6 +4,7 @@ import { segmentPaths, segmentStates } from "../lib/arc.js";
 import { el } from "../lib/dom.js";
 import { KIND_LABEL, completeStep, loadMission, missionDone } from "../lib/mission.js";
 import { markGuestPrompted, shouldPromptGuest } from "../lib/guestPrompt.js";
+import { stepComplete, starLit } from "../lib/haptics.js";
 import { rememberLit } from "../lib/litStars.js";
 import { MAX_BPM, MIN_BPM, clampBpm, createMetronome } from "../lib/metronome.js";
 import { reducedMotion } from "../lib/motion.js";
@@ -374,6 +375,7 @@ export async function missionView(outlet, context = {}) {
       return;
     }
     if (!alive) return;
+    if (status === "done") stepComplete();
     if (result.finished) return finish(result.mission, result);
     const next = result.mission.next_index ?? index + 1;
     if (status === "done") interlude(result, () => runStep(result.mission, next));
@@ -388,6 +390,7 @@ export async function missionView(outlet, context = {}) {
     };
     root.onclick = go;
     if (result.lit?.entry_id) rememberLit(result.lit.entry_id);
+    starLit();
     show(
       el(
         "div",
@@ -421,7 +424,10 @@ export async function missionView(outlet, context = {}) {
     releaseAwake = null;
     root.onclick = null;
     store.refreshProfile();
-    if (result?.lit?.entry_id) rememberLit(result.lit.entry_id);
+    if (result?.lit?.entry_id) {
+      rememberLit(result.lit.entry_id);
+      starLit();
+    }
     const done = mission.progress.filter((item) => item.status === "done").length;
     const prompt = done > 0 && shouldPromptGuest(store.user) ? guestCard() : null;
     if (prompt) markGuestPrompted();
