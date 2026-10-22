@@ -10,6 +10,7 @@ import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
 import { startCosmos } from "./lib/cosmos.js";
 import { identifyUser, startMonitoring } from "./lib/monitoring.js";
+import { linkPurchasesUser, startPurchases } from "./lib/revenuecat.js";
 import { canGoBack, goBack, navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
 import { loginView, registerView } from "./views/auth.js";
 import { onboardingView } from "./views/onboarding.js";
@@ -284,7 +285,9 @@ async function boot() {
 
   subscribe(setChrome);
   subscribe((state) => identifyUser(state.user?.id));
+  subscribe(linkPurchasesUser);
   await store.hydrate();
+  await startPurchases({ getUserId: () => store.user?.id });
   const landing = store.serverDown ? null : landingTarget({ pathname: window.location.pathname, authenticated: store.isAuthenticated, native: isNative });
   if (landing) {
     window.location.replace(landing);
