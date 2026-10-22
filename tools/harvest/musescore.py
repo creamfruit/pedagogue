@@ -24,7 +24,6 @@ def convert_batch(pairs: Iterable[tuple[Path, Path]], binary: Optional[str] = No
     if not available(binary):
         raise ConversionUnavailable(f"MuseScore was not found at {binary}; set MUSESCORE_BIN to convert OpenScore files")
     todo = [(source, target) for source, target in pairs if not target.exists()]
-    environment = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
     for start in range(0, len(todo), CHUNK):
         chunk = todo[start : start + CHUNK]
         for _, target in chunk:
@@ -34,7 +33,7 @@ def convert_batch(pairs: Iterable[tuple[Path, Path]], binary: Optional[str] = No
             json.dump(job, handle)
             job_path = handle.name
         try:
-            subprocess.run([binary, "-j", job_path], env=environment, capture_output=True, timeout=TIMEOUT_SECONDS, check=False)
+            subprocess.run([binary, "-j", job_path], capture_output=True, timeout=TIMEOUT_SECONDS, check=False)
         finally:
             os.unlink(job_path)
     return [target for _, target in todo if target.exists()]

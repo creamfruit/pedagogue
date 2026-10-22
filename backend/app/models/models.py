@@ -378,6 +378,9 @@ class Piece(IntPrimaryKeyMixin, Base):
     load_profile: Mapped[Optional[PieceLoadProfile]] = relationship(
         back_populates="piece", uselist=False, cascade="all, delete-orphan"
     )
+    harvest: Mapped[Optional[PieceSource]] = relationship(
+        back_populates="piece", uselist=False, cascade="all, delete-orphan"
+    )
     passages: Mapped[list[Passage]] = relationship(
         back_populates="piece", order_by="Passage.start_measure", cascade="all, delete-orphan"
     )
@@ -492,6 +495,32 @@ class PieceLoadProfile(Base):
     def exceeds_span(self, hand_span_cm: Optional[Decimal]) -> bool:
         stretch = self.max_stretch_cm()
         return stretch is not None and hand_span_cm is not None and stretch > float(hand_span_cm)
+
+
+class PieceSource(Base):
+    __tablename__ = "piece_sources"
+    __table_args__ = (UniqueConstraint("source", "source_id", name="uq_piece_sources_source_id"),)
+
+    piece_id: Mapped[int] = mapped_column(ForeignKey("pieces.id", ondelete="CASCADE"), primary_key=True)
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    source_id: Mapped[str] = mapped_column(String(120))
+    source_url: Mapped[str] = mapped_column(Text)
+    licence_code: Mapped[str] = mapped_column(String(20))
+    licence_name: Mapped[str] = mapped_column(String(60))
+    licence_url: Mapped[str] = mapped_column(String(200))
+    composer_name: Mapped[str] = mapped_column(String(160))
+    composer_qid: Mapped[Optional[str]] = mapped_column(String(20))
+    composer_died_on: Mapped[Optional[date]] = mapped_column(Date)
+    attribution: Mapped[Optional[str]] = mapped_column(Text)
+    original_title: Mapped[Optional[str]] = mapped_column(String(300))
+    file_urls: Mapped[Optional[dict[str, Any]]]
+    content_hash: Mapped[str] = mapped_column(String(64))
+    features: Mapped[Optional[dict[str, Any]]]
+    feature_version: Mapped[Optional[int]] = mapped_column(SmallInteger)
+    harvested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    piece: Mapped[Piece] = relationship(back_populates="harvest")
 
 
 class Passage(IntPrimaryKeyMixin, Base):

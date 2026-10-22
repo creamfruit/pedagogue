@@ -12,13 +12,14 @@ ENTITY_API = "https://www.wikidata.org/w/api.php"
 COMPOSER_OCCUPATION = "Q36834"
 HUMAN = "Q5"
 
-BY_YEARS = """SELECT ?item ?itemLabel (GROUP_CONCAT(DISTINCT ?alt; separator="|") AS ?alts) ?born ?died ?diedPrecision WHERE {{
+WINDOW_YEARS = 25
+
+BORN_BETWEEN = """SELECT ?item ?label ?born ?died ?diedPrecision WHERE {{
   ?item wdt:P31 wd:Q5 ; wdt:P106 wd:{occupation} ; wdt:P569 ?born ; wdt:P570 ?died .
   ?item p:P570/psv:P570/wikibase:timePrecision ?diedPrecision .
-  FILTER(YEAR(?born) = {born} && YEAR(?died) = {died})
-  OPTIONAL {{ ?item skos:altLabel ?alt . FILTER(LANG(?alt) = "en") }}
-  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
-}} GROUP BY ?item ?itemLabel ?born ?died ?diedPrecision"""
+  FILTER(?born >= "{start:04d}-01-01T00:00:00Z"^^xsd:dateTime && ?born < "{end:04d}-01-01T00:00:00Z"^^xsd:dateTime)
+  ?item rdfs:label ?label . FILTER(LANG(?label) = "en")
+}}"""
 
 TITLES = {"dr", "prof", "sir", "von", "van", "de", "der", "den", "di", "da", "del", "della", "le", "la", "du", "des", "mr", "mrs"}
 
@@ -64,22 +65,30 @@ def tokens(name: str) -> list[str]:
     return [part for part in fold(name).split() if part]
 
 
+SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "fils", "pere"}
+
+
 def significant(name: str) -> list[str]:
-    return [part for part in tokens(name) if len(part) > 1 and part not in TITLES]
+    return [part for part in tokens(name) if len(part) > 1 and part not in TITLES and part not in SUFFIXES]
+
+
+def surname_parts(name: str) -> list[str]:
+    words = [word for word in re.split(r"\s+", (name or "").strip()) if fold(word) not in SUFFIXES and fold(word)]
+    return [part for part in (fold(words[-1]).split() if words else []) if len(part) > 1]
 
 
 def matches_name(name: str, person: Person) -> int:
     wanted = significant(name)
-    if not wanted:
+    surnames = surname_parts(name)
+    if not wanted or not surnames:
         return 0
-    surname = wanted[-1]
     best = 0
+    initials = [part[0] for part in tokens(name)[:-1] if part not in SUFFIXES]
     for label in (person.label, *person.aliases):
         have = significant(label)
-        if not have or surname not in have:
+        if not have or not any(surname in have for surname in surnames):
             continue
-        score = 1 + sum(1 for part in wanted[:-1] if part in have)
-        initials = [part[0] for part in tokens(name)[:-1]]
+        score = 1 + sum(1 for part in wanted if part not in surnames and part in have)
         if initials and all(any(candidate.startswith(initial) for candidate in have) for initial in initials):
             score += 1
         best = max(best, score)
@@ -109,37 +118,40 @@ class ComposerGate:
         self.client = client
         self.today = today or date.today()
         self.min_age = min_age
-        self._by_years: dict[tuple, list[Person]] = {}
+        self._windows: dict[int, list[Person]] = {}
         self._verdicts: dict[tuple, Verdict] = {}
 
     @property
     def checked(self) -> int:
         return len(self._verdicts)
 
-    def people(self, born: int, died: int) -> list[Person]:
-        key = (born, died)
-        if key not in self._by_years:
-            query = BY_YEARS.format(occupation=COMPOSER_OCCUPATION, born=born, died=died)
+    def window(self, born: int) -> list[Person]:
+        start = born // WINDOW_YEARS * WINDOW_YEARS
+        if start not in self._windows:
+            query = BORN_BETWEEN.format(occupation=COMPOSER_OCCUPATION, start=start, end=start + WINDOW_YEARS)
             reply = self.client.get(
                 SPARQL,
                 params={"format": "json", "query": query},
                 max_age=config.WIKIDATA_MAX_AGE_SECONDS,
             )
             if not reply.ok:
-                raise FetchError(f"Wikidata answered {reply.status} for composers born {born} and died {died}")
+                raise FetchError(f"Wikidata answered {reply.status} for composers born {start}-{start + WINDOW_YEARS}")
             rows = reply.json()["results"]["bindings"]
-            self._by_years[key] = [
+            self._windows[start] = [
                 Person(
                     qid=row["item"]["value"].rsplit("/", 1)[-1],
-                    label=row.get("itemLabel", {}).get("value", ""),
-                    aliases=tuple(alias for alias in row.get("alts", {}).get("value", "").split("|") if alias),
+                    label=row.get("label", {}).get("value", ""),
+                    aliases=(),
                     born=parse_wikidata_date(row["born"]["value"]),
                     died=parse_wikidata_date(row["died"]["value"]),
                     died_precision=int(row["diedPrecision"]["value"]),
                 )
                 for row in rows
             ]
-        return self._by_years[key]
+        return self._windows[start]
+
+    def people(self, born: int, died: int) -> list[Person]:
+        return [person for person in self.window(born) if person.born and person.died and person.born.year == born and person.died.year == died]
 
     def entity(self, qid: str) -> Optional[Person]:
         reply = self.client.get(

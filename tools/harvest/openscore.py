@@ -77,6 +77,10 @@ def song_title(directory: str) -> tuple[str, str]:
     return readable(directory), prefix
 
 
+def composer_key(directory: str) -> str:
+    return re.split(r"_-_aka|_\(", directory)[0]
+
+
 def has_piano(instruments: Optional[str]) -> bool:
     return True if not instruments else bool(PIANO_WORDS.search(instruments))
 
@@ -90,7 +94,7 @@ def candidates_from_archive(
     limit: Optional[int] = None,
 ) -> tuple[list[Candidate], list[Rejection]]:
     by_path = {str(entry.get("path")): (key, entry) for key, entry in scores.items() if isinstance(entry, dict)}
-    people = {str(entry.get("path")): entry for entry in composers.values() if isinstance(entry, dict)}
+    people = {composer_key(str(entry.get("path"))): entry for entry in composers.values() if isinstance(entry, dict)}
     found: list[Candidate] = []
     rejected: list[Rejection] = []
     with zipfile.ZipFile(archive) as bundle:
@@ -100,7 +104,7 @@ def candidates_from_archive(
         composer_dir, set_dir, song_dir, score_id = parts.group("composer"), parts.group("set"), parts.group("song"), parts.group("id")
         path = f"{composer_dir}/{set_dir}/{song_dir}"
         meta_key, meta = by_path.get(path, (None, {}))
-        person = people.get(composer_dir, {})
+        person = people.get(composer_key(composer_dir), {})
         title, prefix = song_title(song_dir)
         name = person.get("name") or readable(composer_dir.split(",_", 1)[-1] + " " + composer_dir.split(",_", 1)[0])
         instruments = meta.get("instruments")

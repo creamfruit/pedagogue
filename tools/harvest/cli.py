@@ -1,9 +1,10 @@
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
 
-from . import config, pipeline
+from . import config, extract, ingest, pipeline
 from .polite import PoliteClient
 from .workspace import Workspace
 
@@ -22,6 +23,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     fetch = commands.add_parser("fetch", help="download the score files of the works that passed the earlier stages")
     fetch.add_argument("--limit", type=int)
+
+    measure = commands.add_parser("extract", help="measure each score with music21 and store its features and feature vector")
+    measure.add_argument("--limit", type=int)
+    measure.add_argument("--workers", type=int)
+
+    load = commands.add_parser("ingest", help="write the measured works to the database; safe to run again")
+    load.add_argument("--limit", type=int)
     return parser
 
 
@@ -33,8 +41,12 @@ def main(argv=None) -> int:
             result = pipeline.crawl(ws, client, arguments.source or pipeline.SOURCES, max_pages=arguments.max_pages, limit=arguments.limit)
         elif arguments.command == "composers":
             result = pipeline.filter_composers(ws, client)
-        else:
+        elif arguments.command == "fetch":
             result = pipeline.fetch(ws, client, pipeline.STAGE_COMPOSERS, limit=arguments.limit)
+        elif arguments.command == "extract":
+            result = extract.extract(ws, pipeline.STAGE_FETCH, workers=arguments.workers, limit=arguments.limit, say=pipeline.say)
+        else:
+            result = asyncio.run(ingest.ingest(ws, extract.STAGE_EXTRACT, say=pipeline.say, limit=arguments.limit))
         result["requests"] = client.requests_made
         result["cache_hits"] = client.cache_hits
     print(json.dumps(result, indent=2))

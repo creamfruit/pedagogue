@@ -13,11 +13,10 @@ from tools.harvest.workspace import Workspace
 TODAY = date(2026, 10, 22)
 
 
-def binding(qid, label, born, died, precision=11, alts=""):
+def binding(qid, label, born, died, precision=11):
     return {
         "item": {"value": f"http://www.wikidata.org/entity/{qid}"},
-        "itemLabel": {"value": label},
-        "alts": {"value": alts},
+        "label": {"value": label},
         "born": {"value": f"{born}T00:00:00Z"},
         "died": {"value": f"{died}T00:00:00Z"},
         "diedPrecision": {"value": str(precision)},
@@ -37,11 +36,8 @@ class FakeWikidata:
             return httpx.Response(500)
         if request.url.host == "query.wikidata.org":
             self.sparql_calls += 1
-            query = request.url.params["query"]
-            for (born, died), rows in self.composers.items():
-                if f"YEAR(?born) = {born} && YEAR(?died) = {died}" in query:
-                    return httpx.Response(200, json={"results": {"bindings": rows}})
-            return httpx.Response(200, json={"results": {"bindings": []}})
+            rows = [row for group in self.composers.values() for row in group]
+            return httpx.Response(200, json={"results": {"bindings": rows}})
         self.entity_calls += 1
         qid = request.url.params["ids"]
         return httpx.Response(200, json={"entities": {qid: self.entities.get(qid, {"id": qid, "missing": ""})}})
@@ -68,7 +64,7 @@ def entity(qid, label, born, died, precision=11, human=True):
     }
 
 
-CHOPIN = binding("Q1268", "Frédéric Chopin", "1810-03-01", "1849-10-17", alts="Fryderyk Chopin|Chopin")
+CHOPIN = binding("Q1268", "Frédéric Chopin", "1810-03-01", "1849-10-17")
 
 
 def test_a_composer_who_died_long_ago_is_accepted(tmp_path):
@@ -121,7 +117,7 @@ def test_two_people_with_the_same_name_and_dates_are_ambiguous(tmp_path):
 
 def test_initials_pick_the_right_member_of_a_family(tmp_path):
     family = [
-        binding("Q20", "Johann Sebastian Bach", "1685-03-31", "1750-07-28", alts="J. S. Bach"),
+        binding("Q20", "Johann Sebastian Bach", "1685-03-31", "1750-07-28"),
         binding("Q21", "Carl Philipp Emanuel Bach", "1685-01-01", "1750-01-01"),
     ]
     gate, _ = gate_for(tmp_path, FakeWikidata({(1685, 1750): family}))
@@ -149,13 +145,15 @@ def test_an_identifier_that_is_not_a_person_is_rejected(tmp_path):
     assert not gate.check("A Choir", 1700, 1760, "Q50").accepted
 
 
-def test_repeat_checks_and_shared_dates_do_not_repeat_requests(tmp_path):
+def test_composers_born_in_the_same_window_share_one_request(tmp_path):
     fake = FakeWikidata({(1810, 1849): [CHOPIN]})
     gate, _ = gate_for(tmp_path, fake)
     gate.check("F. F. Chopin", 1810, 1849)
     gate.check("F. F. Chopin", 1810, 1849)
-    gate.check("F. Liszt", 1810, 1849)
+    gate.check("F. Liszt", 1811, 1886)
     assert fake.sparql_calls == 1
+    gate.check("J. S. Bach", 1685, 1750)
+    assert fake.sparql_calls == 2
 
 
 def test_a_failing_wikidata_stops_the_run_instead_of_accepting_anyone(tmp_path):
@@ -208,3 +206,22 @@ def test_the_stage_keeps_old_composers_and_records_why_the_rest_were_dropped(tmp
     assert kept[0].composer_qid == "Q1268" and kept[0].composer_died_on == "1849-10-17"
     reasons = {row["source_id"]: row["reason"] for row in ws.rejections(STAGE_COMPOSERS)}
     assert "unknown composer" in reasons["2"] and "within the last 70 years" in reasons["3"]
+
+
+def test_a_double_barrelled_surname_matches_either_half():
+    person = Person("Q46096", "Felix Mendelssohn", (), date(1809, 2, 3), date(1847, 11, 4), 11)
+    assert matches_name("F. Mendelssohn-Bartholdy", person) > 0
+    assert matches_name("F. Bartholdy", person) == 0
+
+
+def test_a_generational_suffix_is_not_taken_for_the_surname():
+    person = Person("Q1", "Johann Strauss II", (), date(1825, 10, 25), date(1899, 6, 3), 11)
+    assert matches_name("J. Strauss Jr.", person) > 0
+
+
+def test_openscore_composer_folders_match_their_metadata_entry():
+    from tools.harvest.openscore import composer_key
+
+    assert composer_key("Hensel,_Fanny_(Mendelssohn)") == "Hensel,_Fanny"
+    assert composer_key("Barnard,_Charlotte_Alington_-_aka_Claribel") == "Barnard,_Charlotte_Alington"
+    assert composer_key("Schubert,_Franz") == "Schubert,_Franz"
