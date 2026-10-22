@@ -398,7 +398,18 @@ function openDeleteAccount() {
   typed.focus();
 }
 
+function guestAccountSection() {
+  return sectionBlock(
+    "Account",
+    { caption: "You're practising as a guest." },
+    el("p", { style: "margin:0 0 var(--space-3)" }, "Create an account and everything you've done moves across, so it's kept if you change phone."),
+    el("button", { type: "button", class: "btn", onclick: () => navigate("/register") }, "Create an account"),
+    el("p", { class: "faint settings-legal" }, el("a", { href: "/privacy", "data-link": true }, "Privacy policy"), " \u00b7 ", el("a", { href: "/terms", "data-link": true }, "Terms of use"), " \u00b7 ", el("a", { href: "/credits", "data-link": true }, "Credits"))
+  );
+}
+
 function accountSection() {
+  if (store.isGuest) return guestAccountSection();
   return sectionBlock(
     "Account",
     { caption: store.user?.email || "" },

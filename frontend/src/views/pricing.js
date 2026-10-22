@@ -201,7 +201,7 @@ export async function pricingView(outlet) {
       document.title = "Piano Pedagogue";
     };
   }
-  if (!store.isAuthenticated) {
+  if (!store.isAuthenticated || store.isGuest) {
     host.replaceChildren(signedOutPrompt());
   }
 
@@ -218,7 +218,7 @@ export async function pricingView(outlet) {
       document.title = "Piano Pedagogue";
     };
   }
-  if (!store.isAuthenticated) {
+  if (!store.isAuthenticated || store.isGuest) {
     const days = options[0].trialDays;
     host.replaceChildren(
       el("div", { class: "plan-options" }, ...options.map((option) => el("div", { class: "plan-option" }, el("strong", {}, option.label), el("div", { class: "plan-price" }, option.price ? `${option.price} / ${PERIOD[option.interval] || option.interval}` : "")))),

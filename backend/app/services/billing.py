@@ -178,6 +178,8 @@ class BillingService(PlanService):
         prices = settings.stripe_prices
         if interval not in prices:
             raise CheckoutRefused("That plan isn't available yet.")
+        if user.is_guest:
+            raise CheckoutRefused("Create an account first, then you can upgrade.")
         existing = await self.subscription(user.id)
         if grants_pro(existing):
             raise CheckoutRefused("You already have Pro. Use Manage billing to change or cancel it.")

@@ -15,6 +15,7 @@ import { linkPurchasesUser, startPurchases } from "./lib/revenuecat.js";
 import { canGoBack, goBack, navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
 import { loginView, registerView } from "./views/auth.js";
 import { onboardingView } from "./views/onboarding.js";
+import { firstLaunch, markLaunched, startView } from "./views/start.js";
 import { dashboardView } from "./views/dashboard.js";
 import { entryDetailView, newEntryView, repertoireView } from "./views/repertoire.js";
 import { constellationView } from "./views/constellation.js";
@@ -38,6 +39,7 @@ const ROOT_ROUTES = new Set(["/", "/login", "/onboarding"]);
 
 route("/", dashboardView);
 route("/onboarding", onboardingView);
+route("/start", startView, { open: true });
 route("/repertoire", repertoireView);
 route("/repertoire/new", newEntryView);
 route("/repertoire/:id", entryDetailView);
@@ -66,7 +68,7 @@ setGuard(({ pathname, entry }) => {
   if (entry?.open) return null;
   const isPublic = PUBLIC_ROUTES.has(pathname);
   if (!store.isAuthenticated && !isPublic) return "/login";
-  if (store.isAuthenticated && isPublic) return "/";
+  if (store.isAuthenticated && isPublic && !store.isGuest) return "/";
   if (store.isAuthenticated && pathname !== "/onboarding") {
     const onboarding = store.onboarding;
     if (onboarding && !onboarding.complete) return "/onboarding";
@@ -129,7 +131,7 @@ function setChrome() {
   const account = document.getElementById("account");
   account.hidden = !authed;
   if (authed) {
-    const name = store.user?.display_name || store.user?.email || "You";
+    const name = store.user?.display_name || (store.isGuest ? "Guest" : store.user?.email) || "You";
     document.getElementById("account-toggle").textContent = name.trim().charAt(0).toUpperCase();
     document.getElementById("account-toggle").setAttribute("aria-label", `Account menu for ${name}`);
     document.getElementById("account-name").textContent = name;
@@ -158,6 +160,11 @@ function wireAccountMenu() {
     }
   });
   document.getElementById("sign-out").addEventListener("click", () => {
+    if (store.isGuest) {
+      notify.info("You're practising as a guest. Create an account first so your progress is kept.");
+      navigate("/register");
+      return;
+    }
     store.signOut();
     navigate("/login", { replace: true });
   });
@@ -296,7 +303,15 @@ async function boot() {
   subscribe((state) => identifyUser(state.user?.id));
   subscribe(linkPurchasesUser);
   await store.hydrate();
-  await startPurchases({ getUserId: () => store.user?.id });
+  if (isNative && !store.isAuthenticated && !store.serverDown && firstLaunch()) {
+    try {
+      await store.startGuest();
+      markLaunched();
+    } catch {
+      /* offline on the very first launch, the sign-in screen still works */
+    }
+  }
+  await startPurchases({ getUserId: () => (store.user && !store.user.is_guest ? store.user.id : null) });
   const landing = store.serverDown ? null : landingTarget({ pathname: window.location.pathname, authenticated: store.isAuthenticated, native: isNative });
   if (landing) {
     window.location.replace(landing);

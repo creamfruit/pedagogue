@@ -26,6 +26,10 @@ function emit() {
   subscribers.forEach((handler) => handler(state));
 }
 
+function guestTokenToMerge() {
+  return state.user?.is_guest ? tokenStore.get() : null;
+}
+
 let lastAchievements = null;
 
 function celebrate(summary) {
@@ -133,8 +137,21 @@ export const store = {
     emit();
     return state.user;
   },
+  async startGuest() {
+    const token = await api.guest();
+    tokenStore.set(token.access_token);
+    state.user = await api.me();
+    await Promise.all([loadProfile(), loadOnboarding(), loadPlan()]);
+    emit();
+    return state.user;
+  },
+  get isGuest() {
+    return Boolean(state.user?.is_guest);
+  },
   async signIn(email, password) {
-    const token = await api.login(email, password);
+    const guestToken = guestTokenToMerge();
+    const token = await api.login(email, password, { guestToken });
+    if (guestToken) clearMission();
     tokenStore.set(token.access_token);
     state.user = await api.me();
     await Promise.all([loadProfile(), loadOnboarding(), loadPlan()]);
@@ -142,7 +159,9 @@ export const store = {
     return state.user;
   },
   async signUp(payload) {
-    const token = await api.register(payload);
+    const guestToken = guestTokenToMerge();
+    const token = await api.register(payload, { guestToken });
+    if (guestToken) clearMission();
     tokenStore.set(token.access_token);
     state.user = await api.me();
     await Promise.all([loadProfile(), loadOnboarding(), loadPlan()]);

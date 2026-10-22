@@ -3,7 +3,7 @@ import { backButton, el, empty, skeletonBlock } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
-import { savedTiers, tierQuizStep } from "./onboarding.js";
+import { savedTiers, tierQuizStep } from "./tierQuiz.js";
 
 export async function tierRetakeView(outlet) {
   const host = el("div", {}, skeletonBlock(6));

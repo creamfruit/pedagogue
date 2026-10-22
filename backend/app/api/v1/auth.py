@@ -1,7 +1,7 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.deps import CurrentUser, SessionDep, StorageDep, get_user_by_email
@@ -11,13 +11,23 @@ from app.models.models import User
 from app.schemas.schemas import AccountDeletion, Token, UserLogin, UserRead, UserRegister
 from app.services.account import delete_account
 from app.services.billing import BillingService
+from app.services.guest import adopt_guest, create_guest
 from app.services.stripe_gateway import BillingUnavailable, StripeGateway, get_gateway
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+GuestToken = Annotated[Optional[str], Header(alias="X-Guest-Token")]
+
+
+@router.post("/guest", response_model=Token, status_code=status.HTTP_201_CREATED)
+async def guest(session: SessionDep, request: Request) -> Token:
+    await enforce("register", client_ip(request))
+    visitor = await create_guest(session)
+    return Token(access_token=tokens.create_access_token(str(visitor.id)), expires_in=tokens.expires_in)
+
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-async def register(payload: UserRegister, session: SessionDep, request: Request) -> Token:
+async def register(payload: UserRegister, session: SessionDep, request: Request, guest_token: GuestToken = None) -> Token:
     await enforce("register", client_ip(request))
     existing = await get_user_by_email(session, payload.email)
     if existing is not None:
@@ -29,6 +39,7 @@ async def register(payload: UserRegister, session: SessionDep, request: Request)
     )
     session.add(user)
     await session.flush()
+    await adopt_guest(session, guest_token, user)
     return Token(access_token=tokens.create_access_token(str(user.id)), expires_in=tokens.expires_in)
 
 
@@ -37,6 +48,7 @@ async def login(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: SessionDep,
     request: Request,
+    guest_token: GuestToken = None,
 ) -> Token:
     await enforce("sign_in_ip", client_ip(request))
     await enforce("sign_in", form.username.strip().lower())
@@ -47,16 +59,18 @@ async def login(
             detail="incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    await adopt_guest(session, guest_token, user)
     return Token(access_token=tokens.create_access_token(str(user.id)), expires_in=tokens.expires_in)
 
 
 @router.post("/token", response_model=Token)
-async def token_login(payload: UserLogin, session: SessionDep, request: Request) -> Token:
+async def token_login(payload: UserLogin, session: SessionDep, request: Request, guest_token: GuestToken = None) -> Token:
     await enforce("sign_in_ip", client_ip(request))
     await enforce("sign_in", payload.email.strip().lower())
     user = await get_user_by_email(session, payload.email)
     if user is None or not hasher.verify(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="incorrect email or password")
+    await adopt_guest(session, guest_token, user)
     return Token(access_token=tokens.create_access_token(str(user.id)), expires_in=tokens.expires_in)
 
 

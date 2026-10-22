@@ -35,6 +35,14 @@ function lastEmail() {
   }
 }
 
+function guestNote(text) {
+  return store.isGuest ? el("p", { class: "guest-note" }, text) : null;
+}
+
+function tryFirst() {
+  return store.isAuthenticated ? null : el("p", { class: "faint auth-legal" }, "Just looking? ", el("a", { href: "/start", "data-link": true }, "Try it without an account"), ".");
+}
+
 function showError(id, message) {
   const node = document.getElementById(id);
   if (!node) return;
@@ -74,9 +82,11 @@ export function loginView(outlet, context = {}) {
     },
     el("h1", {}, "Sign in"),
     el("p", { class: "muted" }, "Your repertoire, your weaknesses, your route to the next piece. You stay signed in on this device for 90 days."),
+    guestNote("Sign in and what you've done as a guest joins your account."),
     field("Email", email, "email-error"),
     field("Password", password, "password-error"),
     el("div", { class: "row", style: "justify-content:space-between;margin-top:6px" }, submit, el("a", { href: "/register", "data-link": true, class: "muted" }, "Create an account")),
+    tryFirst(),
     legalLinks()
   );
 
@@ -130,6 +140,7 @@ export function registerView(outlet) {
       },
     },
     el("h1", {}, "Create your account"),
+    guestNote("Your progress so far comes with you."),
     field("Display name", name, "name-error"),
     field("Email", email, "email-error"),
     field("Password", password, "password-error"),

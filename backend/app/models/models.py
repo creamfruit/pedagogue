@@ -186,6 +186,7 @@ class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     )
     tier_quiz_completed_at: Mapped[Optional[datetime]]
     tastes_completed_at: Mapped[Optional[datetime]]
+    is_guest: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     sent_friend_requests: Mapped[list[Friendship]] = relationship(
         back_populates="requester",
