@@ -11,7 +11,7 @@ from app.core.security import tokens
 from app.main import app
 from app.services.guest import GUEST_DOMAIN, guest_email
 from app.services.quickstart import spread
-from tests.test_billing import stripe_on  # noqa: F401
+from tests.test_billing import stripe_on
 from tests.test_keyboard_api import TEST_DB, needs_db
 
 PASSWORD = "sturdy-pass-123"

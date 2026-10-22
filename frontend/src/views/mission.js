@@ -79,30 +79,32 @@ export function progressArc(steps, progress, activeIndex) {
   return node;
 }
 
-async function loadVisual(step) {
-  if (step.passage_id && step.piece_id) {
-    try {
-      const overview = await api.pieceOverview(step.piece_id);
-      const section = (overview.sections || []).find((item) => item.id === step.passage_id);
-      if (section?.score_crop) {
-        const blob = await api.blob(section.score_crop);
-        return { kind: "image", url: URL.createObjectURL(blob), alt: `${step.bars} of ${step.piece_title}, from your score` };
-      }
-    } catch {
-      /* fall through to a pattern */
-    }
-    try {
-      const notation = await api.passageSightReading(step.passage_id, step.technique_id || undefined);
-      return { kind: "notation", notation };
-    } catch {
-      return { kind: "text" };
-    }
+async function loadPattern(step) {
+  try {
+    const notation = await api.passageSightReading(step.passage_id, step.technique_id || undefined);
+    return { kind: "notation", notation };
+  } catch {
+    return { kind: "text" };
   }
-  return { kind: "text" };
+}
+
+async function loadVisual(step) {
+  if (!step.passage_id || !step.piece_id) return { kind: "text" };
+  try {
+    const overview = await api.pieceOverview(step.piece_id);
+    const section = (overview.sections || []).find((item) => item.id === step.passage_id);
+    if (section?.score_crop) {
+      const blob = await api.blob(section.score_crop);
+      return { kind: "image", url: URL.createObjectURL(blob), alt: `${step.bars} of ${step.piece_title}, from your score` };
+    }
+  } catch {
+    return loadPattern(step);
+  }
+  return loadPattern(step);
 }
 
 function visualBlock(step) {
-  const frame = el("div", { class: "mission-visual", "data-control": "visual" });
+  const frame = el("div", { class: "mission-visual" });
   const text = () => {
     const lines = [];
     if (step.bars) lines.push(el("p", { class: "mission-visual-bars" }, `${step.piece_title}, ${step.bars}`));

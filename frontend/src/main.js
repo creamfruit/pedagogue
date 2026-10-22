@@ -308,7 +308,7 @@ async function boot() {
       await store.startGuest();
       markLaunched();
     } catch {
-      /* offline on the very first launch, the sign-in screen still works */
+      return;
     }
   }
   await startPurchases({ getUserId: () => (store.user && !store.user.is_guest ? store.user.id : null) });
