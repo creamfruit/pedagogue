@@ -19,6 +19,7 @@ import { entryDetailView, newEntryView, repertoireView } from "./views/repertoir
 import { constellationView } from "./views/constellation.js";
 import { practiceView } from "./views/practice.js";
 import { progressView } from "./views/progress.js";
+import { meView } from "./views/me.js";
 import { settingsView } from "./views/settings.js";
 import { tierRetakeView } from "./views/tierRetake.js";
 import { rouletteView } from "./views/roulette.js";
@@ -43,6 +44,7 @@ route("/practice", practiceView);
 route("/progress", progressView);
 route("/progression", progressView);
 route("/performances", progressView);
+route("/me", meView);
 route("/settings", settingsView);
 route("/settings/tiers", tierRetakeView);
 route("/roulette", rouletteView);
@@ -117,6 +119,9 @@ function setChrome() {
   const settingUp = authed && store.onboarding && !store.onboarding.complete;
   document.getElementById("nav").hidden = !authed || settingUp;
   document.getElementById("nav-toggle").hidden = !authed || settingUp;
+  const showTabs = authed && !settingUp;
+  document.getElementById("tabbar").hidden = !showTabs;
+  document.getElementById("app").classList.toggle("has-tabs", showTabs);
   setWallet();
   const account = document.getElementById("account");
   account.hidden = !authed;

@@ -4688,3 +4688,217 @@ body {
     font-size: 13px;
   }
 }
+
+.tabbar {
+  display: none;
+}
+
+.me {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 640px;
+}
+
+.me-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.me-avatar {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--starlight);
+  background: radial-gradient(circle at 34% 30%, var(--navy), var(--teal));
+  border: 1px solid var(--accent-line);
+  box-shadow: var(--glow-soft);
+}
+
+.me-head-text {
+  min-width: 0;
+}
+
+.me-head-text h1 {
+  overflow-wrap: anywhere;
+}
+
+.me-list {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: rgba(var(--teal-rgb), 0.18);
+}
+
+.me-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: 12px var(--space-4);
+  color: var(--text);
+  background: rgba(var(--navy-rgb, 33, 48, 79), 0.35);
+}
+
+.me-row + .me-row {
+  border-top: 1px solid var(--line);
+}
+
+.me-row:active {
+  background: var(--starlight-wash);
+}
+
+.me-row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.me-row-text strong {
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.me-row-text .faint {
+  font-size: 13px;
+}
+
+.me-row-chevron {
+  color: var(--text-faint);
+  font-size: 22px;
+}
+
+@media (max-width: 760px) {
+  #nav,
+  #nav-toggle {
+    display: none !important;
+  }
+
+  .topbar {
+    flex-wrap: nowrap;
+    padding-bottom: 10px;
+  }
+
+  .footer {
+    display: none;
+  }
+
+  .app.has-tabs {
+    padding-bottom: calc(68px + var(--safe-bottom));
+  }
+
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+    background: linear-gradient(180deg, rgba(6, 11, 21, 0.9), rgba(4, 8, 16, 0.97));
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border-top: 1px solid rgba(var(--accent-rgb), 0.12);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .tabbar[hidden] {
+    display: none;
+  }
+
+  .tabbar-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 64px;
+    padding: 8px 4px;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .tabbar-icon {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tabbar-icon circle {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .tabbar-item:active {
+    background: var(--starlight-wash);
+  }
+
+  .tabbar-item:focus-visible {
+    outline: 2px solid var(--tide);
+    outline-offset: -4px;
+  }
+
+  .tabbar-item.active {
+    color: var(--starlight);
+  }
+
+  .tabbar-item.active .tabbar-icon {
+    filter: drop-shadow(0 0 6px rgba(var(--starlight-rgb), 0.55));
+  }
+
+  .tabbar-item.active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 28%;
+    right: 28%;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--starlight);
+    box-shadow: 0 0 10px rgba(var(--starlight-rgb), 0.5);
+  }
+
+  .offline-banner {
+    bottom: calc(64px + var(--safe-bottom));
+    padding-bottom: 10px;
+  }
+
+  .toasts {
+    bottom: calc(76px + var(--safe-bottom));
+  }
+
+  .update-bar {
+    bottom: calc(76px + var(--safe-bottom));
+  }
+
+  .is-offline .app {
+    padding-bottom: calc(130px + var(--safe-bottom));
+  }
+
+  body.immersive .tabbar,
+  body.immersive .topbar {
+    display: none;
+  }
+
+  body.immersive .app.has-tabs {
+    padding-bottom: 0;
+  }
+}
