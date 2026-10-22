@@ -3,6 +3,7 @@ import { deadline, formatCountdown, secondsUntil } from "../lib/countdown.js";
 import { el, empty, sectionBlock, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { daysSince, lastPractisedLabel, tempoBar } from "../lib/entries.js";
 import { features } from "../lib/features.js";
+import { KIND_LABEL, loadMission, minutesLabel, missionDone, stepStatus } from "../lib/mission.js";
 import { store } from "../lib/store.js";
 import { streakSummary } from "./growth.js";
 
@@ -227,20 +228,69 @@ function statsStrip(stats) {
   );
 }
 
-export async function dashboardView(outlet) {
-  const heading = el(
-    "div",
-    { class: "page-head" },
+function stepRow(mission, step) {
+  const status = stepStatus(mission, step.index);
+  return el(
+    "li",
+    { class: `mission-step-row ${status ? `is-${status}` : ""}`.trim(), "data-kind": step.kind },
+    el("span", { class: "mission-step-num", "aria-hidden": "true" }, status === "done" ? "✓" : String(step.index + 1)),
     el(
       "div",
-      {},
-      el("h1", { style: "margin:0" }, `Good to see you, ${store.user?.display_name || "pianist"}`),
-      el("p", { class: "muted", style: "margin:4px 0 0" }, "Here is where your hands are this week.")
-    ),
-    el("a", { class: "btn", href: "/practice", "data-link": true }, "Start practising")
+      { class: "mission-step-text" },
+      el("div", { class: "mission-step-head" }, el("strong", {}, KIND_LABEL[step.kind] || step.title), el("span", { class: "faint mono" }, `${step.minutes} min`)),
+      el("p", { class: "mission-step-why" }, step.why)
+    )
   );
+}
+
+function missionHero(mission, host) {
+  const done = missionDone(mission);
+  const started = mission.progress.length > 0;
+  const label = done ? "Today's mission is done" : started ? "Continue today's mission" : "Start today's mission";
+  const caption = done
+    ? "Nicely done. Your stars are lit. Come back tomorrow, or keep playing."
+    : `${minutesLabel(mission)} · ${mission.steps.length} steps, built from your pieces`;
+  return el(
+    "section",
+    { class: "mission-hero", "aria-labelledby": "mission-hero-title" },
+    el("p", { class: "mission-hero-kicker", id: "mission-hero-title" }, mission.kind === "first" ? "Your first mission" : "Today's mission"),
+    done
+      ? el("a", { class: "btn mission-start mission-start-done", href: "/constellation", "data-link": true }, "See your lit stars")
+      : el("a", { class: "btn mission-start", href: "/mission", "data-link": true }, label),
+    el("p", { class: "mission-hero-caption" }, caption),
+    el("ol", { class: "mission-steps" }, ...mission.steps.map((step) => stepRow(mission, step))),
+    done ? el("a", { class: "btn btn-small btn-ghost mission-more", href: "/practice", "data-link": true }, "Keep practising") : null
+  );
+}
+
+function missionFallback() {
+  return el(
+    "section",
+    { class: "mission-hero" },
+    el("p", { class: "mission-hero-kicker" }, "Today's mission"),
+    el("a", { class: "btn mission-start", href: "/practice", "data-link": true }, "Start practising"),
+    el("p", { class: "mission-hero-caption" }, "Today's mission couldn't be built right now, so here is free practice.")
+  );
+}
+
+export async function dashboardView(outlet) {
+  document.title = "Today · Piano Pedagogue";
+  const heroHost = el("div", { class: "mission-host" }, el("div", { class: "skeleton mission-skeleton" }));
   const body = el("div", { class: "today" }, skeletonBlock(4));
-  outlet.append(heading, body);
+  outlet.append(
+    el("div", { class: "today-greeting" }, el("h1", { style: "margin:0" }, `Good to see you, ${store.user?.display_name || "pianist"}`)),
+    heroHost,
+    el("h2", { class: "today-more-title" }, "More for today"),
+    body
+  );
+
+  loadMission()
+    .then((mission) => {
+      if (heroHost.isConnected) heroHost.replaceChildren(missionHero(mission, heroHost));
+    })
+    .catch(() => {
+      if (heroHost.isConnected) heroHost.replaceChildren(missionFallback());
+    });
 
   const [statsResult, loadResult, entriesResult] = await Promise.allSettled([
     api.repertoireStats(),

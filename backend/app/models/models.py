@@ -1038,6 +1038,20 @@ class SessionItem(UUIDPrimaryKeyMixin, Base):
         return self.load_units
 
 
+class Mission(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "missions"
+    __table_args__ = (UniqueConstraint("user_id", "day", name="uq_missions_user_id_day"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    day: Mapped[date] = mapped_column(Date)
+    kind: Mapped[str] = mapped_column(String(12), default="daily", server_default="daily")
+    steps: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    progress: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("practice_sessions.id", ondelete="SET NULL"))
+    owns_session: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    completed_at: Mapped[Optional[datetime]]
+
+
 class ReferenceTrack(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "reference_tracks"
     __table_args__ = (UniqueConstraint("repertoire_entry_id", name="uq_reference_tracks_repertoire_entry_id"),)

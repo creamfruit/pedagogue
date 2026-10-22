@@ -21,9 +21,57 @@ from app.schemas.schemas import (
     SessionItemCreate,
     SessionItemRead,
 )
+from app.schemas.mission import LitStar, MissionRead, MissionStepIn, MissionStepResult
+from app.services.mission import MissionService
 from app.services.practice import LiveListeningCoach, LoadGuard, PracticeSessionService
 
 router = APIRouter(prefix="/practice", tags=["practice"])
+
+
+def mission_read(mission) -> MissionRead:
+    done = {item["index"] for item in mission.progress}
+    waiting = [step["index"] for step in mission.steps if step["index"] not in done]
+    return MissionRead(
+        id=mission.id,
+        day=mission.day,
+        kind=mission.kind,
+        total_minutes=sum(int(step["minutes"]) for step in mission.steps),
+        steps=mission.steps,
+        progress=mission.progress,
+        completed_at=mission.completed_at,
+        next_index=waiting[0] if waiting else None,
+    )
+
+
+@router.get("/mission", response_model=MissionRead)
+async def todays_mission(user: CurrentUser, session: SessionDep, first: bool = Query(default=False)) -> MissionRead:
+    mission = await MissionService(session).today(user, first=first)
+    return mission_read(mission)
+
+
+@router.post("/mission/{mission_id}/steps/{index}", response_model=MissionStepResult)
+async def finish_mission_step(
+    mission_id: uuid.UUID, index: int, payload: MissionStepIn, user: CurrentUser, session: SessionDep
+) -> MissionStepResult:
+    service = MissionService(session)
+    mission = await service.today(user)
+    if mission.id != mission_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="that is not today's mission")
+    try:
+        outcome = await service.record_step(user, mission, index, payload.status, payload.seconds)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    reward = {"xp": 0, "gold": 0}
+    finished = service.finished(mission)
+    if finished and not outcome["already"]:
+        reward = await service.finish(user, mission)
+    step = mission.steps[index]
+    lit = None
+    if payload.status == "done" and not outcome["already"]:
+        lit = LitStar(entry_id=step.get("star_entry_id"), piece_title=step.get("piece_title"))
+    return MissionStepResult(
+        mission=mission_read(mission), lit=lit, finished=finished, xp=reward["xp"], gold=reward["gold"], streak=await service.streak(user)
+    )
 
 
 @router.post("/sessions", response_model=PracticeSessionRead, status_code=status.HTTP_201_CREATED)

@@ -1,5 +1,6 @@
 import { api, forgetOfflineData, setOfflineCaching, tokenStore } from "../api/client.js";
 import { lightTap } from "./haptics.js";
+import { clearMission } from "./mission.js";
 import { cancelDailyReminder } from "./reminders.js";
 
 const state = {
@@ -153,6 +154,7 @@ export const store = {
     forgetOfflineData();
     cancelDailyReminder({ forget: true });
     lastAchievements = null;
+    clearMission();
     state.user = null;
     state.onboarding = null;
     state.wallet = null;
