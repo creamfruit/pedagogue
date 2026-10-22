@@ -1,8 +1,11 @@
 import { api } from "../api/client.js";
+import { streakGauge } from "../components/streakGauge.js";
 import { segmentPaths, segmentStates } from "../lib/arc.js";
 import { el } from "../lib/dom.js";
 import { KIND_LABEL, completeStep, loadMission, missionDone } from "../lib/mission.js";
+import { rememberLit } from "../lib/litStars.js";
 import { MAX_BPM, MIN_BPM, clampBpm, createMetronome } from "../lib/metronome.js";
+import { reducedMotion } from "../lib/motion.js";
 import { renderNotation } from "../lib/notation.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
@@ -43,6 +46,22 @@ function rememberMetronomePreference(on) {
   } catch {
     return;
   }
+}
+
+const STAR_PATH = "M0 -20 L5.2 -6.2 L20 0 L5.2 6.2 L0 20 L-5.2 6.2 L-20 0 L-5.2 -6.2 Z";
+const SPARKS = 8;
+
+export function starBurst() {
+  const node = svg("svg", { class: "star-burst", viewBox: "-40 -40 80 80", "aria-hidden": "true" });
+  for (let index = 0; index < SPARKS; index += 1) {
+    const angle = (index / SPARKS) * Math.PI * 2;
+    const spark = svg("circle", { class: "star-burst-spark", cx: 0, cy: 0, r: 1.6 });
+    spark.style.setProperty("--dx", `${(Math.cos(angle) * 32).toFixed(1)}px`);
+    spark.style.setProperty("--dy", `${(Math.sin(angle) * 32).toFixed(1)}px`);
+    node.append(spark);
+  }
+  node.append(svg("circle", { class: "star-burst-halo", cx: 0, cy: 0, r: 16 }), svg("path", { class: "star-burst-star", d: STAR_PATH }));
+  return node;
 }
 
 export function progressArc(steps, progress, activeIndex) {
@@ -367,8 +386,17 @@ export async function missionView(outlet, context = {}) {
       proceed();
     };
     root.onclick = go;
-    show(el("div", { class: "mission-interlude" }, el("div", { class: "mission-done-mark", "aria-hidden": "true" }, "✓"), el("p", { class: "mission-title" }, "Step done"), el("p", { class: "mission-hint" }, result.lit?.piece_title ? `${result.lit.piece_title} is brighter in your sky.` : "Nicely done.")));
-    transition = setTimeout(go, 1400);
+    if (result.lit?.entry_id) rememberLit(result.lit.entry_id);
+    show(
+      el(
+        "div",
+        { class: `mission-interlude${reducedMotion() ? " is-still" : ""}` },
+        starBurst(),
+        el("p", { class: "mission-title" }, "Step done"),
+        el("p", { class: "mission-hint" }, result.lit?.piece_title ? `${result.lit.piece_title} is brighter in your sky.` : "A star lit in your sky.")
+      )
+    );
+    transition = setTimeout(go, reducedMotion() ? 1100 : 1500);
   }
 
   async function finish(mission, result = null) {
@@ -383,6 +411,7 @@ export async function missionView(outlet, context = {}) {
         { class: "mission-complete" },
         el("div", { class: "mission-done-mark", "aria-hidden": "true" }, "✓"),
         el("h1", { class: "mission-title" }, done ? "Mission complete" : "That's today's mission"),
+        result?.streak ? streakGauge(result.streak, { compact: true }) : null,
         el("p", { class: "mission-hint" }, done ? `${done} of ${mission.steps.length} steps done${result?.xp ? `, +${result.xp} xp` : ""}.` : "No pressure. Tomorrow's mission will be ready."),
         el(
           "div",

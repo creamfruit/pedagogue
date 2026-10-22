@@ -862,6 +862,11 @@ class StreakRead(BaseModel):
     min_minutes: int
     next_bonus_xp: int
     last_day: Optional[str] = None
+    freezes: int = 0
+    freeze_cap: int = 2
+    frozen_days: list[str] = Field(default_factory=list)
+    state: str = "new"
+    next_freeze_in: int = 7
 
 
 class CosmeticRead(BaseModel):

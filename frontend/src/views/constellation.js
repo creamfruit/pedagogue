@@ -4,6 +4,8 @@ import { linkSummaryPanel } from "../components/overview.js";
 import { el, empty, reveal, skeletonBlock, tabs } from "../lib/dom.js";
 import { features } from "../lib/features.js";
 import { CARD_COPY, constellationCardModel, renderConstellationCard } from "../lib/shareCards.js";
+import { litToday } from "../lib/litStars.js";
+import { reducedMotion } from "../lib/motion.js";
 import { store } from "../lib/store.js";
 import { navigate } from "../router.js";
 import { familyTreeView } from "./familyTree.js";
@@ -169,7 +171,8 @@ export async function constellationView(outlet, context = {}) {
     return banner.stop;
   }
 
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotion = reducedMotion();
+  const litTonight = litToday();
   const enabled = new Set(graph.link_types);
   const colors = palette();
   const linkColor = (type) => (LINK_STYLES[type] ? colors[LINK_STYLES[type].tone] : colors.lineStrong);
@@ -289,6 +292,7 @@ export async function constellationView(outlet, context = {}) {
       halo: look.halo || look.color,
       outline: look.outline || null,
       spiked: look.spiked,
+      litTonight: litTonight.has(node.entry_id),
     };
   });
   const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -342,6 +346,16 @@ export async function constellationView(outlet, context = {}) {
       ripples.step();
       draw();
     });
+
+  const lit = nodes.filter((node) => node.litTonight);
+  if (lit.length) {
+    headline.textContent = `${headline.textContent} · ${lit.length} lit tonight`;
+    if (!reduceMotion) {
+      setTimeout(() => {
+        lit.forEach((node, index) => setTimeout(() => running && ripples.spawn(node.x, node.y, 1), index * 320));
+      }, 700);
+    }
+  }
 
   let seeded = false;
 
@@ -562,6 +576,19 @@ export async function constellationView(outlet, context = {}) {
       ctx.arc(node.x, node.y, core * (glowStyle.core ?? 0.42), 0, Math.PI * 2);
       ctx.fillStyle = colors.starlight;
       ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    if (node.litTonight) {
+      const pulse = reduceMotion ? 0.6 : 0.5 + 0.2 * Math.sin(clock * 0.05);
+      ctx.save();
+      ctx.strokeStyle = colors.starlight;
+      ctx.lineWidth = Math.max(1.1, core * 0.2) / transform.k;
+      ctx.globalAlpha = pulse;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, core * 2.1, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
       ctx.globalAlpha = 1;
     }
 

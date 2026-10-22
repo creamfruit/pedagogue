@@ -2,6 +2,7 @@ import { api } from "../api/client.js";
 import { deadline, formatCountdown, secondsUntil } from "../lib/countdown.js";
 import { el, empty, sectionBlock, skeletonBlock, toneForSeverity } from "../lib/dom.js";
 import { daysSince, lastPractisedLabel, tempoBar } from "../lib/entries.js";
+import { streakGauge } from "../components/streakGauge.js";
 import { features } from "../lib/features.js";
 import { KIND_LABEL, loadMission, minutesLabel, missionDone, stepStatus } from "../lib/mission.js";
 import { store } from "../lib/store.js";
@@ -258,6 +259,7 @@ function missionHero(mission, host) {
       ? el("a", { class: "btn mission-start mission-start-done", href: "/constellation", "data-link": true }, "See your lit stars")
       : el("a", { class: "btn mission-start", href: "/mission", "data-link": true }, label),
     el("p", { class: "mission-hero-caption" }, caption),
+    streakGauge(store.streak, { compact: true }),
     el("ol", { class: "mission-steps" }, ...mission.steps.map((step) => stepRow(mission, step))),
     done ? el("a", { class: "btn btn-small btn-ghost mission-more", href: "/practice", "data-link": true }, "Keep practising") : null
   );

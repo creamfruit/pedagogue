@@ -8,6 +8,7 @@ import {
   reminderSettings,
   remindersSupported,
 } from "../lib/reminders.js";
+import { motionSetting, setMotionSetting, systemReducesMotion } from "../lib/motion.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
 import { navigate } from "../router.js";
@@ -117,6 +118,21 @@ function remindersSection() {
     { caption: "A reminder on Today when you haven't logged a practice session for a while. It only appears in the app." },
     field("Remind me", select),
     remindersSupported ? dailyReminderControls() : null
+  );
+}
+
+function motionSection() {
+  const system = systemReducesMotion();
+  const toggle = el("input", { type: "checkbox", id: "reduce-motion", checked: motionSetting() === "reduce" || null });
+  toggle.addEventListener("change", () => {
+    setMotionSetting(toggle.checked ? "reduce" : "system");
+    notify.success(toggle.checked ? "Motion reduced" : "Motion follows your device");
+  });
+  return sectionBlock(
+    "Motion",
+    { caption: "Calms the starfield, the star-lighting flourish and other movement. Your device's own setting is always honoured too." },
+    el("label", { class: "check-label", for: "reduce-motion" }, toggle, "Reduce motion"),
+    system ? el("p", { class: "faint", style: "margin:6px 0 0" }, "Your device already asks for less motion, so it is reduced whatever this says.") : null
   );
 }
 
@@ -414,7 +430,7 @@ function accountSection() {
 
 export async function settingsView(outlet) {
   const planHost = el("div", { class: "plan-host" }, billingSection());
-  const sections = [profileSection(), planHost, tiersSection(), remindersSection(), socialSection(), dataSection(), supportSection(), accountSection()];
+  const sections = [profileSection(), planHost, tiersSection(), remindersSection(), motionSection(), socialSection(), dataSection(), supportSection(), accountSection()];
   outlet.append(
     backButton("/"),
     el("div", { class: "page-head" }, el("h1", { style: "margin:0" }, "Settings")),

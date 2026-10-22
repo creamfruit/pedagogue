@@ -9,6 +9,7 @@ import { isNative } from "./lib/platform.js";
 import { store, subscribe } from "./lib/store.js";
 import { notify } from "./lib/toast.js";
 import { startCosmos } from "./lib/cosmos.js";
+import { watchMotion } from "./lib/motion.js";
 import { identifyUser, startMonitoring } from "./lib/monitoring.js";
 import { linkPurchasesUser, startPurchases } from "./lib/revenuecat.js";
 import { canGoBack, goBack, navigate, route, setGuard, setNotFound, startRouter } from "./router.js";
@@ -276,6 +277,7 @@ async function registerServiceWorker() {
 }
 
 async function boot() {
+  watchMotion();
   startMonitoring();
   await setupNative({ onBack: handleBack, onResume: sendQueuedNotes });
   startCosmos();

@@ -68,6 +68,8 @@ function makeStars(width, height) {
   );
 }
 
+import { onMotionChange, reducedMotion } from "./motion.js";
+
 export function startCosmos() {
   if (document.querySelector(".cosmos")) return () => {};
   const canvas = document.createElement("canvas");
