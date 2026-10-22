@@ -249,6 +249,8 @@ export const api = {
   importExternalPiece: (payload) => request("/catalog/external/import", { method: "POST", body: payload }),
   piece: (id) => request(`/catalog/pieces/${id}`),
   pieceOverview: (id) => request(`/catalog/pieces/${id}/overview`),
+  missionToday: (first = false) => request("/practice/mission", { params: first ? { first: "true" } : undefined }),
+  missionStep: (missionId, index, body) => request(`/practice/mission/${missionId}/steps/${index}`, { method: "POST", body }),
   billingPlan: () => request("/billing/plan"),
   billingPrices: () => request("/billing/prices", { auth: false }),
   billingCheckout: (body) => request("/billing/checkout", { method: "POST", body }),
