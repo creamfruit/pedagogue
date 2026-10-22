@@ -1059,12 +1059,15 @@ class Subscription(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         UniqueConstraint("user_id", name="uq_subscriptions_user_id"),
         UniqueConstraint("stripe_customer_id", name="uq_subscriptions_stripe_customer_id"),
         UniqueConstraint("stripe_subscription_id", name="uq_subscriptions_stripe_subscription_id"),
+        UniqueConstraint("revenuecat_customer_id", name="uq_subscriptions_revenuecat_customer_id"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     provider: Mapped[str] = mapped_column(String(20), default="stripe", server_default="stripe")
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(64))
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(64))
+    revenuecat_customer_id: Mapped[Optional[str]] = mapped_column(String(80))
+    revenuecat_subscription_id: Mapped[Optional[str]] = mapped_column(String(80))
     status: Mapped[str] = mapped_column(String(24), default="incomplete", server_default="incomplete")
     billing_interval: Mapped[Optional[str]] = mapped_column(String(8))
     trial_end: Mapped[Optional[datetime]]

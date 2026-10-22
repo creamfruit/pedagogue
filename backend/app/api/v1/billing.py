@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.rate_limit import enforce
 from app.schemas.billing import CheckoutIn, PlanOut, PriceOut, PricesOut, SubscribersOut, UrlOut
 from app.services.billing import BillingService, CheckoutRefused, PlanService, price_options
+from app.services.revenuecat import RevenueCatService, parse_webhook, verify_authorization
 from app.services.stripe_gateway import BadWebhook, BillingUnavailable, StripeGateway, get_gateway, verify_webhook
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -80,6 +81,22 @@ async def webhook(request: Request, session: SessionDep, gateway: GatewayDep) ->
         raise unavailable(error)
     except stripe.StripeError:
         raise trouble()
+    return {"received": True, "outcome": outcome}
+
+
+@router.post("/revenuecat/webhook")
+async def revenuecat_webhook(request: Request, session: SessionDep) -> dict:
+    try:
+        verify_authorization(request.headers.get("authorization"))
+    except BillingUnavailable as error:
+        raise unavailable(error)
+    except BadWebhook:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="that webhook could not be verified")
+    try:
+        event = parse_webhook(await request.body())
+    except BadWebhook as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
+    outcome = await RevenueCatService(session).handle_event(event)
     return {"received": True, "outcome": outcome}
 
 

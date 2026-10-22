@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     stripe_price_yearly: str = ""
     stripe_trial_days: int = Field(default=7, ge=0, le=90)
 
+    revenuecat_webhook_secret: str = ""
+    revenuecat_entitlement_id: str = "pro"
+
     sentry_dsn: str = ""
     sentry_environment: str = ""
     sentry_traces_sample_rate: float = 0.0
@@ -137,6 +140,10 @@ class Settings(BaseSettings):
     @property
     def stripe_checkout_ready(self) -> bool:
         return bool(self.stripe_secret_key.strip() and self.stripe_prices)
+
+    @property
+    def revenuecat_ready(self) -> bool:
+        return bool(self.revenuecat_webhook_secret.strip())
 
     @property
     def return_base_url(self) -> str:

@@ -33,6 +33,12 @@ def grants_pro(subscription: Optional[Subscription], now: Optional[datetime] = N
     return now <= end + timedelta(days=MISSED_RENEWAL_GRACE_DAYS)
 
 
+def held_by_another_provider(subscription: Subscription, provider: str, incoming_status: str, now: Optional[datetime] = None) -> bool:
+    if subscription.provider in (None, provider) or incoming_status in PRO_STATUSES:
+        return False
+    return grants_pro(subscription, now)
+
+
 class PlanService(BaseService):
     async def subscription(self, user_id: uuid.UUID) -> Optional[Subscription]:
         result = await self.session.execute(select(Subscription).where(Subscription.user_id == user_id))
@@ -283,10 +289,13 @@ class BillingService(PlanService):
         if happened and row.last_event_at and happened < row.last_event_at:
             return "stale"
         status = str(subscription.get("status") or "incomplete")
+        if held_by_another_provider(row, "stripe", status):
+            return "stale"
         incoming_id = subscription.get("id")
         replaced = row.stripe_subscription_id and incoming_id and row.stripe_subscription_id != incoming_id
         if replaced and status not in PRO_STATUSES and row.status in PRO_STATUSES:
             return "stale"
+        row.provider = "stripe"
         if incoming_id:
             row.stripe_subscription_id = incoming_id
         if subscription.get("customer"):

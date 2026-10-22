@@ -62,6 +62,10 @@ services:
         sync: false
       - key: STRIPE_TRIAL_DAYS
         value: "7"
+      - key: REVENUECAT_WEBHOOK_SECRET
+        sync: false
+      - key: REVENUECAT_ENTITLEMENT_ID
+        value: pro
       - key: MAX_UPLOAD_MB
         value: "50"
       - key: UPLOAD_QUOTA_MB
