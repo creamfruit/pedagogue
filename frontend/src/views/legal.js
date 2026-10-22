@@ -62,7 +62,7 @@ export function privacyView(outlet) {
             [el("strong", {}, "Repertoire and practice: "), "the pieces you add, their status, tempos, dates and notes, practice sessions and minutes, drills, practice plans, sight-reading and polyrhythm results, performances and readiness scores. For keyboard practice we keep each run's scores, the tempo, and how each bar went; the individual notes you played are used to score the run and are not kept."],
             [el("strong", {}, "Progress: "), "XP, gold, levels, achievements, cosmetics you buy with in-app gold, streaks, and your daily roulette results."],
             [el("strong", {}, "Friends: "), "friend requests and friendships. Friends can see your constellation if your visibility setting allows it."],
-            [el("strong", {}, "Subscription: "), "if you start Pedagogue Pro, whether it is active, whether it is monthly or yearly, when a trial or billing period ends, and your Stripe customer ID. Your card details go straight to Stripe; we never see or store them."],
+            [el("strong", {}, "Subscription: "), "if you start Pedagogue Pro, whether it is active, whether it is monthly or yearly, when a trial or billing period ends, and your Stripe or RevenueCat customer ID. Your card details go straight to Stripe or to the App Store or Google Play; we never see or store them."],
           ]),
           p(
             ERROR_REPORTS
@@ -84,7 +84,8 @@ export function privacyView(outlet) {
             [
               "If AI coach notes are switched on, the piece's title and composer, your tempos, your technique tiers and up to your three most recent practice notes for that piece are sent to Anthropic to write feedback on a recording. Your name, email and the audio itself are not sent. Anthropic does not use this data to train its models.",
             ],
-            "Payments for Pedagogue Pro on the website are handled by Stripe, which receives your email address and payment details. Deleting your account cancels any Pro subscription. If you donate, the payment happens on the donation page we link to, not inside Pedagogue.",
+            "Payments for Pedagogue Pro on the website are handled by Stripe, which receives your email address and payment details. Deleting your account cancels any Pro subscription you started on the website.",
+            "Pro bought inside the iOS or Android app is sold by Apple or Google. RevenueCat, which manages those subscriptions for us, receives your account ID and the purchase record so we can switch Pro on. Apple or Google keeps the payment details. Deleting your account does not cancel a subscription bought through the App Store or Google Play: cancel it in your store account settings. If you donate, the payment happens on the donation page we link to, not inside Pedagogue.",
             "When you search for a piece that isn't in our catalogue, your search words are sent to MusicBrainz, the public music encyclopaedia.",
             "The app's fonts are loaded from Google Fonts, which sees your IP address when it serves them.",
             ERROR_REPORTS
@@ -170,8 +171,8 @@ export function termsView(outlet) {
         section(
           "Pedagogue Pro",
           list([
-            "Pedagogue is free to use. Pedagogue Pro is an optional paid subscription, monthly or yearly, that you buy on our website. The price is shown at checkout before you pay. It is not sold inside the iOS and Android apps, and a plan bought on the website applies to your account wherever you sign in.",
-            "Pro renews until you cancel. Cancel any time from Settings, under Plan, with Manage billing. Pro then carries on until the end of the period you have paid for.",
+            "Pedagogue is free to use. Pedagogue Pro is an optional paid subscription, monthly or yearly, that you buy on our website or inside the iOS and Android apps. The price is shown before you pay. A plan bought in any one place applies to your account wherever you sign in.",
+            "Pro renews until you cancel. Cancel any time from Settings, under Plan, with Manage billing or Manage subscription, or in your App Store or Google Play subscription settings if you bought it in an app. Pro then carries on until the end of the period you have paid for.",
             "A free trial is offered once per account. If you cancel before it ends you are not charged.",
             "If you go back to the Free plan your pieces, scores and history stay yours. Only the Pro features stop: more than five pieces in progress, reading PDF scores, your full keyboard history, the full tempo ladder, share cards and cloud sync.",
           ])

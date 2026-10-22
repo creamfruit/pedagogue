@@ -1,9 +1,10 @@
 import { donateNote } from "../components/donate.js";
 import { backButton, el } from "../lib/dom.js";
-import { billingMode, loadOptions, manageBilling, offersVisible, subscribe } from "../lib/billing.js";
+import { billingMode, loadOptions, manageBilling, offersVisible, restorePurchases, subscribe } from "../lib/billing.js";
 import { comparisonRows, describePlan, savingsPercent } from "../lib/planSummary.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
+import { navigate } from "../router.js";
 
 const PERIOD = { month: "month", year: "year" };
 
@@ -26,7 +27,8 @@ function comparisonTable() {
   );
 }
 
-function optionCard(option, { trial, savings, busyState, onChoose }) {
+function optionCard(option, { trial: trialOffered, savings, busyState, onChoose }) {
+  const trial = trialOffered(option);
   const price = option.price ? `${option.price} / ${PERIOD[option.interval] || option.interval}` : option.label;
   const button = el(
     "button",
@@ -37,7 +39,8 @@ function optionCard(option, { trial, savings, busyState, onChoose }) {
         if (busyState.busy) return;
         busyState.set(true);
         try {
-          await onChoose(option);
+          const result = await onChoose(option);
+          if (!result?.redirected) busyState.set(false);
         } catch (error) {
           notify.error(error.detail || error.message || "Could not start that");
           busyState.set(false);
@@ -58,11 +61,71 @@ function optionCard(option, { trial, savings, busyState, onChoose }) {
 }
 
 function trialNote(days) {
+  if (billingMode() === "in-app") {
+    return el(
+      "p",
+      { class: "faint plan-note" },
+      `Try Pro free for ${days} days. Your store account is charged when the trial ends unless you cancel at least 24 hours before. Cancel any time in your store's subscription settings, and you'll pay nothing. The store offers a free trial once per account.`
+    );
+  }
   return el(
     "p",
     { class: "faint plan-note" },
     `Try Pro free for ${days} days. You add a card at checkout and aren't charged until the trial ends. Cancel any time before then from Settings, and you'll pay nothing. A trial is offered once per account.`
   );
+}
+
+function storeTerms() {
+  if (billingMode() !== "in-app") return null;
+  return el(
+    "p",
+    { class: "faint plan-note store-terms" },
+    "Payment is charged to your Apple ID or Google Play account when you confirm. The subscription renews automatically at the price shown unless you cancel at least 24 hours before the end of the current period. Manage or cancel it in your store account settings. ",
+    el("a", { href: "/terms", "data-link": true }, "Terms"),
+    " · ",
+    el("a", { href: "/privacy", "data-link": true }, "Privacy")
+  );
+}
+
+function restoreLink() {
+  if (billingMode() !== "in-app") return null;
+  const button = el(
+    "button",
+    {
+      type: "button",
+      class: "btn btn-small btn-ghost",
+      onclick: async () => {
+        button.disabled = true;
+        try {
+          const result = await restorePurchases();
+          if (result.restored && store.plan?.limits?.is_pro) {
+            notify.success("Your purchase was restored. Everything is unlocked.");
+            navigate("/settings");
+            return;
+          }
+          notify.info(result.restored ? "Your purchase was found. Pro switches on as soon as it is confirmed, usually within a minute." : "No earlier purchase was found for this store account");
+        } catch (error) {
+          notify.error(error.message || "Could not restore purchases");
+        } finally {
+          button.disabled = false;
+        }
+      },
+    },
+    "Restore purchases"
+  );
+  return el("div", { class: "row plan-actions" }, button);
+}
+
+async function chooseOption(option) {
+  const result = await subscribe(option);
+  if (result.redirected || result.cancelled) return result;
+  if (result.pro) {
+    notify.success("Welcome to Pro. Everything is unlocked.");
+    navigate("/settings");
+  } else {
+    notify.info("Your purchase went through. Pro switches on as soon as it is confirmed, usually within a minute.");
+  }
+  return result;
 }
 
 function signedOutPrompt() {
@@ -92,7 +155,7 @@ function proActions() {
         }
       },
     },
-    "Manage billing"
+    billingMode() === "stripe" ? "Manage billing" : "Manage subscription"
   );
   const canManage = billingMode() !== "stripe" || store.plan?.billing?.portal;
   return el("div", { class: "stack plan-actions" }, el("p", { style: "margin:0" }, el("strong", {}, "You have Pro. "), ...summary.lines), canManage ? el("div", {}, manage) : null);
@@ -167,7 +230,9 @@ export async function pricingView(outlet) {
     };
   }
 
-  const trial = Boolean(store.plan?.can_start_trial) && options[0].trialDays > 0;
+  const inApp = billingMode() === "in-app";
+  const trialOffered = (option) => option.trialDays > 0 && (inApp || Boolean(store.plan?.can_start_trial));
+  const trialDays = Math.max(0, ...options.filter(trialOffered).map((option) => option.trialDays));
   const savings = savingsPercent(options);
   const busyState = {
     busy: false,
@@ -180,8 +245,10 @@ export async function pricingView(outlet) {
     },
   };
   host.replaceChildren(
-    el("div", { class: "plan-options" }, ...options.map((option) => optionCard(option, { trial, savings, busyState, onChoose: subscribe }))),
-    trial ? trialNote(options[0].trialDays) : null
+    el("div", { class: "plan-options" }, ...options.map((option) => optionCard(option, { trial: trialOffered, savings, busyState, onChoose: chooseOption }))),
+    trialDays ? trialNote(trialDays) : null,
+    storeTerms(),
+    restoreLink()
   );
   return () => {
     document.title = "Piano Pedagogue";

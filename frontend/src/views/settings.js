@@ -314,6 +314,12 @@ function dataSection() {
 
 const CONFIRM_WORD = "DELETE";
 
+export function storeSubscriptionWarning() {
+  const subscription = store.plan?.subscription;
+  if (!store.plan?.limits?.is_pro || subscription?.provider !== "revenuecat") return null;
+  return el("p", { class: "plan-warning", style: "margin:0" }, "Your Pro subscription was bought through the App Store or Google Play, and deleting your account doesn't cancel it. Cancel it in your store's subscription settings first so you aren't charged again.");
+}
+
 function openDeleteAccount() {
   const typed = el("input", {
     id: "delete-confirm",
@@ -366,6 +372,7 @@ function openDeleteAccount() {
       el("li", {}, "XP, gold, achievements, cosmetics, friends and leaderboard places")
     ),
     el("p", { class: "faint", style: "margin:0" }, "It can't be undone. Download your practice history first under Your data if you want to keep it."),
+    storeSubscriptionWarning(),
     el("div", { class: "field" }, el("label", { for: "delete-confirm" }, `Type ${CONFIRM_WORD} to confirm`), typed),
     el("div", { class: "field" }, el("label", { for: "delete-password" }, "Your password"), password),
     error,

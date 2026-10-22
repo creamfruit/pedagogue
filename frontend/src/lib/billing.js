@@ -9,6 +9,8 @@ export const redirect = {
   to: (url) => window.location.assign(url),
 };
 
+export const settle = { attempts: 10, wait: 1500 };
+
 export function stripeAllowed() {
   return features.paidOffers;
 }
@@ -59,6 +61,15 @@ export async function loadOptions() {
   return [];
 }
 
+async function waitForPro(attempts) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await store.refreshPlan();
+    if (store.plan?.limits?.is_pro) return true;
+    if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, settle.wait));
+  }
+  return false;
+}
+
 export async function subscribe(option) {
   const mode = billingMode();
   if (mode === "stripe") {
@@ -68,8 +79,9 @@ export async function subscribe(option) {
   }
   if (mode === "in-app") {
     const result = await inAppPurchases.purchase(option);
-    await store.refreshPlan();
-    return { redirected: false, ...result };
+    if (result?.cancelled) return { redirected: false, ...result };
+    const pro = await waitForPro(result?.entitled ? settle.attempts : 1);
+    return { redirected: false, ...result, pro };
   }
   throw new Error("Subscriptions can't be started here");
 }
@@ -91,6 +103,6 @@ export async function manageBilling() {
 export async function restorePurchases() {
   if (billingMode() !== "in-app") return { restored: false };
   const result = await inAppPurchases.restore();
-  await store.refreshPlan();
+  await waitForPro(result?.restored ? settle.attempts : 1);
   return result;
 }
