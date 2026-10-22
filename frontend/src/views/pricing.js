@@ -1,6 +1,6 @@
 import { donateNote } from "../components/donate.js";
 import { backButton, el } from "../lib/dom.js";
-import { billingMode, loadOptions, manageBilling, offersVisible, restorePurchases, subscribe } from "../lib/billing.js";
+import { billingMode, canManageBilling, loadOptions, manageBilling, offersVisible, restorePurchases, subscribe } from "../lib/billing.js";
 import { comparisonRows, describePlan, savingsPercent } from "../lib/planSummary.js";
 import { store } from "../lib/store.js";
 import { notify } from "../lib/toast.js";
@@ -157,7 +157,7 @@ function proActions() {
     },
     billingMode() === "stripe" ? "Manage billing" : "Manage subscription"
   );
-  const canManage = billingMode() !== "stripe" || store.plan?.billing?.portal;
+  const canManage = canManageBilling(store.plan);
   return el("div", { class: "stack plan-actions" }, el("p", { style: "margin:0" }, el("strong", {}, "You have Pro. "), ...summary.lines), canManage ? el("div", {}, manage) : null);
 }
 

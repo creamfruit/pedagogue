@@ -20,6 +20,13 @@ export function billingMode() {
   return inAppPurchases.available ? "in-app" : "none";
 }
 
+export function canManageBilling(plan) {
+  const mode = billingMode();
+  if (mode === "stripe") return Boolean(plan?.billing?.portal);
+  if (mode === "in-app") return plan?.subscription?.provider !== "stripe";
+  return false;
+}
+
 export function offersVisible() {
   return billingMode() !== "none";
 }

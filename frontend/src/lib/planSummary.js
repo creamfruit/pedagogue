@@ -7,7 +7,15 @@ export function formatDate(value) {
 
 const INTERVAL_WORD = { month: "monthly", year: "yearly" };
 
+const STORE_LINE = "Bought in the App Store or Google Play. Manage or cancel it there.";
+
 function proLines(subscription) {
+  const found = baseProLines(subscription);
+  if (subscription.provider === "revenuecat") found.lines.push(STORE_LINE);
+  return found;
+}
+
+function baseProLines(subscription) {
   const end = formatDate(subscription.current_period_end);
   const trialEnd = formatDate(subscription.trial_end || subscription.current_period_end);
   const word = INTERVAL_WORD[subscription.interval];

@@ -1,4 +1,4 @@
-import { billingMode, manageBilling, offersVisible, restorePurchases } from "../lib/billing.js";
+import { billingMode, canManageBilling, manageBilling, offersVisible, restorePurchases } from "../lib/billing.js";
 import { el, sectionBlock } from "../lib/dom.js";
 import { describePlan } from "../lib/planSummary.js";
 import { store } from "../lib/store.js";
@@ -9,7 +9,7 @@ const CHECKOUT_POLL_MS = 1500;
 
 function manageButton(plan) {
   const mode = billingMode();
-  if (mode === "stripe" && !plan?.billing?.portal) return null;
+  if (!canManageBilling(plan)) return null;
   const button = el(
     "button",
     {

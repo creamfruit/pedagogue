@@ -424,6 +424,24 @@ describe("the Pro upgrade screen inside the apps", () => {
     expect(provider.manage).toHaveBeenCalled();
   });
 
+  it("offers no manage button for a subscription bought on the website, and says nothing about the store", async () => {
+    await boot({ plan: { ...FREE_PLAN, ...PRO_PLAN, subscription: { ...PRO_PLAN.subscription, provider: "stripe" } } });
+    const { pricingView } = await import("../src/views/pricing.js");
+    await pricingView(outlet);
+    expect(outlet.textContent).toContain("You have Pro.");
+    expect(outlet.textContent).not.toContain("App Store");
+    expect(byText("Manage subscription")).toBeUndefined();
+    const { billingSection } = await import("../src/views/billingSection.js");
+    expect([...billingSection().querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Restore purchases"]);
+  });
+
+  it("tells a store subscriber the subscription is managed in the store", async () => {
+    await boot({ plan: { ...FREE_PLAN, ...PRO_PLAN } });
+    const { pricingView } = await import("../src/views/pricing.js");
+    await pricingView(outlet);
+    expect(outlet.textContent).toContain("Bought in the App Store or Google Play. Manage or cancel it there.");
+  });
+
   it("keeps every Stripe and donation link out of the screens", async () => {
     const { spies } = await boot();
     const { pricingView } = await import("../src/views/pricing.js");
@@ -453,6 +471,31 @@ describe("the Pro upgrade screen inside the apps", () => {
     restore.click();
     await flush();
     expect(provider.restore).toHaveBeenCalled();
+  });
+});
+
+describe("a store subscription seen on the website", () => {
+  async function onWeb(plan) {
+    vi.resetModules();
+    vi.doMock("../src/lib/platform.js", () => ({ isNative: false, isIOS: false, isAndroid: false, platformName: "web" }));
+    const billing = await import("../src/lib/billing.js");
+    const summary = await import("../src/lib/planSummary.js");
+    return { billing, summary, plan };
+  }
+
+  it("says where to manage it and offers no portal button", async () => {
+    const plan = { ...FREE_PLAN, ...PRO_PLAN, billing: { checkout: true, portal: false, intervals: [] } };
+    const { billing, summary } = await onWeb(plan);
+    expect(billing.billingMode()).toBe("stripe");
+    expect(billing.canManageBilling(plan)).toBe(false);
+    expect(summary.describePlan(plan).lines).toContain("Bought in the App Store or Google Play. Manage or cancel it there.");
+  });
+
+  it("still opens the portal for a website subscriber", async () => {
+    const plan = { ...FREE_PLAN, ...PRO_PLAN, subscription: { ...PRO_PLAN.subscription, provider: "stripe" }, billing: { checkout: true, portal: true, intervals: [] } };
+    const { billing, summary } = await onWeb(plan);
+    expect(billing.canManageBilling(plan)).toBe(true);
+    expect(summary.describePlan(plan).lines.join(" ")).not.toContain("App Store");
   });
 });
 
