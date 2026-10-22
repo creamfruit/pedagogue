@@ -136,8 +136,8 @@ function extractDetail(payload, status) {
   return `request failed with ${status}`;
 }
 
-export async function request(path, { method = "GET", body, params, form, signal, auth = true } = {}) {
-  const headers = {};
+export async function request(path, { method = "GET", body, params, form, signal, auth = true, headers: extra } = {}) {
+  const headers = { ...(extra || {}) };
   const token = tokenStore.get();
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
@@ -224,10 +224,12 @@ export const api = {
   delete: (path, options) => request(path, { ...options, method: "DELETE" }),
   upload: (path, form, options) => request(path, { ...options, method: "POST", form }),
 
-  register: (payload) => request("/auth/register", { method: "POST", body: payload, auth: false }),
+  guest: () => request("/auth/guest", { method: "POST", auth: false }),
+  register: (payload, { guestToken } = {}) =>
+    request("/auth/register", { method: "POST", body: payload, auth: false, headers: guestToken ? { "X-Guest-Token": guestToken } : undefined }),
   refreshToken: () => request("/auth/refresh", { method: "POST" }),
-  login: (email, password) =>
-    request("/auth/token", { method: "POST", body: { email, password }, auth: false }),
+  login: (email, password, { guestToken } = {}) =>
+    request("/auth/token", { method: "POST", body: { email, password }, auth: false, headers: guestToken ? { "X-Guest-Token": guestToken } : undefined }),
   me: () => request("/auth/me"),
   deleteAccount: (password) =>
     request("/auth/me", { method: "DELETE", body: { password, confirmation: "DELETE" } }),
@@ -242,6 +244,8 @@ export const api = {
   updateTierList: (tiers) => request("/onboarding/tier-list", { method: "PUT", body: { tiers } }),
   updateTopTen: (pieces) => request("/onboarding/top-ten", { method: "PUT", body: { pieces } }),
   finishOnboarding: () => request("/onboarding/finish", { method: "POST" }),
+  starterPieces: (level) => request("/onboarding/starter-pieces", { params: { level } }),
+  quickStart: (body) => request("/onboarding/quick", { method: "POST", body }),
 
   searchPieces: (q, limit = 20) => request("/catalog/pieces", { params: { q, limit } }),
   createPiece: (payload) => request("/catalog/pieces", { method: "POST", body: payload }),

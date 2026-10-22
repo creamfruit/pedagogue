@@ -3,6 +3,7 @@ import { streakGauge } from "../components/streakGauge.js";
 import { segmentPaths, segmentStates } from "../lib/arc.js";
 import { el } from "../lib/dom.js";
 import { KIND_LABEL, completeStep, loadMission, missionDone } from "../lib/mission.js";
+import { markGuestPrompted, shouldPromptGuest } from "../lib/guestPrompt.js";
 import { rememberLit } from "../lib/litStars.js";
 import { MAX_BPM, MIN_BPM, clampBpm, createMetronome } from "../lib/metronome.js";
 import { reducedMotion } from "../lib/motion.js";
@@ -399,20 +400,40 @@ export async function missionView(outlet, context = {}) {
     transition = setTimeout(go, reducedMotion() ? 1100 : 1500);
   }
 
+  function guestCard() {
+    const card = el(
+      "section",
+      { class: "guest-card", "data-control": "guest-card" },
+      el("strong", {}, "Keep your progress"),
+      el("p", { class: "mission-hint" }, "Create a free account and your pieces, stars and streak are saved, even if you change phone."),
+      el(
+        "div",
+        { class: "guest-card-actions" },
+        el("button", { type: "button", class: "btn", "data-control": "guest-create", onclick: () => navigate("/register") }, "Create an account"),
+        el("button", { type: "button", class: "btn btn-ghost", "data-control": "guest-later", onclick: () => card.remove() }, "Maybe later")
+      )
+    );
+    return card;
+  }
+
   async function finish(mission, result = null) {
     if (releaseAwake) releaseAwake();
     releaseAwake = null;
     root.onclick = null;
     store.refreshProfile();
+    if (result?.lit?.entry_id) rememberLit(result.lit.entry_id);
     const done = mission.progress.filter((item) => item.status === "done").length;
+    const prompt = done > 0 && shouldPromptGuest(store.user) ? guestCard() : null;
+    if (prompt) markGuestPrompted();
     show(
       el(
         "div",
-        { class: "mission-complete" },
-        el("div", { class: "mission-done-mark", "aria-hidden": "true" }, "✓"),
+        { class: `mission-complete${reducedMotion() ? " is-still" : ""}` },
+        done ? starBurst() : el("div", { class: "mission-done-mark", "aria-hidden": "true" }, "✓"),
         el("h1", { class: "mission-title" }, done ? "Mission complete" : "That's today's mission"),
         result?.streak ? streakGauge(result.streak, { compact: true }) : null,
         el("p", { class: "mission-hint" }, done ? `${done} of ${mission.steps.length} steps done${result?.xp ? `, +${result.xp} xp` : ""}.` : "No pressure. Tomorrow's mission will be ready."),
+        prompt,
         el(
           "div",
           { class: "mission-complete-actions" },

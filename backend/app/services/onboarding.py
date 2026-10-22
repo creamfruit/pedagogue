@@ -392,6 +392,11 @@ class OnboardingService(BaseService):
         top_ten = await self.count(
             RepertoireEntry, RepertoireEntry.user_id == user.id, RepertoireEntry.is_top_ten.is_(True)
         )
+        pieces = await self.count(
+            RepertoireEntry,
+            RepertoireEntry.user_id == user.id,
+            RepertoireEntry.status.in_((RepertoireStatus.LEARNING, RepertoireStatus.POLISHING)),
+        )
         profile_complete = user.self_level is not None and user.years_playing is not None
         tier_quiz_complete = user.tier_quiz_completed_at is not None
         tastes_complete = user.tastes_completed_at is not None or genres > 0 or composers > 0
@@ -403,5 +408,6 @@ class OnboardingService(BaseService):
             top_ten_logged=top_ten,
             tier_quiz_complete=tier_quiz_complete,
             tastes_complete=tastes_complete,
-            complete=profile_complete and top_ten > 0 and techniques > 0 and tier_quiz_complete and tastes_complete,
+            pieces_in_progress=pieces,
+            complete=profile_complete and (top_ten > 0 or pieces > 0) and techniques > 0 and tier_quiz_complete and tastes_complete,
         )

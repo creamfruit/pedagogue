@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, OptionalUser, SessionDep
-from app.models.models import Passage, PassageTechnique, Piece
+from app.models.models import Passage, PassageTechnique, Piece, SelfLevel
 from app.schemas.schemas import (
     ComposerPreferenceUpdate,
     ComposerRead,
@@ -21,6 +21,9 @@ from app.schemas.schemas import (
     PieceDetail,
     PieceOverview,
     ProfileUpdate,
+    QuickStartIn,
+    QuickStartOut,
+    StarterPiece,
     RepertoireEntryRead,
     TechniqueProfileRead,
     TechniqueExample,
@@ -36,6 +39,7 @@ from app.services.external_catalog import OpenOpusClient
 from app.services.musicbrainz_catalog import MusicBrainzClient
 from app.services.notation import SightReadingForge, forge_key
 from app.services.onboarding import CatalogService, OnboardingService
+from app.services.quickstart import QuickStartService
 from app.workers.queue import get_queue
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
@@ -45,6 +49,25 @@ catalog_router = APIRouter(prefix="/catalog", tags=["catalog"])
 @router.get("/status", response_model=OnboardingStatus)
 async def onboarding_status(user: CurrentUser, session: SessionDep) -> OnboardingStatus:
     return await OnboardingService(session).status(user)
+
+
+@router.get("/starter-pieces", response_model=list[StarterPiece])
+async def starter_pieces(user: CurrentUser, session: SessionDep, level: SelfLevel = Query()) -> list[StarterPiece]:
+    pieces = await QuickStartService(session).starter_pieces(level)
+    return [
+        StarterPiece(id=piece.id, title=piece.display_title, composer=piece.composer.name if piece.composer else None, difficulty_score=piece.difficulty_score)
+        for piece in pieces
+    ]
+
+
+@router.post("/quick", response_model=QuickStartOut)
+async def quick_start(payload: QuickStartIn, user: CurrentUser, session: SessionDep) -> QuickStartOut:
+    try:
+        entry = await QuickStartService(session).start(user, payload.self_level, payload.piece_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    piece = (await session.execute(select(Piece).options(selectinload(Piece.composer)).where(Piece.id == entry.piece_id))).scalar_one()
+    return QuickStartOut(status=await OnboardingService(session).status(user), entry_id=entry.id, piece_title=piece.display_title)
 
 
 @router.post("/finish", response_model=OnboardingStatus)

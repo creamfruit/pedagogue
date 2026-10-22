@@ -81,6 +81,7 @@ class UserRead(ORMModel):
     leaderboard_opt_in: bool = False
     tier_quiz_completed_at: Optional[datetime] = None
     tastes_completed_at: Optional[datetime] = None
+    is_guest: bool = False
     created_at: datetime
 
     @computed_field
@@ -323,6 +324,7 @@ class OnboardingStatus(BaseModel):
     top_ten_logged: int
     tier_quiz_complete: bool
     tastes_complete: bool = False
+    pieces_in_progress: int = 0
     complete: bool
 
     @computed_field
@@ -332,11 +334,29 @@ class OnboardingStatus(BaseModel):
             return "profile"
         if not self.tier_quiz_complete:
             return "tier_quiz"
-        if self.top_ten_logged == 0:
+        if self.top_ten_logged == 0 and self.pieces_in_progress == 0:
             return "top_ten"
         if not self.tastes_complete:
             return "tastes"
         return "done"
+
+
+class StarterPiece(BaseModel):
+    id: int
+    title: str
+    composer: Optional[str] = None
+    difficulty_score: Optional[Decimal] = None
+
+
+class QuickStartIn(BaseModel):
+    self_level: SelfLevel
+    piece_id: int
+
+
+class QuickStartOut(BaseModel):
+    status: OnboardingStatus
+    entry_id: uuid.UUID
+    piece_title: str
 
 
 class TierAssignment(BaseModel):
