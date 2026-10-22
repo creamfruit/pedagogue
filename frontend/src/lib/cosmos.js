@@ -1,3 +1,18 @@
+import { isNative } from "./platform.js";
+import { onMotionChange, reducedMotion } from "./motion.js";
+
+export const PHONE_WIDTH = 760;
+export const PHONE_STAR_SHARE = 0.4;
+const PHONE_FRAME_MS = 1000 / 20;
+
+export function isPhoneScreen(width = window.innerWidth) {
+  return width <= PHONE_WIDTH;
+}
+
+export function starShare(width) {
+  return isPhoneScreen(width) ? PHONE_STAR_SHARE : 1;
+}
+
 const LAYERS = [
   { density: 0.00022, size: [0.35, 0.9], alpha: [0.25, 0.6], depth: 0.02, twinkle: 0.25 },
   { density: 0.00008, size: [0.7, 1.3], alpha: [0.4, 0.8], depth: 0.06, twinkle: 0.45 },
@@ -50,10 +65,13 @@ function paintNebula(width, height) {
   return canvas;
 }
 
+export function starCount(width, height, layer) {
+  return Math.round(width * height * layer.density * starShare(width));
+}
+
 function makeStars(width, height) {
-  const area = width * height;
   return LAYERS.flatMap((layer, depthIndex) =>
-    Array.from({ length: Math.round(area * layer.density) }, () => ({
+    Array.from({ length: starCount(width, height, layer) }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
       r: rand(...layer.size),
@@ -68,8 +86,6 @@ function makeStars(width, height) {
   );
 }
 
-import { onMotionChange, reducedMotion } from "./motion.js";
-
 export function startCosmos() {
   if (document.querySelector(".cosmos")) return () => {};
   const canvas = document.createElement("canvas");
@@ -77,7 +93,8 @@ export function startCosmos() {
   canvas.setAttribute("aria-hidden", "true");
   document.body.prepend(canvas);
   const ctx = canvas.getContext("2d");
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const phone = () => isPhoneScreen();
+  let hidden = false;
   let width = 0;
   let height = 0;
   let dpr = 1;
@@ -93,7 +110,7 @@ export function startCosmos() {
   let targetY = 0;
 
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    dpr = phone() ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
     width = window.innerWidth;
     height = window.innerHeight;
     canvas.width = Math.round(width * dpr);
@@ -152,13 +169,13 @@ export function startCosmos() {
     pointerX += (targetX - pointerX) * 0.06;
     pointerY += (targetY - pointerY) * 0.06;
     ctx.clearRect(0, 0, width, height);
-    const scroll = window.scrollY || 0;
+    const still = reducedMotion();
+    const scroll = still ? 0 : window.scrollY || 0;
     if (nebula) {
       ctx.globalAlpha = 1;
       ctx.drawImage(nebula, pointerX * -6, (scroll * -0.01) % height + pointerY * -6, width + 12, height + 12);
     }
     const seconds = now / 1000;
-    const still = reduced.matches;
     stars.forEach((star) => {
       const shimmer = still ? 1 : 1 - star.twinkle * 0.5 * (1 + Math.sin(seconds * star.speed + star.phase));
       const x = (star.x - pointerX * star.depth * 40 + width) % width;
@@ -179,7 +196,7 @@ export function startCosmos() {
         ctx.stroke();
       }
     });
-    if (!still) {
+    if (!still && !phone()) {
       if (!meteor && now > nextMeteor) spawnMeteor(now);
       drawMeteor(now);
     }
@@ -187,13 +204,17 @@ export function startCosmos() {
 
   function frame(now) {
     raf = requestAnimationFrame(frame);
-    if (now - last < FRAME_MS) return;
+    if (now - last < (phone() ? PHONE_FRAME_MS : FRAME_MS)) return;
     last = now;
     draw(now);
   }
 
+  function paused() {
+    return document.hidden || hidden || document.body.classList.contains("immersive");
+  }
+
   function play() {
-    if (raf || reduced.matches || document.hidden) return;
+    if (raf || reducedMotion() || paused()) return;
     raf = requestAnimationFrame(frame);
   }
 
@@ -203,8 +224,25 @@ export function startCosmos() {
   }
 
   function onVisibility() {
-    if (document.hidden) pause();
+    if (paused()) pause();
     else play();
+  }
+
+  function onAppState({ isActive }) {
+    hidden = !isActive;
+    onVisibility();
+  }
+
+  const immersive = new MutationObserver(onVisibility);
+  immersive.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  let appListener = null;
+  if (isNative) {
+    import("@capacitor/app")
+      .then(({ App }) => App.addListener("appStateChange", onAppState))
+      .then((handle) => {
+        appListener = handle;
+      })
+      .catch(() => null);
   }
 
   function onPointer(event) {
@@ -213,11 +251,11 @@ export function startCosmos() {
   }
 
   function onScroll() {
-    if (!raf) draw(performance.now());
+    if (!raf && !reducedMotion() && !paused()) draw(performance.now());
   }
 
-  function onMotionChange() {
-    if (reduced.matches) {
+  function onMotion() {
+    if (reducedMotion()) {
       pause();
       draw(performance.now());
     } else play();
@@ -227,17 +265,23 @@ export function startCosmos() {
   play();
   window.addEventListener("resize", resize);
   window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("pointermove", onPointer, { passive: true });
+  if (!phone()) window.addEventListener("pointermove", onPointer, { passive: true });
   document.addEventListener("visibilitychange", onVisibility);
-  reduced.addEventListener("change", onMotionChange);
+  window.addEventListener("pagehide", pause);
+  window.addEventListener("pageshow", onVisibility);
+  const stopMotion = onMotionChange(onMotion);
 
   return () => {
+    stopMotion();
+    immersive.disconnect();
+    if (appListener) appListener.remove();
+    window.removeEventListener("pagehide", pause);
+    window.removeEventListener("pageshow", onVisibility);
     pause();
     window.removeEventListener("resize", resize);
     window.removeEventListener("scroll", onScroll);
     window.removeEventListener("pointermove", onPointer);
     document.removeEventListener("visibilitychange", onVisibility);
-    reduced.removeEventListener("change", onMotionChange);
     canvas.remove();
   };
 }
