@@ -16,7 +16,7 @@ from app.services.mission import (
     step_minutes,
     technique_score,
 )
-from tests.test_keyboard_api import client, needs_db, world  # noqa: F401
+from tests.test_keyboard_api import client, needs_db, world
 
 DAY = date(2026, 10, 22)
 

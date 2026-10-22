@@ -230,6 +230,15 @@ describe("a practice step on the music stand", () => {
     expect(localStorage.getItem("pp.lit")).toBe(null);
   });
 
+  it("counts a tap on the score itself as a tap anywhere", async () => {
+    const { root, spies } = await begin();
+    answerSteps(spies);
+    await vi.advanceTimersByTimeAsync(45_000);
+    root.querySelector(".mission-visual").click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(spies.step).toHaveBeenCalledWith("m1", 0, { status: "done", seconds: 45 });
+  });
+
   it("goes on to the next step by itself after a moment", async () => {
     const { root, spies } = await begin();
     answerSteps(spies);
