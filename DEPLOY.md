@@ -78,6 +78,7 @@ example `main`, to `https://github.com/creamfruit/pedagogue`.
    | pedagogue-api | `ANTHROPIC_API_KEY` | your Anthropic key, or leave blank to turn AI features off |
    | pedagogue-api | `ADMIN_EMAILS` | your own sign-in email, for the admin endpoints and the subscriber list |
    | pedagogue-api | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` | leave blank to keep Pro closed; fill in from "Billing with Stripe (Pro)" below |
+   | pedagogue-api | `REVENUECAT_WEBHOOK_SECRET` | leave blank until you set up the apps' purchases; see "In-app purchases with RevenueCat" below |
    | pedagogue-web | `VITE_API_URL` | `https://pedagogue-api.onrender.com` (no trailing slash) |
 
 4. **Apply**. Render creates the database and Redis first, builds the Docker
@@ -160,6 +161,8 @@ The store listings and the privacy policy link should use your own domain.
 | `STRIPE_PRICE_MONTHLY` | no | empty | Stripe price ID (`price_...`) of the monthly plan. |
 | `STRIPE_PRICE_YEARLY` | no | empty | Stripe price ID of the yearly plan. At least one price is needed to sell Pro. |
 | `STRIPE_TRIAL_DAYS` | no | `7` | Free trial on a user's first Pro subscription, 0 to 90 days. `0` turns the trial off. |
+| `REVENUECAT_WEBHOOK_SECRET` | no | empty | The shared secret RevenueCat sends in the `Authorization` header of its webhook (with or without a `Bearer ` prefix). Without it the webhook answers 503 and no store purchase can turn Pro on. Make it long and random; see `IAP_SETUP.md`. |
+| `REVENUECAT_ENTITLEMENT_ID` | no | `pro` | The RevenueCat entitlement that means Pro. Events for any other entitlement are ignored. The store free trial is set up in the stores, so there is no trial variable for it. |
 | `BACKUP_BUCKET` | yes for backups | `STORAGE_BUCKET` | Bucket the nightly dump goes to. Use its own bucket. |
 | `BACKUP_RETENTION_DAYS` | no | `30` | Dumps older than this are deleted, but the newest `BACKUP_KEEP_MIN` (7) are always kept. |
 | `SENTRY_DSN` | no | empty | Error reports from the API and worker. Empty turns reporting off. See "Error reporting" below. |
@@ -178,11 +181,13 @@ The store listings and the privacy policy link should use your own domain.
 | `NODE_VERSION` | yes on Render | `22`. |
 | `VITE_SENTRY_DSN` | no | Error reports from the website and apps. Empty turns reporting off, and the privacy policy then says no crash reporting is used. |
 | `VITE_RELEASE` | no | Version tag on frontend error reports. |
+| `VITE_REVENUECAT_IOS_API_KEY` | no | RevenueCat's public iOS SDK key (`appl_...`). Read only inside the iOS app; the website ignores it. Empty means the iPhone app sells nothing. Set it in the Codemagic `pedagogue_web` group, and in `frontend\.env` for local builds. It is a public key, not RevenueCat's secret key. |
+| `VITE_REVENUECAT_ANDROID_API_KEY` | no | RevenueCat's public Android SDK key (`goog_...`). Read only inside the Android app. Empty means the Android app sells nothing. Set it where the iOS key is set. |
 | `VITE_DONATION_URL` | no | A `https://` donation page. Shows a donation button in Settings and on the Pricing page on the website; it is never shown in the iOS or Android apps, whatever this is set to. Empty hides it. |
 
 ## Billing with Stripe (Pro)
 
-Pro is sold on the website only, through Stripe Checkout, and managed through the Stripe customer portal. The apps sell nothing. Until the four `STRIPE_*` values below are set, `/pricing` says Pro isn't open for sign-up and every Free limit still applies. Do it in Stripe's **test mode** first, with test keys, and swap in live keys last.
+Pro is sold on the website through Stripe Checkout and managed through the Stripe customer portal. The iOS and Android apps sell it as a store subscription instead; see "In-app purchases with RevenueCat" below. Until the four `STRIPE_*` values below are set, `/pricing` says Pro isn't open for sign-up and every Free limit still applies. Do it in Stripe's **test mode** first, with test keys, and swap in live keys last.
 
 1. **Products and prices.** In the Stripe dashboard create one product, "Pedagogue Pro", with two recurring prices: monthly and yearly. Copy each price ID (`price_...`) into `STRIPE_PRICE_MONTHLY` and `STRIPE_PRICE_YEARLY`. The Pricing page reads the amounts from Stripe, so changing a price means creating a new price and updating the variable. Leave one variable empty to sell only the other interval.
 2. **API key.** Create a restricted key (Developers > API keys) that can write Checkout Sessions, Customers, Customer portal sessions and Subscriptions, and read Prices. Set it as `STRIPE_SECRET_KEY`.
@@ -205,6 +210,38 @@ A subscription cancelled at period end stays Pro until Stripe sends `customer.su
 Deleting an account cancels its subscription first. If Stripe can't be reached, the account is kept and the person is asked to try again. Stripe keeps its own customer and invoice records.
 
 To try it locally, run `stripe listen --forward-to localhost:8000/api/v1/billing/webhook`, put the `whsec_...` it prints in `STRIPE_WEBHOOK_SECRET`, and use Stripe's test cards. Administrators (`ADMIN_EMAILS`) see a Subscribers list under Settings > Plan.
+
+## In-app purchases with RevenueCat
+
+Inside the iOS and Android apps, Pro is a subscription bought from the App Store or Google Play through RevenueCat. Stripe, prices from Stripe and the donation button never appear in the apps. The full account, product and tester setup for a Windows PC is in [`IAP_SETUP.md`](IAP_SETUP.md); this section is what the deployment needs.
+
+1. **Webhook secret.** Make a long random value and set it as `REVENUECAT_WEBHOOK_SECRET` on `pedagogue-api`. `REVENUECAT_ENTITLEMENT_ID` is already `pro` in the blueprint.
+2. **Webhook.** In RevenueCat, Project settings > Integrations > Webhooks, add `https://<api address>/api/v1/billing/revenuecat/webhook` with the same value as the **Authorization header value**, for production and sandbox events. A wrong secret gets `401`, and a missing `REVENUECAT_WEBHOOK_SECRET` gets `503`.
+3. **App keys.** Add `VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY` to the Codemagic `pedagogue_web` group and rebuild the apps. They are baked in at build time.
+4. **Database.** The migration `b94d2e7a6c13` adds `revenuecat_customer_id` and `revenuecat_subscription_id` to `subscriptions`. `scripts/release.sh` applies it on deploy.
+
+How a store subscription becomes Pro: the app logs RevenueCat in as the Pedagogue user id, so RevenueCat's "app user id" is that UUID. The webhook finds the user from it (or from one of its aliases), writes the same `subscriptions` row Stripe writes with `provider = "revenuecat"`, and `/billing/plan` answers from that row, so a subscriber on any platform is Pro on all of them.
+
+| RevenueCat event | Pro? |
+|---|---|
+| `INITIAL_PURCHASE`, `RENEWAL`, `PRODUCT_CHANGE`, `UNCANCELLATION`, `REFUND_REVERSED`, `SUBSCRIPTION_EXTENDED`, `TEMPORARY_ENTITLEMENT_GRANT` | Yes (`trialing` during a store free trial, otherwise `active`) |
+| `CANCELLATION` | Yes until the paid period ends, marked as not renewing |
+| `CANCELLATION` because of a refund (`CUSTOMER_SUPPORT`) | No, immediately |
+| `BILLING_ISSUE` | Yes while the store retries the card (`past_due`) |
+| `EXPIRATION` | No |
+
+Every other event type, including `TEST` and `TRANSFER`, is acknowledged with `200` and ignored. Each event id is handled once, an event older than what is stored is ignored, and an event for another entitlement is ignored. As with Stripe, if a renewal event is missed, Pro stops 3 days after the stored period end.
+
+When someone has Pro from two places, a provider that does not currently hold Pro cannot take it away: a store expiry does not cancel a live Stripe plan, and a Stripe cancellation does not cancel a live store plan. A new purchase from either takes over the subscription row.
+
+Deleting a Pedagogue account cannot cancel a store subscription. The delete screen warns people with one to cancel it in the App Store or Google Play first, and the privacy policy says so. The administrators' subscriber list (`/api/v1/admin/subscribers`) reports the provider of each subscription.
+
+To try the webhook without a store, post an event yourself:
+
+```powershell
+$body = '{"api_version":"1.0","event":{"id":"test-1","type":"INITIAL_PURCHASE","app_user_id":"<a user id>","product_id":"pedagogue_pro_monthly","period_type":"NORMAL","expiration_at_ms":4102444800000,"event_timestamp_ms":1760000000000}}'
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/billing/revenuecat/webhook -Headers @{ Authorization = "<your secret>" } -ContentType "application/json" -Body $body
+```
 
 ## Public pages and search
 

@@ -202,6 +202,8 @@ them by hand. It only works after the first manual upload in step 6b.
 | `pedagogue_web` | `VITE_API_URL` | `https://api.pedagogue.app` | no |
 | `pedagogue_web` | `VITE_WEBSITE_URL` | `https://pedagogue.app` | no |
 | `pedagogue_web` | `VITE_CONTACT_EMAIL` | your support address | no |
+| `pedagogue_web` | `VITE_REVENUECAT_IOS_API_KEY` | RevenueCat's public `appl_...` key (see `IAP_SETUP.md`) | no |
+| `pedagogue_web` | `VITE_REVENUECAT_ANDROID_API_KEY` | RevenueCat's public `goog_...` key (see `IAP_SETUP.md`) | no |
 | `app_store_credentials` | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID from 3c | yes |
 | `app_store_credentials` | `APP_STORE_CONNECT_KEY_IDENTIFIER` | Key ID from 3c | yes |
 | `app_store_credentials` | `APP_STORE_CONNECT_PRIVATE_KEY` | the whole `.p8` file, including the BEGIN and END lines | yes |
@@ -325,8 +327,13 @@ For **each** type answer:
 - Linked to the user's identity: **Yes**
 - Used for tracking: **No**
 
+Also tick **Purchases > Purchase History**: App Functionality, linked to the
+user's identity **Yes**, used for tracking **No**. RevenueCat receives the
+account ID and the subscription record so Pro can be switched on; Apple handles
+the payment itself and we never see card details.
+
 Do not tick Location, Contacts, Health and Fitness, Financial Info,
-Browsing History, Search History, Purchases, Usage Data or any advertising
+Browsing History, Search History, Usage Data or any advertising
 data: the app collects none of them. Tick **Diagnostics > Crash Data** only
 if the app build sets `VITE_SENTRY_DSN`: Used for **App Functionality**,
 linked to the user's identity **Yes** (the account ID), used for tracking
@@ -357,9 +364,11 @@ ephemerally** no, **Required**, except Name which is **Optional**; purpose
 | Personal info | **Name**, **Email address**, **User IDs** |
 | App activity | **Other user-generated content** (practice notes, repertoire), **Other actions** (practice sessions and minutes logged) |
 | Files and docs | **Files and docs** (uploaded scores) |
+| Financial info | **Purchase history** (the subscription record RevenueCat sends us; Google Play handles the payment itself) |
 
-"Shared" means sent to a third party for their own use. Hosting, storage and
-the AI coach notes provider process data only on Pedagogue's behalf, which
+"Shared" means sent to a third party for their own use. Hosting, storage,
+RevenueCat (which manages subscriptions) and the AI coach notes provider process
+data only on Pedagogue's behalf, which
 Google counts as not shared. (When audio is turned on, add **Audio > Voice or
 sound recordings**, collected, not shared, optional, app functionality.)
 
@@ -374,7 +383,7 @@ sound recordings**, collected, not shared, optional, app functionality.)
 | Target audience | **13 to 15, 16 to 17, 18 and over**. Not designed for children. |
 | News app | **No** |
 | Health apps | **No** |
-| Financial features | **None** |
+| Financial features | **None** (the app has no banking, loans or payment features of its own; the subscription is bought through Google Play) |
 | Government apps | **No** |
 | Advertising ID | **No**, the app does not use an advertising ID |
 
@@ -421,7 +430,7 @@ Where to look:
 
 Native features: offline use (turn on Airplane Mode: the repertoire and piece pages still open, and notes written offline are sent when the connection returns), local notifications, haptic feedback on streaks and scores, the share sheet and the Files picker.
 
-Recording uploads and live listening are shown as "Coming soon" and are not part of this version. There are no in-app purchases, ads or external payment links. Pedagogue Pro is sold on the website only; the apps show no price, no upgrade button, no Stripe link and no donation link, and say only what the Free plan limits (a Pro plan bought on the website applies to the account). When RevenueCat is added later, the store listings and this section must be updated first. XP and gold are earned only by practising and cannot be bought.
+Recording uploads and live listening are shown as "Coming soon" and are not part of this version. There are no ads or external payment links. Pedagogue Pro is an optional auto-renewing subscription sold through the App Store with in-app purchase (monthly and yearly, with a 7-day free trial for new subscribers). Open Settings, then Plan, then See Pro, to see the prices and the Restore purchases button; to try a purchase use a sandbox Apple account. The app shows no Stripe link and no donation link. A Pro plan bought elsewhere applies to the account. XP and gold are earned only by practising and cannot be bought.
 
 Privacy policy: https://pedagogue.app/privacy
 ```

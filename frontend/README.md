@@ -184,29 +184,32 @@ Native-only code is kept behind `lib/platform.js` (`isNative`, `isIOS`,
 | `lib/share.js` | Share sheet for links, the constellation image and downloads |
 | `lib/haptics.js` | Light tap on streaks, achievements and scores |
 | `lib/features.js` | Feature flags: audio (Coming soon), paid offers (web only) |
-| `lib/billing.js` | The one place that sells Pro: Stripe on the website, nothing in the apps until a purchase provider is registered |
-| `lib/inAppPurchases.js` | The interface RevenueCat plugs into later; no provider is registered today |
+| `lib/billing.js` | The one place that sells Pro: Stripe on the website, the store through RevenueCat in the apps |
+| `lib/inAppPurchases.js` | The interface a purchase provider implements |
+| `lib/revenuecat.js` | The RevenueCat provider: starts only in the native apps, logs in as the Pedagogue user id, reads offerings, buys, restores |
 
 ### Billing and in-app purchases
 
 Everything that sells Pro goes through `lib/billing.js`. It has three modes:
 
 - `stripe`: the website. Prices come from `GET /billing/prices`, "Start free trial" opens Stripe Checkout, and "Manage billing" opens the Stripe customer portal.
-- `none`: inside the iOS and Android apps while no purchase provider is registered (today). `offersVisible()` is false, so the Pricing page, upgrade buttons, "See Pro" links, Stripe calls and the donation button are all absent. The apps still show what a plan includes and what is limited, and a plan bought on the website still applies to the account.
-- `in-app`: the apps once a provider is registered. The same Pricing page and buttons then use the provider and never Stripe.
+- `none`: inside the iOS and Android apps while no purchase provider is registered, which happens when the build has no RevenueCat key for that platform or RevenueCat refuses to start. `offersVisible()` is false, so the Pricing page, upgrade buttons, "See Pro" links, Stripe calls and the donation button are all absent. The apps still show what a plan includes and what is limited, and a plan bought elsewhere still applies to the account.
+- `in-app`: the apps once the RevenueCat provider is registered. The same Pricing page and buttons then use the store's prices, trial and purchase sheet, and never Stripe.
 
-To add RevenueCat, write a provider and register it once at start-up with `registerInAppPurchaseProvider(provider)` from `lib/inAppPurchases.js`. A provider is an object with:
+`lib/revenuecat.js` registers the provider from `main.js` after sign-in has loaded, and does nothing on the website. It reads `VITE_REVENUECAT_IOS_API_KEY` on iPhone and `VITE_REVENUECAT_ANDROID_API_KEY` on Android, logs RevenueCat in as the Pedagogue user id (and out again on sign-out), and offers the Monthly and Annual packages of the current offering. The 7-day trial is shown only where the store says the customer is eligible. After a purchase or restore `billing.js` polls the plan for up to about 15 seconds, because it is the RevenueCat webhook that switches Pro on in the backend. Setup is in `../IAP_SETUP.md`.
+
+Another provider can be registered with `registerInAppPurchaseProvider(provider)` from `lib/inAppPurchases.js`. A provider is an object with:
 
 | Member | Returns |
 |---|---|
 | `name` | A short string, for example `"revenuecat"` |
 | `isAvailable()` | `true` once the SDK is configured and the store can sell |
-| `loadOfferings()` | A list of `{ id, interval: "month" or "year", price: "$9.00", trialDays }` |
-| `purchase(offering)` | Resolves when the store sale completes; throws if it fails or is cancelled |
+| `loadOfferings()` | A list of `{ id, interval: "month" or "year", price: "$9.00", amount, currency, trialDays }` |
+| `purchase(offering)` | Resolves `{ entitled, cancelled }` when the store sheet closes; throws if the sale fails |
 | `restore()` | `{ restored: boolean }` |
 | `manage()` | Opens the store's subscription settings |
 
-After a purchase or restore the app reloads the plan from the backend, so the backend must also learn about the sale. The intended route is a RevenueCat webhook that writes the `subscriptions` row with `provider = "revenuecat"`; the table and `grants_pro` already work for any provider. Nothing else in the front end needs to change.
+After a purchase or restore the app reloads the plan from the backend. The backend learns about the sale from the RevenueCat webhook, which writes the `subscriptions` row with `provider = "revenuecat"`.
 
 The service worker is only registered on the website. Store releases are
 described in [`../MOBILE_RELEASE.md`](../MOBILE_RELEASE.md).
