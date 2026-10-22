@@ -14,7 +14,7 @@ def days(*offsets, minutes=10):
 
 
 def test_streak_counts_consecutive_days_ending_today():
-    stats = compute_streak(days(0, 1, 2, 4, 5), TODAY)
+    stats = compute_streak(days(0, 1, 2, 5, 6), TODAY)
     assert (stats.current, stats.longest, stats.today_done) == (3, 3, True)
 
 
@@ -25,10 +25,21 @@ def test_streak_survives_until_today_is_over():
     assert stats.next_bonus_xp == bonus_for(3)
 
 
-def test_missing_a_day_resets_the_streak():
+def test_missing_a_day_is_covered_by_a_free_streak_freeze():
     stats = compute_streak(days(2, 3, 4, 5, 6, 7, 8), TODAY)
-    assert stats.current == 0
+    assert stats.current == 7
     assert stats.longest == 7
+    assert stats.freezes == 1
+    assert stats.frozen_days == (TODAY - timedelta(days=1),)
+    assert stats.state == "covered"
+
+
+def test_a_gap_longer_than_the_freezes_starts_a_fresh_streak_quietly():
+    stats = compute_streak(days(5, 6, 7), TODAY)
+    assert stats.current == 0
+    assert stats.longest == 3
+    assert stats.state == "fresh"
+    assert stats.freezes == 1
 
 
 def test_short_sessions_do_not_count():
@@ -87,3 +98,66 @@ def test_progress_labels_and_fraction():
     assert AchievementEngine.progress("streak_month", metrics)["label"] == "longest streak 9 of 30 days"
     assert AchievementEngine.qualifies("streak_week", metrics)
     assert not AchievementEngine.qualifies("streak_month", metrics)
+
+
+def test_a_new_player_with_nothing_logged_has_a_new_streak_and_one_freeze():
+    stats = compute_streak({}, TODAY)
+    assert (stats.current, stats.freezes, stats.state, stats.last_day) == (0, 1, "new", None)
+    assert stats.as_dict()["freeze_cap"] == 2
+
+
+def test_the_freeze_covers_one_missed_day_in_the_middle_of_a_streak():
+    stats = compute_streak(days(0, 1, 2, 4, 5), TODAY)
+    assert stats.current == 5
+    assert stats.freezes == 0
+    assert stats.frozen_days == (TODAY - timedelta(days=3),)
+    assert stats.state == "lit"
+
+
+def test_a_second_missed_day_without_a_freeze_left_starts_over_without_losing_the_record():
+    stats = compute_streak(days(0, 1, 4, 5, 6), TODAY)
+    assert stats.longest == 3
+    assert stats.current == 2
+    assert stats.freezes == 1
+
+
+def test_a_week_of_practice_earns_another_freeze_up_to_two():
+    week = compute_streak(days(*range(0, 7)), TODAY)
+    assert (week.current, week.freezes) == (7, 2)
+    month = compute_streak(days(*range(0, 40)), TODAY)
+    assert month.current == 40
+    assert month.freezes == 2
+    assert week.next_freeze_in == 7
+
+
+def test_the_next_freeze_is_counted_down_from_the_streak():
+    stats = compute_streak(days(0, 1, 2), TODAY)
+    assert stats.next_freeze_in == 4
+
+
+def test_waiting_for_today_does_not_use_a_freeze_or_break_anything():
+    stats = compute_streak(days(1, 2, 3), TODAY)
+    assert (stats.current, stats.freezes, stats.state) == (3, 1, "waiting")
+    assert stats.frozen_days == ()
+
+
+def test_the_state_reads_lit_covered_waiting_fresh_or_new():
+    assert compute_streak(days(0), TODAY).state == "lit"
+    assert compute_streak(days(2, 3), TODAY).state == "covered"
+    assert compute_streak(days(1, 2), TODAY).state == "waiting"
+    assert compute_streak(days(5), TODAY).state == "fresh"
+    assert compute_streak({}, TODAY).state == "new"
+
+
+def test_days_after_the_day_being_asked_about_are_ignored():
+    stats = compute_streak(days(-2, -1, 0, 1), TODAY)
+    assert stats.current == 2
+    assert stats.today_done is True
+
+
+def test_old_freezes_drop_out_of_the_list_shown():
+    far = {TODAY - timedelta(days=offset): 10 for offset in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22]}
+    stats = compute_streak(far, TODAY)
+    assert stats.frozen_days == ()
+    assert stats.current == 22
+    assert stats.freezes == 2

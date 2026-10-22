@@ -15,6 +15,10 @@ STREAK_MIN_MINUTES = 5
 STREAK_XP_PER_DAY = 10
 STREAK_BONUS_CAP_DAYS = 7
 HISTORY_DAYS = 400
+FREEZE_START = 1
+FREEZE_CAP = 2
+FREEZE_EVERY = 7
+FROZEN_SHOWN_DAYS = 14
 
 
 @dataclass
@@ -25,6 +29,10 @@ class StreakStats:
     minutes_today: int
     next_bonus_xp: int
     last_day: Optional[date]
+    freezes: int = 0
+    frozen_days: tuple = ()
+    state: str = "new"
+    next_freeze_in: int = FREEZE_EVERY
 
     def as_dict(self) -> dict:
         return {
@@ -35,6 +43,11 @@ class StreakStats:
             "min_minutes": STREAK_MIN_MINUTES,
             "next_bonus_xp": self.next_bonus_xp,
             "last_day": self.last_day.isoformat() if self.last_day else None,
+            "freezes": self.freezes,
+            "freeze_cap": FREEZE_CAP,
+            "frozen_days": [day.isoformat() for day in self.frozen_days],
+            "state": self.state,
+            "next_freeze_in": self.next_freeze_in,
         }
 
 
@@ -56,28 +69,52 @@ def bonus_for(streak_length: int) -> int:
 
 
 def compute_streak(minutes_by_day: dict[date, int], today: date) -> StreakStats:
-    days = sorted(day for day, minutes in minutes_by_day.items() if minutes >= STREAK_MIN_MINUTES)
-    qualifying = set(days)
-    longest = run = 0
-    previous: Optional[date] = None
-    for day in days:
-        run = run + 1 if previous is not None and day - previous == timedelta(days=1) else 1
-        longest = max(longest, run)
-        previous = day
-    anchor = today if today in qualifying else today - timedelta(days=1)
-    current = 0
-    while anchor in qualifying:
-        current += 1
-        anchor -= timedelta(days=1)
+    qualifying = {day for day, minutes in minutes_by_day.items() if minutes >= STREAK_MIN_MINUTES and day <= today}
+    ordered = sorted(qualifying)
+    streak = longest = 0
+    freezes = FREEZE_START
+    frozen: list[date] = []
+    if ordered:
+        day = ordered[0]
+        while day <= today:
+            if day in qualifying:
+                streak += 1
+                longest = max(longest, streak)
+                if streak % FREEZE_EVERY == 0:
+                    freezes = min(freezes + 1, FREEZE_CAP)
+            elif day < today and streak > 0:
+                if freezes > 0:
+                    freezes -= 1
+                    frozen.append(day)
+                else:
+                    streak = 0
+                    freezes = FREEZE_START
+            day += timedelta(days=1)
     today_done = today in qualifying
-    next_length = current if today_done else current + 1
+    yesterday = today - timedelta(days=1)
+    if today_done:
+        state = "lit"
+    elif frozen and frozen[-1] == yesterday:
+        state = "covered"
+    elif streak == 0 and ordered:
+        state = "fresh"
+    elif streak == 0:
+        state = "new"
+    else:
+        state = "waiting"
+    next_length = streak if today_done else streak + 1
+    shown_from = today - timedelta(days=FROZEN_SHOWN_DAYS)
     return StreakStats(
-        current=current,
+        current=streak,
         longest=longest,
         today_done=today_done,
         minutes_today=minutes_by_day.get(today, 0),
         next_bonus_xp=bonus_for(next_length),
-        last_day=days[-1] if days else None,
+        last_day=ordered[-1] if ordered else None,
+        freezes=freezes,
+        frozen_days=tuple(day for day in frozen if day >= shown_from),
+        state=state,
+        next_freeze_in=FREEZE_EVERY - (streak % FREEZE_EVERY) if streak % FREEZE_EVERY else FREEZE_EVERY,
     )
 
 

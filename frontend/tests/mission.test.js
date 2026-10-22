@@ -198,6 +198,38 @@ describe("a practice step on the music stand", () => {
     expect(root.textContent).toContain("Etude is brighter in your sky");
   });
 
+  it("lights a star with a short animation and remembers it for the Sky", async () => {
+    const { root, spies } = await begin();
+    answerSteps(spies);
+    await vi.advanceTimersByTimeAsync(40_000);
+    root.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(root.querySelector(".star-burst")).not.toBe(null);
+    expect(root.querySelectorAll(".star-burst-spark")).toHaveLength(8);
+    expect(root.querySelector(".mission-interlude").classList.contains("is-still")).toBe(false);
+    expect(JSON.parse(localStorage.getItem("pp.lit")).entries).toEqual(["e1"]);
+  });
+
+  it("holds the star still, and a little shorter, when motion is reduced", async () => {
+    localStorage.setItem("pp.motion", "reduce");
+    const { root, spies } = await begin();
+    answerSteps(spies);
+    await vi.advanceTimersByTimeAsync(40_000);
+    root.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(root.querySelector(".mission-interlude").classList.contains("is-still")).toBe(true);
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(root.querySelector(".mission-kicker").textContent).toContain("Hardest passage");
+  });
+
+  it("does not light a star for a skipped step", async () => {
+    const { root, spies } = await begin();
+    answerSteps(spies);
+    root.querySelector('[data-control="skip"]').click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(localStorage.getItem("pp.lit")).toBe(null);
+  });
+
   it("goes on to the next step by itself after a moment", async () => {
     const { root, spies } = await begin();
     answerSteps(spies);
