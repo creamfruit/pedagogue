@@ -3,12 +3,16 @@ from collections import Counter
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
+from datetime import date
+
 from . import mutopia, musescore, openscore
+from .composers import ComposerGate
 from .models import Candidate, Rejection
 from .polite import FetchError, PoliteClient
 from .workspace import Workspace
 
 STAGE_CRAWL = "01-crawl"
+STAGE_COMPOSERS = "02-composers"
 STAGE_FETCH = "03-fetch"
 
 SOURCES = ("mutopia", "openscore")
@@ -58,6 +62,24 @@ def crawl(
                 rejected += fewer
     kept, dropped = ws.write_stage(STAGE_CRAWL, found, rejected)
     return {"kept": kept, "rejected": dropped, "by_source": dict(Counter(item.source for item in found))}
+
+
+def filter_composers(ws: Workspace, client: PoliteClient, source_stage: str = STAGE_CRAWL, *, today: Optional[date] = None) -> dict:
+    gate = ComposerGate(client, today=today)
+    kept: list[Candidate] = []
+    rejected: list[Rejection] = []
+    for candidate in ws.read_stage(source_stage):
+        verdict = gate.check(candidate.composer, candidate.born, candidate.died, candidate.composer_qid)
+        if verdict.accepted:
+            candidate.composer_qid = verdict.qid
+            candidate.composer_died_on = verdict.died_on
+            candidate.extra["composer_label"] = verdict.label
+            candidate.extra["composer_check"] = verdict.reason
+            kept.append(candidate)
+        else:
+            rejected.append(Rejection(candidate.source, candidate.source_id, candidate.title, candidate.composer, "composer", verdict.reason))
+    count, dropped = ws.write_stage(STAGE_COMPOSERS, kept, rejected)
+    return {"kept": count, "rejected": dropped, "composers_checked": gate.checked}
 
 
 def fetch_mutopia(ws: Workspace, client: PoliteClient, candidate: Candidate) -> Optional[str]:

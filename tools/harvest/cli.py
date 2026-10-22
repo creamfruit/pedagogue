@@ -18,6 +18,8 @@ def build_parser() -> argparse.ArgumentParser:
     crawl.add_argument("--max-pages", type=int, help="stop the Mutopia crawl after this many listing pages")
     crawl.add_argument("--limit", type=int, help="keep at most this many works per source")
 
+    commands.add_parser("composers", help="keep only works by composers who died more than seventy years ago, as recorded on Wikidata")
+
     fetch = commands.add_parser("fetch", help="download the score files of the works that passed the earlier stages")
     fetch.add_argument("--limit", type=int)
     return parser
@@ -29,8 +31,10 @@ def main(argv=None) -> int:
     with PoliteClient(ws.root) as client:
         if arguments.command == "crawl":
             result = pipeline.crawl(ws, client, arguments.source or pipeline.SOURCES, max_pages=arguments.max_pages, limit=arguments.limit)
+        elif arguments.command == "composers":
+            result = pipeline.filter_composers(ws, client)
         else:
-            result = pipeline.fetch(ws, client, pipeline.STAGE_CRAWL, limit=arguments.limit)
+            result = pipeline.fetch(ws, client, pipeline.STAGE_COMPOSERS, limit=arguments.limit)
         result["requests"] = client.requests_made
         result["cache_hits"] = client.cache_hits
     print(json.dumps(result, indent=2))

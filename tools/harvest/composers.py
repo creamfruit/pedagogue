@@ -10,6 +10,7 @@ from .polite import FetchError, PoliteClient
 SPARQL = "https://query.wikidata.org/sparql"
 ENTITY_API = "https://www.wikidata.org/w/api.php"
 COMPOSER_OCCUPATION = "Q36834"
+HUMAN = "Q5"
 
 BY_YEARS = """SELECT ?item ?itemLabel (GROUP_CONCAT(DISTINCT ?alt; separator="|") AS ?alts) ?born ?died ?diedPrecision WHERE {{
   ?item wdt:P31 wd:Q5 ; wdt:P106 wd:{occupation} ; wdt:P569 ?born ; wdt:P570 ?died .
@@ -111,6 +112,10 @@ class ComposerGate:
         self._by_years: dict[tuple, list[Person]] = {}
         self._verdicts: dict[tuple, Verdict] = {}
 
+    @property
+    def checked(self) -> int:
+        return len(self._verdicts)
+
     def people(self, born: int, died: int) -> list[Person]:
         key = (born, died)
         if key not in self._by_years:
@@ -158,10 +163,8 @@ class ComposerGate:
 
         born, _ = first_time("P569")
         died, precision = first_time("P570")
-        occupations = {
-            ((claim.get("mainsnak", {}).get("datavalue") or {}).get("value") or {}).get("id") for claim in claims.get("P106", [])
-        }
-        if COMPOSER_OCCUPATION not in occupations:
+        kinds = {((claim.get("mainsnak", {}).get("datavalue") or {}).get("value") or {}).get("id") for claim in claims.get("P31", [])}
+        if HUMAN not in kinds:
             return None
         return Person(
             qid=qid,
@@ -191,7 +194,7 @@ class ComposerGate:
         if qid:
             person = self.entity(qid)
             if person is None:
-                return Verdict(False, f"{qid} is not a composer on Wikidata", qid)
+                return Verdict(False, f"{qid} is not a person on Wikidata", qid)
             if born and person.born and person.born.year != born or died and person.died and person.died.year != died:
                 return Verdict(False, f"{qid} does not match the dates given by the source", qid, person.label)
             return self.judge(person)
