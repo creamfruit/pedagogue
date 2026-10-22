@@ -5036,3 +5036,482 @@ body {
   font-size: 14px;
   line-height: 1.4;
 }
+
+body.immersive .topbar,
+body.immersive .tabbar,
+body.immersive .footer {
+  display: none;
+}
+
+body.immersive .view {
+  padding: 0;
+  max-width: none;
+  animation: none;
+}
+
+body.immersive .app.has-tabs {
+  padding-bottom: 0;
+}
+
+.mission-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: calc(8px + var(--safe-top)) calc(16px + var(--safe-right)) calc(10px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  background:
+    radial-gradient(90% 60% at 80% 0%, rgba(var(--tide-rgb), 0.14), transparent 60%),
+    radial-gradient(80% 50% at 0% 100%, rgba(var(--mauve-rgb), 0.1), transparent 60%),
+    rgba(8, 14, 27, 0.93);
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+.mission-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 60px;
+}
+
+.mission-head-spacer {
+  width: 60px;
+}
+
+.mission-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.mission-skip {
+  min-width: 60px;
+  min-height: 56px;
+  padding: 0 14px;
+  font-size: 16px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.mission-arc {
+  width: 56px;
+  height: 56px;
+}
+
+.mission-arc-seg {
+  stroke: rgba(var(--accent-rgb), 0.18);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.mission-arc-seg.is-done {
+  stroke: var(--starlight);
+  filter: drop-shadow(0 0 4px rgba(var(--starlight-rgb), 0.6));
+}
+
+.mission-arc-seg.is-skipped {
+  stroke: rgba(var(--mauve-rgb), 0.55);
+}
+
+.mission-arc-seg.is-active {
+  stroke: var(--tide);
+  animation: arc-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes arc-breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.mission-arc-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  fill: var(--text);
+}
+
+.mission-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mission-copy {
+  flex: none;
+}
+
+.mission-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.mission-why {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
+.mission-visual {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(33, 48, 79, 0.45);
+  border: 1px solid var(--line-strong);
+  padding: var(--space-3);
+  cursor: default;
+}
+
+.mission-visual:has(.mission-score),
+.mission-visual:has(.mission-notation) {
+  background: #f1f6f4;
+  border-color: #f1f6f4;
+}
+
+.mission-score {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  object-fit: contain;
+}
+
+.mission-notation {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #0b1626;
+}
+
+.mission-notation svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+.mission-visual-note,
+.mission-visual-cue {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.mission-visual:has(.mission-score) .mission-visual-cue,
+.mission-visual:has(.mission-notation) .mission-visual-cue,
+.mission-visual:has(.mission-notation) .mission-visual-note {
+  color: #26394d;
+}
+
+.mission-visual-text {
+  display: grid;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.mission-visual-bars {
+  margin: 0;
+  font-size: clamp(22px, 6.4vw, 30px);
+  font-weight: 500;
+  color: var(--starlight);
+}
+
+.mission-visual-text .mission-visual-cue {
+  font-size: clamp(16px, 4.6vw, 20px);
+  color: var(--text-dim);
+}
+
+.mission-visual-wait {
+  margin: auto;
+}
+
+.mission-side {
+  flex: none;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.mission-timer-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+
+.mission-timer {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: clamp(64px, 21vw, 116px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--starlight);
+  text-shadow: 0 0 24px rgba(var(--tide-rgb), 0.35);
+  font-variant-numeric: tabular-nums;
+}
+
+.mission-timer.is-over {
+  color: var(--tide);
+}
+
+.mission-timer-target {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-faint);
+  grid-column: 1;
+}
+
+.mission-timer-wrap .mission-icon-btn {
+  grid-column: 2;
+  width: 44px;
+  height: 44px;
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+
+.mission-metro {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  grid-template-areas:
+    "slower bpm faster"
+    "toggle toggle toggle";
+  gap: var(--space-2);
+  align-items: center;
+  cursor: default;
+}
+
+.mission-metro-step {
+  min-height: 64px;
+  font-size: 32px;
+  color: var(--text);
+  background: rgba(var(--starlight-rgb), 0.06);
+  border: 1px solid var(--line-bright);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.mission-metro-step:disabled {
+  opacity: 0.35;
+}
+
+.mission-metro-step:first-child {
+  grid-area: slower;
+}
+
+.mission-metro-step:nth-child(3) {
+  grid-area: faster;
+}
+
+.mission-bpm {
+  grid-area: bpm;
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mission-bpm-value {
+  font-family: var(--mono);
+  font-size: 40px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.mission-bpm-unit {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+}
+
+.mission-beat {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.2);
+}
+
+.mission-beat.is-on {
+  background: var(--starlight);
+  box-shadow: 0 0 10px var(--starlight);
+}
+
+.mission-beat.is-on[data-accent="1"] {
+  background: var(--tide);
+  box-shadow: 0 0 12px var(--tide);
+}
+
+.mission-metro-toggle {
+  grid-area: toggle;
+  min-height: 64px;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(var(--teal-rgb), 0.55);
+  border: 1px solid var(--accent-line);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.mission-metro-toggle.is-on {
+  color: #07202a;
+  background: var(--accent);
+}
+
+.mission-foot {
+  flex: none;
+  min-height: 28px;
+  text-align: center;
+}
+
+.mission-note,
+.mission-tap {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-faint);
+}
+
+.mission-tap {
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.mission-intro,
+.mission-interlude,
+.mission-complete {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.mission-title {
+  margin: 0;
+  font-size: clamp(26px, 7vw, 36px);
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.mission-hint {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.mission-steps-plain {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+  font-size: 17px;
+}
+
+.mission-done-mark {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  font-size: 42px;
+  color: #07202a;
+  background: var(--starlight);
+  border-radius: 50%;
+  box-shadow: 0 0 36px rgba(var(--starlight-rgb), 0.5);
+}
+
+.mission-complete-actions {
+  display: grid;
+  gap: var(--space-3);
+  width: min(360px, 100%);
+  margin-top: var(--space-4);
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .mission-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(230px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--space-4);
+  }
+
+  .mission-copy {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .mission-visual {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .mission-side {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-content: center;
+  }
+
+  .mission-timer {
+    font-size: clamp(56px, 22vh, 96px);
+  }
+
+  .mission-why {
+    font-size: 14px;
+  }
+
+  .mission-metro-step,
+  .mission-metro-toggle {
+    min-height: 56px;
+  }
+}
+
+@media (max-height: 700px) and (orientation: portrait) {
+  .mission-timer {
+    font-size: clamp(52px, 17vw, 84px);
+  }
+
+  .mission-why {
+    font-size: 14px;
+  }
+}
