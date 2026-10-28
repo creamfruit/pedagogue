@@ -40,6 +40,28 @@ export const CREDITS = [
     changes: "Short extracts, re-engraved as MusicXML. The extracts are shared under the same licence.",
   },
   {
+    id: "mutopia",
+    title: "Open piano scores",
+    work: "The Mutopia Project",
+    author: "the volunteers who typeset its scores",
+    url: "https://www.mutopiaproject.org",
+    license: "Public Domain or CC BY",
+    licenseUrl: "https://www.mutopiaproject.org/legal.html",
+    used: "The measured difficulty, hard passages, score images and reference notes of the pieces we took from Mutopia. Each piece page names its typesetter, links its exact licence and links the piece on Mutopia.",
+    changes: "Measurements taken from the scores, and cropped images of a few bars engraved from the LilyPond source.",
+  },
+  {
+    id: "openscore",
+    title: "OpenScore",
+    work: "The OpenScore Lieder Corpus",
+    author: "the OpenScore project and its volunteer transcribers",
+    url: "https://musescore.com/openscore-lieder-corpus",
+    license: "CC0 1.0",
+    licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
+    used: "The piano parts of the songs in the corpus: their measured difficulty, hard passages, score images and reference notes. Each piece page links its song on MuseScore.",
+    changes: "The piano part only, measured, with cropped images of a few bars.",
+  },
+  {
     id: "wikipedia",
     title: "Wikipedia text",
     work: "Wikipedia",
@@ -54,6 +76,6 @@ export const CREDITS = [
 
 export const CATALOGUE_SOURCES = [
   { name: "MusicBrainz", url: "https://musicbrainz.org", license: "CC0" },
-  { name: "Wikidata", url: "https://www.wikidata.org", license: "CC0" },
+  { name: "Wikidata", url: "https://www.wikidata.org", license: "CC0, also used to check that a composer died more than seventy years ago" },
   { name: "Open Opus", url: "https://openopus.org", license: "public domain" },
 ];

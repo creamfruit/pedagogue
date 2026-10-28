@@ -67,7 +67,7 @@ def extract(ws: Workspace, source_stage: str, *, workers: Optional[int] = None, 
         kind, path, hashed = source_files(ws, candidate)
         candidate.extra["content_hash"] = digest(hashed)
         held = json.loads(target.read_text(encoding="utf-8")) if target.exists() else {}
-        if held.get("content_hash") == candidate.extra["content_hash"] and "reference" in held:
+        if held.get("content_hash") == candidate.extra["content_hash"] and "reference" in held and held.get("features", {}).get("version") == feature_module.FEATURE_VERSION:
             candidate.local["features"] = ws.rel(target)
             kept.append(candidate)
             continue

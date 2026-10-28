@@ -55,11 +55,43 @@ the samples were changed. We ship a subset of notes converted to MP3.
 
 Links to IMSLP and MuseScore on piece pages are search links only. Nothing is copied from either.
 
+## Harvested open scores
+
+`tools/harvest` downloads open scores and measures them. Nothing is copied into the repository: the
+results go to the database (`piece_sources`, `piece_reference_notes`, passages and their images in
+storage), and the work folder it downloads into stays on the machine that ran it.
+
+| Source | What is taken | Licence | What it requires |
+|---|---|---|---|
+| [Mutopia Project](https://www.mutopiaproject.org), works listed "for Piano" | Notes (from the MIDI), the LilyPond source for cropped images, title, opus, composer, typesetter | Public Domain, or Creative Commons Attribution (CC BY, any version) | For CC BY, credit the typesetter and link the licence. Every harvested piece page does, and the Credits page names the project. Share-alike (CC BY-SA), non-commercial and no-derivatives works are skipped. |
+| [OpenScore Lieder Corpus](https://musescore.com/openscore-lieder-corpus), the piano part of each song | Notes (MuseScore converted to MusicXML), title, composer, Wikidata id | CC0 1.0 | Nothing. The corpus asks for credit and a link, which the pieces and the Credits page give. |
+| [OpenScore String Quartets](https://musescore.com/openscore-string-quartets) | Nothing: a string quartet has no piano part | CC0 1.0 | None |
+| [Wikidata](https://www.wikidata.org) | Composers' birth and death dates | CC0 | Nothing. Credited as a courtesy. |
+
+The rules the tool applies before it keeps a work:
+
+- The licence must be clearly public domain, CC0 or CC BY with a version. Mutopia states it twice, in
+  its catalogue and in the LilyPond header, and the two must agree. Anything unclear is skipped.
+- The composer must be found on Wikidata with a death date more than seventy years ago, judged to the
+  day. Anonymous, "Traditional", unmatched, ambiguous and more recent composers are rejected.
+- Each piece records its source URL, licence (name and link), composer and the credit line.
+
+Every skipped work is listed with its reason in the tool's `state/*.rejected.jsonl` files. A full import
+hides any work that has since stopped passing these rules, and an admin can hide any piece at once
+(`POST /api/v1/admin/pieces/{id}/hide`). Each harvested piece page, public and in the app, shows the
+source, the licence and a report-a-problem link (`REPORT_PROBLEM_URL`). The cropped score images are
+adaptations of the score, so they carry the score's licence.
+
+Software used while harvesting but not shipped: MuseScore 4 (GPL-3.0) to convert OpenScore files,
+LilyPond (GPL-3.0) to engrave Mutopia sources, and Verovio (LGPL-3.0) for MusicXML. The files they
+produce are the scores' own licence, not the tools'.
+
 ## What the public pages show
 
 The public piece, composer and landing pages (see `DEPLOY.md`, "Public pages and search") use only what is listed above:
 
 - difficulty, load figures, techniques and our own notes, which are ours;
+- the hardest sections of harvested pieces, with a cropped image of the bars, the piece's source, licence and credit, and a report-a-problem link;
 - the hardest sections of catalogue pieces, which for Chopin are measurements from the First Editions of Fryderyk Chopin's Music (CC BY 4.0). Pages for pieces measured from it carry the credit lines, the licence link and a statement that we changed the material;
 - short histories taken from Wikipedia (CC BY-SA 4.0), each with a link to its article, the contributors' credit, the licence link and a note that the text is shortened. Nothing else on those pages is taken from Wikipedia.
 
@@ -69,7 +101,7 @@ They never show the Classical Piano MIDI excerpts or the Salamander samples, pie
 
 | Source | Licence | What it was used for |
 |---|---|---|
-| [ASAP dataset](https://github.com/fosfrancesco/asap-dataset) | CC BY-NC-SA 4.0 | 216 analysed library entries and 12 technique excerpts |
+| [ASAP dataset](https://github.com/fosfrancesco/asap-dataset) | CC BY-NC-SA 4.0 | 216 analysed library entries and 12 technique excerpts. Nothing derived from it remains in the library, the seed or the excerpts, and `backend/tests/test_harvest_fallback.py` fails if it comes back. |
 | Craig Sapp's Mozart, Haydn and Scarlatti sonatas and Joplin rags | CC BY-NC-SA 4.0 | Library entries |
 | Craig Sapp's Beethoven sonatas and Hummel preludes | No licence given (all rights reserved) | Library entries |
 | Humdrum Bach Well-Tempered Clavier and Inventions | "Rights to all derivative electronic formats reserved" (David Huron, 1994) | Library entries |
@@ -85,6 +117,7 @@ upload: the PDF reader marks hard bars from the user's own score.
 
 ## Rebuilding the shipped data
 
+- Harvested scores: `tools/harvest/README.md`
 - Score library: `tools/score_library/README.md`
 - Technique excerpts: `tools/excerpts/README.md`
 

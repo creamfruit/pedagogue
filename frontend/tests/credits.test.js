@@ -22,6 +22,21 @@ describe("credits page", () => {
     expect(text).toContain("CC BY-SA 4.0");
   });
 
+  it("credits Mutopia and OpenScore with their licences", () => {
+    const outlet = render();
+    const mutopia = outlet.querySelector("#mutopia").textContent;
+    expect(mutopia).toContain("The Mutopia Project");
+    expect(mutopia).toContain("Public Domain or CC BY");
+    expect(mutopia).toContain("typesetter");
+    const openscore = outlet.querySelector("#openscore").textContent;
+    expect(openscore).toContain("The OpenScore Lieder Corpus");
+    expect(openscore).toContain("CC0 1.0");
+  });
+
+  it("says Wikidata is used to check composers' dates", () => {
+    expect(render().querySelector("#catalogue").textContent).toContain("died more than seventy years ago");
+  });
+
   it("carries the first five lines of the Chopin Institute notice", () => {
     const notice = render().querySelector("#first-editions .credit-notice");
     expect(notice.textContent.split("\n")).toHaveLength(5);

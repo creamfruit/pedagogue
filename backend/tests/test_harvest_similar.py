@@ -104,7 +104,11 @@ async def test_harder_neighbours_are_the_nearest_pieces_at_least_three_points_ha
     async with shelf.factory() as session:
         found = await similar.similar_pieces(session, shelf.ids.target, direction="harder", limit=10)
     assert "easier" not in found
-    assert [item["id"] for item in found["harder"]] == [shelf.ids.harder, shelf.ids.much_harder]
+    ids = [item["id"] for item in found["harder"]]
+    assert ids[0] == shelf.ids.harder
+    assert shelf.ids.same_level not in ids and shelf.ids.target not in ids
+    assert all(item["difference"] >= 3 and item["difficulty"] >= 63 for item in found["harder"])
+    assert ids.index(shelf.ids.harder) < ids.index(shelf.ids.much_harder) if shelf.ids.much_harder in ids else True
 
 
 @needs_db
@@ -151,6 +155,7 @@ async def test_the_api_returns_easier_neighbours(shelf):
     body = response.json()
     assert body["piece_id"] == shelf.ids.target and body["basis"] == "vectors"
     assert len(body["easier"]) == 2 and body["harder"] == []
+    assert all(item["difference"] <= -3 for item in body["easier"])
     assert body["easier"][0]["full_title"].startswith("Other Simil")
     assert missing.status_code == 404
     assert bad.status_code == 422

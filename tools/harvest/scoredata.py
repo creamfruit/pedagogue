@@ -257,13 +257,25 @@ def xml_bars(part) -> list:
     bars = []
     for measure in part.getElementsByClass(stream.Measure):
         number = measure.number if isinstance(measure.number, int) else int(re.sub(r"\D", "", str(measure.number)) or 0)
-        length = float(measure.duration.quarterLength or measure.barDuration.quarterLength)
-        bars.append((number, float(measure.offset), length))
+        bars.append((number, float(measure.offset), float(max(measure.duration.quarterLength, measure.barDuration.quarterLength))))
     unique = []
     for number, start, length in bars:
         if not unique or start > unique[-1][1] + 1e-6:
             unique.append((number, start, length))
-    return unique
+    unique = [
+        (number, start, (unique[index + 1][1] - start) if index + 1 < len(unique) else length)
+        for index, (number, start, length) in enumerate(unique)
+    ]
+    return unique if strictly_increasing([number for number, _, _ in unique]) else renumber(unique)
+
+
+def strictly_increasing(numbers: list) -> bool:
+    return all(later > earlier for earlier, later in zip(numbers, numbers[1:]))
+
+
+def renumber(bars: list) -> list:
+    first = 0 if bars and bars[0][0] == 0 else 1
+    return [(first + index, start, length) for index, (_, start, length) in enumerate(bars)]
 
 
 def choose_piano_parts(parts: list) -> list:

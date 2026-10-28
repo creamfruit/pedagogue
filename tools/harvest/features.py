@@ -6,7 +6,7 @@ import numpy as np
 
 from .scoredata import ScoreData, tempo_word
 
-FEATURE_VERSION = 1
+FEATURE_VERSION = 2
 VECTOR_DIM = 64
 JOIN_GAP = 1.0
 RUN_GAP = 0.26

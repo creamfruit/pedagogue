@@ -220,6 +220,8 @@ async def apply_passages(session, context: Context, piece, candidate: Candidate,
     by_span = {(row.start_measure, row.end_measure): row for row in held}
     wanted = set()
     for item in index["passages"]:
+        if item["start"] > item["end"]:
+            continue
         span = (item["start"], item["end"])
         wanted.add(span)
         row = by_span.get(span)

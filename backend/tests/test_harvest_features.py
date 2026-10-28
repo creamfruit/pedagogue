@@ -242,3 +242,47 @@ def test_an_era_is_chosen_by_the_years_a_composer_was_active():
     assert era_for(eras, 1862).name == "Impressionist"
     assert era_for(eras, 1300) is None
     assert era_for(eras, None) is None
+
+
+def test_bar_numbers_that_repeat_after_a_volta_are_renumbered_in_order():
+    from music21 import note, stream
+
+    from tools.harvest.scoredata import xml_bars
+
+    part = stream.Part()
+    for number in (1, 2, 3, 2, 3, 4):
+        measure = stream.Measure(number=number)
+        measure.append(note.Note(60, quarterLength=4))
+        part.append(measure)
+    bars = xml_bars(part)
+    assert [number for number, _, _ in bars] == [1, 2, 3, 4, 5, 6]
+    assert [start for _, start, _ in bars] == [0.0, 4.0, 8.0, 12.0, 16.0, 20.0]
+
+
+def test_printed_bar_numbers_are_kept_when_they_already_run_in_order():
+    from music21 import note, stream
+
+    from tools.harvest.scoredata import xml_bars
+
+    part = stream.Part()
+    for number in (0, 1, 2, 3):
+        measure = stream.Measure(number=number)
+        measure.append(note.Note(60, quarterLength=1 if number == 0 else 4))
+        part.append(measure)
+    assert [number for number, _, _ in xml_bars(part)] == [0, 1, 2, 3]
+
+
+def test_a_bar_is_as_long_as_the_gap_to_the_next_bar_even_when_a_staff_leaves_it_half_empty():
+    from music21 import meter, note, stream
+
+    from tools.harvest.scoredata import xml_bars
+
+    part = stream.Part()
+    for number, length in ((1, 4), (2, 2), (3, 0.5), (4, 4)):
+        measure = stream.Measure(number=number)
+        if number == 1:
+            measure.append(meter.TimeSignature("4/4"))
+        measure.append(note.Note(60, quarterLength=length))
+        part.insert(sum([4, 4, 4][: number - 1]), measure)
+    bars = xml_bars(part)
+    assert [(number, start, length) for number, start, length in bars] == [(1, 0.0, 4.0), (2, 4.0, 4.0), (3, 8.0, 4.0), (4, 12.0, 4.0)]

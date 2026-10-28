@@ -169,6 +169,7 @@ The store listings and the privacy policy link should use your own domain.
 | `SENTRY_ENVIRONMENT` | no | `ENVIRONMENT` | Environment name on reports. |
 | `SENTRY_TRACES_SAMPLE_RATE` | no | `0` | Share of requests sent as performance traces, 0 to 1. |
 | `MUSICBRAINZ_CONTACT` | no | repo URL | Sent in the MusicBrainz user agent. |
+| `REPORT_PROBLEM_URL` | no | the repo's new-issue page | Where "Report a problem with this piece" goes on harvested pieces. A web address gets `?title=` and `&body=` filled in; a `mailto:` address gets a subject and body. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | no | `10080` | Seven days. |
 | `RUN_RELEASE_ON_START` | no | `false` | `true` runs migrations and seed on container start (free plans). |
 
