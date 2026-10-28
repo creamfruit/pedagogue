@@ -291,6 +291,7 @@ async def upsert(session, context: Context, candidate: Candidate, payload: dict,
         piece = new_piece(context, candidate, composer, payload)
         session.add(piece)
         await session.flush()
+    piece.harvest_piece_id = None
     record = PieceSource(piece_id=piece.id, **facts, content_hash=candidate.extra["content_hash"])
     session.add(record)
     record.piece = piece
@@ -301,6 +302,24 @@ async def upsert(session, context: Context, candidate: Candidate, payload: dict,
         await apply_passages(session, context, piece, candidate, extras)
     await apply_reference(session, piece, record, payload)
     return outcome
+
+
+RETIRED = "harvest: no longer passes the licence or composer rules"
+
+
+def retire(context: Context, current: set) -> dict:
+    counts = {"retired": 0, "restored": 0}
+    for key, record in context.sources.items():
+        piece = record.piece
+        if key not in current and piece.hidden_at is None:
+            piece.hidden_at = context.now
+            piece.hidden_reason = RETIRED
+            counts["retired"] += 1
+        elif key in current and piece.hidden_at is not None and piece.hidden_reason == RETIRED:
+            piece.hidden_at = None
+            piece.hidden_reason = None
+            counts["restored"] += 1
+    return {name: value for name, value in counts.items() if value}
 
 
 def load_extras(ws: Workspace, candidate: Candidate) -> Optional[dict]:
@@ -330,7 +349,8 @@ async def ingest(ws: Workspace, source_stage: str, *, say: Callable[[str], None]
             if index % FLUSH_EVERY == 0:
                 await session.flush()
                 say(f"ingest: {index}/{len(candidates)} {dict(counts)}")
-        current = {(candidate.source, candidate.source_id) for candidate in candidates}
-        counts["no longer accepted"] = sum(1 for key in context.sources if key not in current)
+        if limit is None:
+            current = {(candidate.source, candidate.source_id) for candidate in candidates}
+            counts.update(retire(context, current))
     await dispose_engine()
     return dict(counts)

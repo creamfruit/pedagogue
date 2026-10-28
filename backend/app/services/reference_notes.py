@@ -156,11 +156,15 @@ async def store(session: AsyncSession, piece: Piece, record: PieceSource, payloa
 
 
 async def load_reference(session: AsyncSession, piece_id: int):
+    lender = (await session.execute(select(Piece.harvest_piece_id).where(Piece.id == piece_id, Piece.hidden_at.is_(None)))).first()
+    if lender is None:
+        return None
+    holder = lender[0] or piece_id
     stmt = (
         select(PieceReferenceNotes)
         .join(PieceSource, PieceSource.piece_id == PieceReferenceNotes.piece_id)
         .join(Piece, Piece.id == PieceReferenceNotes.piece_id)
-        .where(PieceReferenceNotes.piece_id == piece_id, PieceSource.scoring_ready.is_(True), Piece.hidden_at.is_(None))
+        .where(PieceReferenceNotes.piece_id == holder, PieceSource.scoring_ready.is_(True), Piece.hidden_at.is_(None))
     )
     row = (await session.execute(stmt)).scalar_one_or_none()
     if row is None:

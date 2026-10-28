@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.models import Composer, PassageSource, Piece, PieceTechnique
-from app.services.catalog import PieceOverviewService, difficulty_basis
+from app.services.catalog import PieceOverviewService, borrowed_record, difficulty_basis
 from app.services.difficulty import difficulty_band
 from app.services.family_tree import affinity, context, shared_techniques
 from app.services.harvest_library import harvest_credit
@@ -307,7 +307,7 @@ class PublicPieceService(BaseService):
                 else None
             ),
             "library_credit": (piece.metadata_generation_model or "").startswith("score-library"),
-            "source": harvest_credit(piece),
+            "source": harvest_credit(piece, await borrowed_record(self.session, piece)),
             "updated": piece.metadata_generated_at,
         }
 

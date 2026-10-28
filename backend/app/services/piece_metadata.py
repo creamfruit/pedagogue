@@ -22,6 +22,7 @@ from app.services.difficulty import compute_mechanical_load, difficulty_band
 from app.services.metadata_generator import GRADE_BY_BAND, MetadataGenerator
 from app.services.piece_knowledge import apply_title_facts, fill_story
 from app.services.repertoire_reference import Reference, estimate_difficulty
+from app.services.harvest_library import attach_harvest
 from app.services.score_library import attach_library, find_entries
 
 logger = logging.getLogger("piano.metadata")
@@ -169,7 +170,9 @@ async def generate_piece_metadata(piece_id: int) -> Optional[str]:
         piece = await load_piece(session, piece_id)
         wants_facts = piece is not None and piece.external_source is not None and piece.facts_checked_at is None
         if piece is not None:
-            await attach_library(session, piece, piece.composer.name if piece.composer else None, replace_techniques=False)
+            composer_name = piece.composer.name if piece.composer else None
+            await attach_library(session, piece, composer_name, replace_techniques=False)
+            await attach_harvest(session, piece, composer_name)
     if wants_facts:
         await enrich_piece_facts(piece_id)
     return result

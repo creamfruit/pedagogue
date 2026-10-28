@@ -368,6 +368,7 @@ class Piece(IntPrimaryKeyMixin, Base):
     hidden_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
     hidden_reason: Mapped[Optional[str]] = mapped_column(String(300))
     hidden_by: Mapped[Optional[uuid.UUID]]
+    harvest_piece_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
 
     composer: Mapped[Optional[Composer]] = relationship(back_populates="pieces")
     genre: Mapped[Optional[Genre]] = relationship(back_populates="pieces")

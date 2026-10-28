@@ -99,6 +99,14 @@ def difficulty_basis(piece) -> str:
     return "catalogue"
 
 
+async def borrowed_record(session, piece):
+    from app.models.models import PieceSource
+
+    if piece.harvest is not None or not piece.harvest_piece_id:
+        return None
+    return await session.get(PieceSource, piece.harvest_piece_id)
+
+
 class PieceOverviewService(BaseService):
     async def load(self, piece_id: int) -> Piece:
         stmt = select(Piece).options(*PIECE_LOADERS).where(Piece.id == piece_id, Piece.hidden_at.is_(None))
@@ -110,7 +118,10 @@ class PieceOverviewService(BaseService):
     async def overview(self, piece_id: int, user=None) -> dict:
         piece = await self.load(piece_id)
         profiles = await self.profiles_for(user) if user is not None else {}
-        return self.render(piece, profiles)
+        data = self.render(piece, profiles)
+        if data["source"] is None:
+            data["source"] = harvest_credit(piece, await borrowed_record(self.session, piece))
+        return data
 
     async def profiles_for(self, user) -> dict[int, "UserTechniqueProfile"]:
         from app.models.models import UserTechniqueProfile

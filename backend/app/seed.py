@@ -399,7 +399,8 @@ async def seed_catalog_detail() -> None:
         )
         knowledge = await refresh_catalog_knowledge(session)
         print(
-            f"difficulty ladder: {knowledge['ladder']} pieces placed, {knowledge['estimated']} estimated, "
+            f"difficulty ladder: {knowledge['ladder']} pieces placed, {knowledge['estimated']} estimated "
+            f"({knowledge['harvested']} of them from harvested scores), "
             f"{knowledge['cleaned']} with filler text replaced"
         )
 

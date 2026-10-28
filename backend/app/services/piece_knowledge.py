@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import session_scope
 from app.models.models import Composer, Era, Passage, PassageSource, Piece, PieceTechnique, Technique
 from app.services.difficulty import compute_mechanical_load, difficulty_band
+from app.services.harvest_library import attach_harvest
 from app.services.metadata_generator import GRADE_BY_BAND, METADATA_MODEL_HEURISTIC, PLACEHOLDER_FACT
 from app.services.repertoire_reference import (
     LADDER_VERSION,
@@ -137,7 +138,7 @@ async def refresh_catalog_knowledge(session: AsyncSession) -> dict[str, int]:
     names_by_id = {technique.id: name for name, technique in techniques.items()}
     pieces_by_id = {piece.id: piece for piece in pieces}
     factors = {name: float(technique.load_factor) for name, technique in techniques.items()}
-    counts = {"ladder": 0, "estimated": 0, "cleaned": 0}
+    counts = {"ladder": 0, "estimated": 0, "cleaned": 0, "harvested": 0}
     for piece in pieces:
         if piece.is_user_created and piece.external_source is None:
             continue
@@ -166,6 +167,9 @@ async def refresh_catalog_knowledge(session: AsyncSession) -> dict[str, int]:
                 await drop_invented_bars(session, piece)
                 await attach_library(session, piece, composer_name, replace_techniques=False)
                 offline = False
+            elif await attach_harvest(session, piece, composer_name):
+                offline = False
+                counts["harvested"] += 1
             else:
                 piece.difficulty_score = estimate_difficulty(piece.title, composer_name)
                 await replace_techniques(session, piece, heuristic_techniques(piece.title, composer_name), techniques)
