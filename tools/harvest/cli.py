@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import calibration, config, extract, ingest, pipeline
+from . import calibration, config, extract, imaging, ingest, pipeline
 from .polite import PoliteClient
 from .workspace import Workspace
 
@@ -28,6 +28,10 @@ def build_parser() -> argparse.ArgumentParser:
     measure.add_argument("--limit", type=int)
     measure.add_argument("--workers", type=int)
 
+    pictures = commands.add_parser("render", help="find the hardest passages and render each as a cropped score image")
+    pictures.add_argument("--limit", type=int)
+    pictures.add_argument("--workers", type=int)
+
     commands.add_parser("calibrate", help="fit the difficulty score to the reference ladder and print the calibration report")
 
     load = commands.add_parser("ingest", help="write the measured works to the database; safe to run again")
@@ -47,10 +51,12 @@ def main(argv=None) -> int:
             result = pipeline.fetch(ws, client, pipeline.STAGE_COMPOSERS, limit=arguments.limit)
         elif arguments.command == "extract":
             result = extract.extract(ws, pipeline.STAGE_FETCH, workers=arguments.workers, limit=arguments.limit, say=pipeline.say)
+        elif arguments.command == "render":
+            result = imaging.render_stage(ws, extract.STAGE_EXTRACT, workers=arguments.workers, limit=arguments.limit, say=pipeline.say)
         elif arguments.command == "calibrate":
             result = calibration.calibrate(ws, extract.STAGE_EXTRACT)
         else:
-            result = asyncio.run(ingest.ingest(ws, extract.STAGE_EXTRACT, say=pipeline.say, limit=arguments.limit))
+            result = asyncio.run(ingest.ingest(ws, imaging.STAGE_RENDER if ws.has_stage(imaging.STAGE_RENDER) else extract.STAGE_EXTRACT, say=pipeline.say, limit=arguments.limit))
         result["requests"] = client.requests_made
         result["cache_hits"] = client.cache_hits
     text = result.pop("text", None)

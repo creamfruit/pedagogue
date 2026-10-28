@@ -1,16 +1,16 @@
+import io
 import json
-import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Callable, Optional
 
-from . import config, naming
+from . import naming
+from . import passages as passage_module
+from .difficulty import Model
 from .models import Candidate
 from .workspace import Workspace
-
-if str(config.BACKEND) not in sys.path:
-    sys.path.insert(0, str(config.BACKEND))
 
 HARVEST_MODEL = "harvest-1"
 FLUSH_EVERY = 50
@@ -23,6 +23,9 @@ class Context:
     composers: list
     sources: dict
     catalogue: dict = field(default_factory=lambda: defaultdict(list))
+    model: Optional[object] = None
+    techniques: dict = field(default_factory=dict)
+    storage: Optional[object] = None
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -130,7 +133,7 @@ async def load_context(session) -> Context:
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
 
-    from app.models.models import Composer, Era, Genre, Piece, PieceSource
+    from app.models.models import Composer, Era, Genre, Piece, PieceSource, Technique
     from app.services.catalog_match import composer_surname
 
     eras = list((await session.execute(select(Era))).scalars().all())
@@ -141,6 +144,7 @@ async def load_context(session) -> Context:
         for record in (await session.execute(select(PieceSource).options(selectinload(PieceSource.piece)))).scalars().all()
     }
     context = Context(eras, genres, composers, sources)
+    context.techniques = {technique.name: technique for technique in (await session.execute(select(Technique))).scalars().all()}
     pieces = (
         await session.execute(
             select(Piece)
@@ -165,7 +169,97 @@ def apply_features(piece, record, payload: dict, candidate: Candidate, context: 
         piece.duration_sec = int(features["length"]["seconds"])
 
 
-async def upsert(session, context: Context, candidate: Candidate, payload: dict) -> str:
+def apply_difficulty(piece, record, features: dict, context: Context) -> None:
+    from app.services.difficulty import difficulty_band
+    from app.services.metadata_generator import GRADE_BY_BAND
+    from app.services.repertoire_reference import lookup
+
+    model = context.model
+    computed = Decimal(str(model.score(features))) if model is not None else None
+    record.computed_difficulty = computed
+    record.calibration_version = model.version if model is not None else None
+    reference = lookup(piece.title, record.composer_name, piece.catalog_number)
+    if reference is not None:
+        piece.difficulty_score = reference.score
+    elif computed is not None and (piece.difficulty_score is None or (piece.metadata_generation_model or "").startswith(("harvest", "heuristic"))):
+        piece.difficulty_score = computed
+        piece.metadata_generation_model = HARVEST_MODEL
+    if piece.difficulty_score is not None and (piece.syllabus_grade is None or piece.metadata_generation_model == HARVEST_MODEL):
+        piece.syllabus_grade = GRADE_BY_BAND.get(difficulty_band(piece.difficulty_score))
+
+
+def passage_key(candidate: Candidate, start: int, end: int) -> str:
+    return f"harvest/passages/{candidate.source}/{candidate.source_id}/{start}-{end}.svg"
+
+
+async def apply_passages(session, context: Context, piece, candidate: Candidate, extras: dict) -> None:
+    from sqlalchemy import delete, select
+    from sqlalchemy.orm import selectinload
+
+    from app.models.models import Passage, PassageSource, PassageTechnique, PieceTechnique
+    from app.services.difficulty import compute_mechanical_load
+
+    index = extras["index"]
+    techniques = context.techniques
+    owned = piece.metadata_generation_model == HARVEST_MODEL
+    existing_links = (await session.execute(select(PieceTechnique.technique_id).where(PieceTechnique.piece_id == piece.id))).scalars().all()
+    usable = [(name, weight) for name, weight in index["techniques"] if name in techniques]
+    if usable and (owned or not existing_links):
+        await session.execute(delete(PieceTechnique).where(PieceTechnique.piece_id == piece.id))
+        for name, weight in usable:
+            session.add(PieceTechnique(piece_id=piece.id, technique_id=techniques[name].id, weight=weight))
+        if piece.difficulty_score is not None:
+            piece.mechanical_load = compute_mechanical_load(usable, {name: float(t.load_factor) for name, t in techniques.items()}, piece.difficulty_score)
+    held = (
+        await session.execute(
+            select(Passage)
+            .where(Passage.piece_id == piece.id, Passage.source == PassageSource.HARVEST)
+            .options(selectinload(Passage.technique_links), selectinload(Passage.assessments))
+        )
+    ).scalars().all()
+    by_span = {(row.start_measure, row.end_measure): row for row in held}
+    wanted = set()
+    for item in index["passages"]:
+        span = (item["start"], item["end"])
+        wanted.add(span)
+        row = by_span.get(span)
+        if row is None:
+            row = Passage(piece_id=piece.id, start_measure=item["start"], end_measure=item["end"], source=PassageSource.HARVEST)
+            session.add(row)
+            row.technique_links = []
+        row.label = item["label"][:80]
+        row.description = item["description"]
+        row.practice_cue = item["cue"]
+        row.difficulty_score = Decimal(str(passage_module.passage_difficulty(float(piece.difficulty_score) if piece.difficulty_score is not None else None, item["relative"])))
+        links = {name: weight for name, weight in item["techniques"].items() if name in techniques}
+        current = {link.technique_id: link for link in row.technique_links}
+        for name, weight in links.items():
+            link = current.pop(techniques[name].id, None)
+            if link is None:
+                row.technique_links.append(PassageTechnique(technique_id=techniques[name].id, weight=Decimal(str(round(min(max(weight, 0.05), 1.0), 2)))))
+            else:
+                link.weight = Decimal(str(round(min(max(weight, 0.05), 1.0), 2)))
+        for link in current.values():
+            row.technique_links.remove(link)
+        image = extras["images"].get(item["image"]) if item.get("image") else None
+        if image is not None:
+            key = passage_key(candidate, *span)
+            if context.storage is not None and not context.storage.exists(key):
+                context.storage.save(io.BytesIO(image), key)
+            row.image_key = key
+    for span, row in by_span.items():
+        if span not in wanted and not row.assessments:
+            await session.delete(row)
+
+
+async def apply_reference(session, piece, record, payload: dict) -> None:
+    from app.services import reference_notes
+
+    if payload.get("reference"):
+        await reference_notes.store(session, piece, record, payload["reference"])
+
+
+async def upsert(session, context: Context, candidate: Candidate, payload: dict, extras: Optional[dict] = None) -> str:
     from app.models.models import PieceSource
 
     facts = provenance(candidate)
@@ -177,11 +271,17 @@ async def upsert(session, context: Context, candidate: Candidate, payload: dict)
                 setattr(record, name, value)
                 changed = True
         stale = record.content_hash != candidate.extra["content_hash"] or record.feature_version != payload["features"]["version"]
+        recalibrated = context.model is not None and record.calibration_version != context.model.version
         if stale:
             apply_features(record.piece, record, payload, candidate, context)
-        if changed or stale:
+        if stale or recalibrated:
+            apply_difficulty(record.piece, record, payload["features"], context)
+        if changed or stale or recalibrated:
             record.updated_at = context.now
-        return "updated" if (changed or stale) else "unchanged"
+        if extras is not None:
+            await apply_passages(session, context, record.piece, candidate, extras)
+        await apply_reference(session, record.piece, record, payload)
+        return "updated" if (changed or stale or recalibrated) else "unchanged"
     composer = resolve_composer(context, candidate, session)
     if composer.id is None:
         await session.flush()
@@ -195,12 +295,26 @@ async def upsert(session, context: Context, candidate: Candidate, payload: dict)
     session.add(record)
     record.piece = piece
     apply_features(piece, record, payload, candidate, context)
+    apply_difficulty(piece, record, payload["features"], context)
     context.sources[(candidate.source, candidate.source_id)] = record
+    if extras is not None:
+        await apply_passages(session, context, piece, candidate, extras)
+    await apply_reference(session, piece, record, payload)
     return outcome
+
+
+def load_extras(ws: Workspace, candidate: Candidate) -> Optional[dict]:
+    if "passages" not in candidate.local:
+        return None
+    path = ws.abs(candidate.local["passages"])
+    index = json.loads(path.read_text(encoding="utf-8"))
+    images = {item["image"]: (path.parent / item["image"]).read_bytes() for item in index["passages"] if item.get("image") and (path.parent / item["image"]).exists()}
+    return {"index": index, "images": images}
 
 
 async def ingest(ws: Workspace, source_stage: str, *, say: Callable[[str], None] = print, limit: Optional[int] = None) -> dict:
     from app.core.database import dispose_engine, session_scope
+    from app.core.storage import storage as default_storage
 
     candidates = ws.read_stage(source_stage)
     if limit is not None:
@@ -208,9 +322,11 @@ async def ingest(ws: Workspace, source_stage: str, *, say: Callable[[str], None]
     counts: Counter = Counter()
     async with session_scope() as session:
         context = await load_context(session)
+        context.model = Model.load()
+        context.storage = default_storage
         for index, candidate in enumerate(candidates, start=1):
             payload = json.loads(ws.abs(candidate.local["features"]).read_text(encoding="utf-8"))
-            counts[await upsert(session, context, candidate, payload)] += 1
+            counts[await upsert(session, context, candidate, payload, load_extras(ws, candidate))] += 1
             if index % FLUSH_EVERY == 0:
                 await session.flush()
                 say(f"ingest: {index}/{len(candidates)} {dict(counts)}")

@@ -95,6 +95,7 @@ class PassageSource(str, enum.Enum):
     CATALOG = "catalog"
     ANALYZER = "analyzer"
     USER = "user"
+    HARVEST = "harvest"
 
 
 class PrerequisiteSource(str, enum.Enum):
@@ -537,6 +538,7 @@ class Passage(IntPrimaryKeyMixin, Base):
     source: Mapped[PassageSource] = mapped_column(pg_enum(PassageSource, "passage_source"), default=PassageSource.USER)
     description: Mapped[Optional[str]] = mapped_column(Text)
     practice_cue: Mapped[Optional[str]] = mapped_column(Text)
+    image_key: Mapped[Optional[str]] = mapped_column(Text)
 
     piece: Mapped[Piece] = relationship(back_populates="passages")
     technique_links: Mapped[list[PassageTechnique]] = relationship(
