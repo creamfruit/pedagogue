@@ -1,11 +1,11 @@
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import CurrentUser, OptionalUser, SessionDep
+from app.api.deps import CurrentUser, OptionalUser, SessionDep, StorageDep
 from app.models.models import Passage, PassageTechnique, Piece
 from app.schemas.schemas import (
     ComposerPreferenceUpdate,
@@ -20,6 +20,7 @@ from app.schemas.schemas import (
     PieceCreate,
     PieceDetail,
     PieceOverview,
+    SimilarPieces,
     ProfileUpdate,
     RepertoireEntryRead,
     TechniqueProfileRead,
@@ -229,6 +230,32 @@ async def piece_overview(
     if user is not None and data.get("sections"):
         await attach_score_crops(session, user, piece_id, data["sections"])
     return PieceOverview(**data)
+
+
+@catalog_router.get("/passages/{passage_id}/image")
+async def passage_image(passage_id: int, session: SessionDep, storage: StorageDep) -> Response:
+    passage = await session.get(Passage, passage_id)
+    if passage is None or not passage.image_key or not storage.exists(passage.image_key):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no image for this passage")
+    with storage.open(passage.image_key) as handle:
+        body = handle.read()
+    return Response(body, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
+
+
+@catalog_router.get("/pieces/{piece_id}/similar", response_model=SimilarPieces)
+async def similar_pieces_route(
+    piece_id: int,
+    session: SessionDep,
+    direction: str = Query(default="easier", pattern="^(easier|harder|both)$"),
+    limit: int = Query(default=5, ge=1, le=12),
+) -> SimilarPieces:
+    from app.services.similar import similar_pieces
+
+    try:
+        found = await similar_pieces(session, piece_id, direction=direction, limit=limit)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    return SimilarPieces(**found)
 
 
 async def attach_score_crops(session, user, piece_id: int, sections: list[dict]) -> None:

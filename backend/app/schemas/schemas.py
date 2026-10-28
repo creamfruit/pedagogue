@@ -967,6 +967,7 @@ class SectionRead(BaseModel):
     source: Optional[str] = None
     score_crop: Optional[str] = None
     score_page: Optional[int] = None
+    image: Optional[str] = None
 
 
 class TechniqueBreakdown(BaseModel):
@@ -1002,6 +1003,27 @@ class MovementStub(BaseModel):
 class PieceStub(BaseModel):
     id: int
     title: str
+
+
+class SimilarPiece(BaseModel):
+    id: int
+    slug: str
+    title: str
+    full_title: str
+    composer: Optional[str] = None
+    difficulty: float
+    band: str
+    difference: float
+    similarity: Optional[float] = None
+    shared_techniques: list[str] = Field(default_factory=list)
+
+
+class SimilarPieces(BaseModel):
+    piece_id: int
+    difficulty: Optional[float] = None
+    basis: str
+    easier: list[SimilarPiece] = Field(default_factory=list)
+    harder: list[SimilarPiece] = Field(default_factory=list)
 
 
 class PieceOverview(BaseModel):

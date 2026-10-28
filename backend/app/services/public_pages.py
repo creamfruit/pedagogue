@@ -19,6 +19,7 @@ from app.services.progression import cosine
 
 INDEX_SECONDS = 600
 SIMILAR_LIMIT = 5
+STEP_LIMIT = 4
 SIMILAR_PER_COMPOSER = 2
 SIMILAR_FLOOR = 0.25
 SECTION_LIMIT = 5
@@ -159,7 +160,7 @@ async def load_catalogue(session: AsyncSession, *, fresh: bool = False) -> Catal
     return built
 
 
-def similar_pieces(piece: Piece, catalogue: Catalogue) -> list[dict]:
+def similar_pieces(piece: Piece, catalogue: Catalogue, limit: int = SIMILAR_LIMIT) -> list[dict]:
     mine = catalogue.vectors.get(piece.id, {})
     ranked = []
     for other in catalogue.pieces.values():
@@ -193,7 +194,7 @@ def similar_pieces(piece: Piece, catalogue: Catalogue) -> list[dict]:
                 "reasons": reasons,
             }
         )
-        if len(chosen) >= SIMILAR_LIMIT:
+        if len(chosen) >= limit:
             break
     return chosen
 
@@ -264,6 +265,7 @@ class PublicPieceService(BaseService):
             return None
         piece = await PieceOverviewService(self.session).load(piece_id)
         profile = piece.load_profile
+        steps = await self.steps(piece_id)
         return {
             "piece": piece,
             "id": piece.id,
@@ -283,6 +285,8 @@ class PublicPieceService(BaseService):
             "techniques": technique_rows(piece),
             "story": story_for(piece),
             "similar": similar_pieces(listed, catalogue),
+            "easier": steps.get("easier", []),
+            "harder": steps.get("harder", []),
             "load": {
                 "octave_density": float(profile.octave_density) if profile and profile.octave_density is not None else None,
                 "max_stretch_cm": profile.max_stretch_cm() if profile else None,
@@ -300,6 +304,14 @@ class PublicPieceService(BaseService):
             "library_credit": (piece.metadata_generation_model or "").startswith("score-library"),
             "updated": piece.metadata_generated_at,
         }
+
+    async def steps(self, piece_id: int) -> dict:
+        from app.services.similar import similar_pieces as by_difficulty
+
+        try:
+            return await by_difficulty(self.session, piece_id, direction="both", limit=STEP_LIMIT)
+        except LookupError:
+            return {}
 
     async def composer_page(self, composer_id: int) -> Optional[dict]:
         catalogue = await load_catalogue(self.session)

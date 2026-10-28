@@ -17,7 +17,7 @@ const OFFLINE_READS = [
   /^\/repertoire\/stats$/,
   /^\/repertoire\/[0-9a-f-]{36}$/,
   /^\/repertoire\/[0-9a-f-]{36}\/(submissions|plans|gate)$/,
-  /^\/catalog\/pieces\/\d+(\/overview)?$/,
+  /^\/catalog\/pieces\/\d+(\/(overview|similar))?$/,
   /^\/catalog\/passages\/\d+\/sight-reading$/,
   /^\/catalog\/(techniques|genres)$/,
 ];
@@ -249,6 +249,7 @@ export const api = {
   importExternalPiece: (payload) => request("/catalog/external/import", { method: "POST", body: payload }),
   piece: (id) => request(`/catalog/pieces/${id}`),
   pieceOverview: (id) => request(`/catalog/pieces/${id}/overview`),
+  similarPieces: (id, direction = "easier", limit = 5) => request(`/catalog/pieces/${id}/similar`, { params: { direction, limit } }),
   billingPlan: () => request("/billing/plan"),
   billingPrices: () => request("/billing/prices", { auth: false }),
   billingCheckout: (body) => request("/billing/checkout", { method: "POST", body }),

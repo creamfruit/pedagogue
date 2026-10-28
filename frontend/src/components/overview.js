@@ -25,6 +25,7 @@ const BASIS_NOTES = {
   reference: "Placed on Pedagogue's reference ladder, where Für Elise is 30, Chopin's first Ballade 70 and Islamey 98.",
   estimate: "Estimated from the composer and the form. It will move once the piece is placed on the ladder.",
   library: "Measured from the notes of a first edition in the score library, calibrated against the same ladder.",
+  harvest: "Measured from the notes of an open score (note density, hand span, leaps, octaves and fast runs), calibrated against the same ladder.",
   generated: "Rated by the catalogue assistant against the same ladder: Für Elise 30, Ballade No. 1 70, Islamey 98.",
 };
 
@@ -109,6 +110,23 @@ function scoreCrop(section) {
   return figure;
 }
 
+function scoreImage(section) {
+  const figure = el(
+    "figure",
+    { class: "score-crop" },
+    el("div", { class: "score-crop-frame" }, el("span", { class: "faint" }, "Loading the score…")),
+    el("figcaption", { class: "faint" }, `${section.measure_span} of the open score`)
+  );
+  api
+    .blob(section.image)
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      figure.firstChild.replaceChildren(el("img", { src: url, alt: `The score for ${section.measure_span}`, loading: "lazy" }));
+    })
+    .catch(() => figure.remove());
+  return figure;
+}
+
 function sectionCard(section, index) {
   const stage = el("div", { style: "display:none" });
   let activePlayback = null;
@@ -186,14 +204,14 @@ function sectionCard(section, index) {
         {},
         barButton,
         el("strong", { class: "section-label" }, section.label || "Marked passage"),
-        section.source === "analyzer" ? el("span", { class: "section-origin faint" }, "found in an uploaded score") : section.source === "catalog" ? el("span", { class: "section-origin faint" }, "checked against the score") : null
+        section.source === "analyzer" ? el("span", { class: "section-origin faint" }, "found in an uploaded score") : section.source === "harvest" ? el("span", { class: "section-origin faint" }, "measured from the open score") : section.source === "catalog" ? el("span", { class: "section-origin faint" }, "checked against the score") : null
       ),
       section.difficulty_score != null
         ? el("span", { class: "pill pill-accent mono" }, section.difficulty_score)
         : null
     ),
     section.description ? el("p", { class: "section-text" }, section.description) : null,
-    section.score_crop ? scoreCrop(section) : null,
+    section.score_crop ? scoreCrop(section) : section.image ? scoreImage(section) : null,
     section.practice_cue
       ? el(
           "p",
@@ -426,6 +444,47 @@ function movementsBody(movements) {
   );
 }
 
+function easierBody(overview) {
+  const wrap = el("div", { class: "easier-list" }, el("p", { class: "faint" }, "Looking for easier pieces…"));
+  api
+    .similarPieces(overview.id, "easier", 5)
+    .then((found) => {
+      const rows = found.easier || [];
+      if (!rows.length) {
+        wrap.replaceChildren(el("p", { class: "faint" }, "There is no easier piece in the catalogue that plays like this one yet."));
+        return;
+      }
+      wrap.replaceChildren(
+        el(
+          "ul",
+          { class: "technique-list" },
+          ...rows.map((row) =>
+            el(
+              "li",
+              { class: "technique-row" },
+              el("strong", {}, row.full_title),
+              el("span", { class: "pill mono", style: "margin-left:8px" }, row.difficulty),
+              el("span", { class: "faint", style: "margin-left:8px" }, `${Math.abs(Math.round(row.difference))} points easier`)
+            )
+          )
+        )
+      );
+    })
+    .catch(() => wrap.replaceChildren(el("p", { class: "faint" }, "Couldn't look for easier pieces just now.")));
+  return wrap;
+}
+
+function sourceBody(source) {
+  const lines = [
+    el("p", {}, "Score data from ", el("a", { href: source.source_url, target: "_blank", rel: "noopener" }, source.source_name), "."),
+    el("p", {}, "Licence: ", el("a", { href: source.licence_url, target: "_blank", rel: "noopener" }, source.licence_name), "."),
+    el("p", {}, `Composer: ${source.composer}${source.composer_lifespan ? ` (${source.composer_lifespan})` : ""}.`),
+    source.attribution ? el("p", { class: "faint" }, source.attribution) : null,
+    el("p", {}, el("a", { href: source.report_url, target: "_blank", rel: "noopener" }, "Report a problem with this piece")),
+  ];
+  return el("div", { class: "source-note" }, ...lines.filter(Boolean));
+}
+
 export function pieceOverview(overview, { heading = true, difficulty = true } = {}) {
   const composer = overview.composer;
   const wrap = el("div", { class: "overview" });
@@ -461,6 +520,8 @@ export function pieceOverview(overview, { heading = true, difficulty = true } = 
     hasComposer ? { id: "composer", label: `About ${composer.name.split(" ").slice(-1)[0]}`, build: () => composerBody(composer) } : null,
     overview.load_profile ? { id: "load", label: "Physical load", build: () => loadBody(overview.load_profile) } : null,
     overview.movements.length ? { id: "movements", label: "Movements", build: () => movementsBody(overview.movements) } : null,
+    overview.difficulty_score != null ? { id: "easier", label: "Pieces like this but easier", build: () => easierBody(overview) } : null,
+    overview.source ? { id: "source", label: "Source & licence", build: () => sourceBody(overview.source) } : null,
   ].filter(Boolean);
   if (items.length) wrap.append(pieceDrawer(items));
 

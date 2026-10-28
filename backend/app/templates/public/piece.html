@@ -112,6 +112,30 @@
 {% endif %}
 </section>
 
+<section class="card" id="easier" aria-labelledby="easier-title">
+<h2 id="easier-title">Pieces like {{ title }}, but easier</h2>
+{% if easier %}
+<ul class="plain">
+{% for other in easier %}
+<li class="item">
+<h3><a href="{{ site('/music/' ~ other.slug) }}">{{ other.full_title }}</a> <span class="pill {{ band_class(other.difficulty) }}">{{ other.band }} · {{ other.difficulty|round(0)|int }}</span></h3>
+<p class="small dim" style="margin:6px 0 0">{{ (other.difference|abs)|round(0)|int }} points easier{% if other.similarity %}, {{ (other.similarity * 100)|round(0)|int }}% similar in what the hands do{% endif %}.</p>
+</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>We don't have an easier piece that plays like {{ title }} yet.</p>
+{% endif %}
+{% if harder %}
+<h3 style="margin-top:18px">A step up</h3>
+<ul class="plain">
+{% for other in harder %}
+<li class="item"><a href="{{ site('/music/' ~ other.slug) }}">{{ other.full_title }}</a> <span class="pill {{ band_class(other.difficulty) }}">{{ other.band }} · {{ other.difficulty|round(0)|int }}</span></li>
+{% endfor %}
+</ul>
+{% endif %}
+</section>
+
 {{ signup_cta(title, "piece-" ~ id) }}
 {% endblock %}
 {% block footer_extra %}

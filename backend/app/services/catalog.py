@@ -207,6 +207,7 @@ class PieceOverviewService(BaseService):
             "practice_cue": passage.practice_cue,
             "techniques": [link.technique.name for link in ranked],
             "source": getattr(getattr(passage, "source", None), "value", None),
+            "image": f"/catalog/passages/{passage.id}/image" if getattr(passage, "image_key", None) else None,
         }
 
     @staticmethod
