@@ -28,6 +28,7 @@ SLUG_LENGTH = 70
 BASIS_WORDS = {
     "reference": "Pedagogue's reference ladder, a hand-written ranking of well-known pieces.",
     "library": "measurements taken from the first-edition score: bar counts, note density, hand stretch and the hardest bars.",
+    "harvest": "measurements taken from an open score of the piece (note density, hand span, leaps, octaves and fast runs), calibrated against Pedagogue's reference ladder.",
     "estimate": "an estimate from the piece's title and composer. It has not been measured against the score, so treat it as a guide.",
     "generated": "a generated estimate from the piece's details. It has not been measured against the score, so treat it as a guide.",
     "catalogue": "Pedagogue's catalogue entry for the piece.",
@@ -235,7 +236,7 @@ def difficulty_summary(piece: Piece, catalogue: Catalogue) -> dict:
         "grade": piece.syllabus_grade,
         "basis": basis,
         "basis_text": BASIS_WORDS.get(basis, BASIS_WORDS["catalogue"]),
-        "measured": basis in {"reference", "library"},
+        "measured": basis in {"reference", "library", "harvest"},
         "harder_than": catalogue.percentile(score),
         "mechanical_load": float(piece.mechanical_load) if piece.mechanical_load is not None else None,
     }

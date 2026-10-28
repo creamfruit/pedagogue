@@ -517,6 +517,8 @@ class PieceSource(Base):
     content_hash: Mapped[str] = mapped_column(String(64))
     features: Mapped[Optional[dict[str, Any]]]
     feature_version: Mapped[Optional[int]] = mapped_column(SmallInteger)
+    computed_difficulty: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
+    calibration_version: Mapped[Optional[str]] = mapped_column(String(40))
     harvested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

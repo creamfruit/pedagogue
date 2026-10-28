@@ -90,6 +90,8 @@ def difficulty_basis(piece) -> str:
         return "estimate"
     if model.startswith("score-library"):
         return "library"
+    if model.startswith("harvest"):
+        return "harvest"
     if getattr(piece, "external_source", None) and model:
         return "generated"
     return "catalogue"

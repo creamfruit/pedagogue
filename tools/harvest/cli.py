@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import config, extract, ingest, pipeline
+from . import calibration, config, extract, ingest, pipeline
 from .polite import PoliteClient
 from .workspace import Workspace
 
@@ -28,6 +28,8 @@ def build_parser() -> argparse.ArgumentParser:
     measure.add_argument("--limit", type=int)
     measure.add_argument("--workers", type=int)
 
+    commands.add_parser("calibrate", help="fit the difficulty score to the reference ladder and print the calibration report")
+
     load = commands.add_parser("ingest", help="write the measured works to the database; safe to run again")
     load.add_argument("--limit", type=int)
     return parser
@@ -45,11 +47,16 @@ def main(argv=None) -> int:
             result = pipeline.fetch(ws, client, pipeline.STAGE_COMPOSERS, limit=arguments.limit)
         elif arguments.command == "extract":
             result = extract.extract(ws, pipeline.STAGE_FETCH, workers=arguments.workers, limit=arguments.limit, say=pipeline.say)
+        elif arguments.command == "calibrate":
+            result = calibration.calibrate(ws, extract.STAGE_EXTRACT)
         else:
             result = asyncio.run(ingest.ingest(ws, extract.STAGE_EXTRACT, say=pipeline.say, limit=arguments.limit))
         result["requests"] = client.requests_made
         result["cache_hits"] = client.cache_hits
+    text = result.pop("text", None)
     print(json.dumps(result, indent=2))
+    if text:
+        print(text)
     return 0
 
 
