@@ -159,7 +159,8 @@ async def load_reference(session: AsyncSession, piece_id: int):
     stmt = (
         select(PieceReferenceNotes)
         .join(PieceSource, PieceSource.piece_id == PieceReferenceNotes.piece_id)
-        .where(PieceReferenceNotes.piece_id == piece_id, PieceSource.scoring_ready.is_(True))
+        .join(Piece, Piece.id == PieceReferenceNotes.piece_id)
+        .where(PieceReferenceNotes.piece_id == piece_id, PieceSource.scoring_ready.is_(True), Piece.hidden_at.is_(None))
     )
     row = (await session.execute(stmt)).scalar_one_or_none()
     if row is None:

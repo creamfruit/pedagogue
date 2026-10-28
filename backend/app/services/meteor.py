@@ -196,6 +196,7 @@ class MeteorService(BaseService):
             .where(
                 Piece.is_user_created.is_(False),
                 Piece.parent_piece_id.is_(None),
+                Piece.hidden_at.is_(None),
                 Piece.difficulty_score.is_not(None),
             )
             .order_by(Piece.difficulty_score, Piece.id)

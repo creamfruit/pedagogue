@@ -209,7 +209,7 @@ async def get_piece(piece_id: int, session: SessionDep) -> PieceDetail:
     stmt = (
         select(Piece)
         .options(selectinload(Piece.composer), selectinload(Piece.genre))
-        .where(Piece.id == piece_id)
+        .where(Piece.id == piece_id, Piece.hidden_at.is_(None))
     )
     piece = (await session.execute(stmt)).scalars().one_or_none()
     if piece is None:
@@ -234,7 +234,9 @@ async def piece_overview(
 
 @catalog_router.get("/passages/{passage_id}/image")
 async def passage_image(passage_id: int, session: SessionDep, storage: StorageDep) -> Response:
-    passage = await session.get(Passage, passage_id)
+    passage = (
+        await session.execute(select(Passage).join(Piece, Piece.id == Passage.piece_id).where(Passage.id == passage_id, Piece.hidden_at.is_(None)))
+    ).scalar_one_or_none()
     if passage is None or not passage.image_key or not storage.exists(passage.image_key):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no image for this passage")
     with storage.open(passage.image_key) as handle:

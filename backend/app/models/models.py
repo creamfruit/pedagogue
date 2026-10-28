@@ -365,6 +365,9 @@ class Piece(IntPrimaryKeyMixin, Base):
     reference_label: Mapped[Optional[str]] = mapped_column(String(60))
     facts_checked_at: Mapped[Optional[datetime]]
     custom_style: Mapped[Optional[dict[str, Any]]]
+    hidden_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
+    hidden_reason: Mapped[Optional[str]] = mapped_column(String(300))
+    hidden_by: Mapped[Optional[uuid.UUID]]
 
     composer: Mapped[Optional[Composer]] = relationship(back_populates="pieces")
     genre: Mapped[Optional[Genre]] = relationship(back_populates="pieces")

@@ -55,6 +55,7 @@ async def load_matrix(session: AsyncSession, *, fresh: bool = False) -> Matrix:
                 Piece.technique_vector.is_not(None),
                 Piece.difficulty_score.is_not(None),
                 Piece.is_user_created.is_(False),
+                Piece.hidden_at.is_(None),
             )
             .order_by(Piece.id)
         )
@@ -149,11 +150,22 @@ async def similar_pieces(session: AsyncSession, piece_id: int, *, direction: str
         raise ValueError(f"direction must be one of {', '.join(DIRECTIONS)}")
     limit = min(max(limit, 1), MAX_LIMIT)
     piece = (
-        await session.execute(select(Piece).options(selectinload(Piece.composer)).where(Piece.id == piece_id))
+        await session.execute(select(Piece).options(selectinload(Piece.composer)).where(Piece.id == piece_id, Piece.hidden_at.is_(None)))
     ).scalar_one_or_none()
     if piece is None:
         raise LookupError("piece not found")
     found = await similar_by_vector(session, piece, direction=direction, limit=limit)
     if found is None:
         found = await similar_by_techniques(session, piece, direction=direction, limit=limit)
+    return await without_hidden(session, found)
+
+
+async def without_hidden(session: AsyncSession, found: dict) -> dict:
+    ids = [item["id"] for side in ("easier", "harder") for item in found.get(side, [])]
+    if not ids:
+        return found
+    hidden = set((await session.execute(select(Piece.id).where(Piece.id.in_(ids), Piece.hidden_at.is_not(None)))).scalars().all())
+    for side in ("easier", "harder"):
+        if side in found:
+            found[side] = [item for item in found[side] if item["id"] not in hidden]
     return found

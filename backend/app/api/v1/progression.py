@@ -52,7 +52,7 @@ async def load_piece(session, piece_id: int) -> Piece:
     stmt = (
         select(Piece)
         .options(selectinload(Piece.composer), selectinload(Piece.genre))
-        .where(Piece.id == piece_id)
+        .where(Piece.id == piece_id, Piece.hidden_at.is_(None))
     )
     piece = (await session.execute(stmt)).scalar_one_or_none()
     if piece is None:

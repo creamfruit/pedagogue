@@ -62,6 +62,7 @@ class CatalogService(BaseService):
             await self.session.execute(
                 select(Piece.id, Piece.title, Piece.catalog_number, Piece.key_signature, Piece.parent_piece_id, Composer.name)
                 .outerjoin(Composer, Piece.composer_id == Composer.id)
+                .where(Piece.hidden_at.is_(None))
             )
         ).all()
         scored = []
@@ -86,7 +87,7 @@ class CatalogService(BaseService):
         if not ids:
             return []
         result = await self.session.execute(
-            select(Piece).options(selectinload(Piece.composer), selectinload(Piece.genre)).where(Piece.id.in_(ids))
+            select(Piece).options(selectinload(Piece.composer), selectinload(Piece.genre)).where(Piece.id.in_(ids), Piece.hidden_at.is_(None))
         )
         by_id = {piece.id: piece for piece in result.scalars().all()}
         return [by_id[piece_id] for piece_id in ids if piece_id in by_id]

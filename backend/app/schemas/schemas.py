@@ -1026,6 +1026,19 @@ class SimilarPieces(BaseModel):
     harder: list[SimilarPiece] = Field(default_factory=list)
 
 
+class PieceSourceInfo(BaseModel):
+    source: str
+    source_name: str
+    source_url: str
+    licence_code: str
+    licence_name: str
+    licence_url: str
+    composer: str
+    composer_lifespan: Optional[str] = None
+    attribution: Optional[str] = None
+    report_url: str
+
+
 class PieceOverview(BaseModel):
     id: int
     title: str
@@ -1058,6 +1071,7 @@ class PieceOverview(BaseModel):
     load_profile: Optional[LoadProfileRead] = None
     movements: list[MovementStub] = Field(default_factory=list)
     parent_piece: Optional[PieceStub] = None
+    source: Optional[PieceSourceInfo] = None
 
 
 class LinkEndpoint(BaseModel):

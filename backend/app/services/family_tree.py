@@ -85,6 +85,7 @@ class FamilyTreeService(BaseService):
                 .options(selectinload(Piece.composer).selectinload(Composer.era), selectinload(Piece.genre))
                 .where(
                     Piece.parent_piece_id.is_(None),
+                    Piece.hidden_at.is_(None),
                     or_(Piece.is_user_created.is_(False), Piece.id.in_(list(owned) or [0])),
                 )
             )

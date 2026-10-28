@@ -45,6 +45,7 @@
 <h3>{{ section.label or ("Bars " ~ section.start_measure ~ "–" ~ section.end_measure) }} <span class="dim small">· {{ section.measure_span }}</span>
 {% if section.difficulty_score is not none %}<span class="pill {% if section.difficulty_score|float >= 70 %}hot{% elif section.difficulty_score|float >= 45 %}warn{% else %}good{% endif %}">difficulty {{ section.difficulty_score|float|round(0)|int }}</span>{% endif %}</h3>
 <p style="margin:6px 0 0">{{ section.description }}</p>
+{% if section.image %}<figure style="margin:10px 0 0"><img src="/api/v1{{ section.image }}" alt="The score for {{ section.measure_span }} of {{ title }}" loading="lazy" style="max-width:100%;height:auto;background:#fff;border-radius:6px"><figcaption class="small dim">{{ section.measure_span }} of the open score</figcaption></figure>{% endif %}
 {% if section.practice_cue %}<p class="small dim" style="margin:6px 0 0"><b>Practice cue:</b> {{ section.practice_cue }}</p>{% endif %}
 {% if section.techniques %}<p class="small" style="margin:6px 0 0">{% for name in section.techniques %}<span class="pill">{{ name }}</span>{% endfor %}</p>{% endif %}
 </li>
@@ -136,6 +137,19 @@
 {% endif %}
 </section>
 
+{% if source %}
+<section class="card" id="source" aria-labelledby="source-title">
+<h2 id="source-title">Where the score for {{ title }} comes from</h2>
+<p>The notes and measurements on this page come from the open score on <a href="{{ source.source_url }}" rel="noopener">{{ source.source_name }}</a>.</p>
+<ul class="plain">
+<li>Licence: <a href="{{ source.licence_url }}" rel="noopener">{{ source.licence_name }}</a></li>
+<li>Composer: {{ source.composer }}{% if source.composer_lifespan %} ({{ source.composer_lifespan }}){% endif %}</li>
+{% if source.attribution %}<li>{{ source.attribution }}</li>{% endif %}
+</ul>
+<p class="small"><a href="{{ source.report_url }}" rel="noopener nofollow">Report a problem with this piece</a></p>
+</section>
+
+{% endif %}
 {{ signup_cta(title, "piece-" ~ id) }}
 {% endblock %}
 {% block footer_extra %}

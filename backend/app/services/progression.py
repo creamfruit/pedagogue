@@ -140,6 +140,7 @@ class PrerequisiteRecommender(BaseService):
             .options(selectinload(Piece.composer), selectinload(Piece.genre))
             .where(
                 Piece.id != target.id,
+                Piece.hidden_at.is_(None),
                 Piece.difficulty_score.is_not(None),
                 Piece.difficulty_score < target.difficulty_score,
                 Piece.parent_piece_id.is_(None) if target.parent_piece_id is None else Piece.id.is_not(None),

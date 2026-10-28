@@ -14,6 +14,7 @@ from app.models.models import Composer, PassageSource, Piece, PieceTechnique
 from app.services.catalog import PieceOverviewService, difficulty_basis
 from app.services.difficulty import difficulty_band
 from app.services.family_tree import affinity, context, shared_techniques
+from app.services.harvest_library import harvest_credit
 from app.services.onboarding import BaseService
 from app.services.progression import cosine
 
@@ -47,6 +48,7 @@ BAND_WORDS = {
 
 PUBLIC_PIECE = and_(
     Piece.is_user_created.is_(False),
+    Piece.hidden_at.is_(None),
     Piece.difficulty_score.is_not(None),
     Piece.composer_id.is_not(None),
 )
@@ -202,7 +204,7 @@ def similar_pieces(piece: Piece, catalogue: Catalogue, limit: int = SIMILAR_LIMI
 def hardest_sections(piece: Piece) -> list[dict]:
     sections = []
     for passage in piece.hardest_passages:
-        if passage.source != PassageSource.CATALOG or not passage.description:
+        if passage.source not in (PassageSource.CATALOG, PassageSource.HARVEST) or not passage.description:
             continue
         sections.append(PieceOverviewService.section(passage))
         if len(sections) >= SECTION_LIMIT:
@@ -263,7 +265,10 @@ class PublicPieceService(BaseService):
         listed = catalogue.pieces.get(piece_id)
         if listed is None:
             return None
-        piece = await PieceOverviewService(self.session).load(piece_id)
+        try:
+            piece = await PieceOverviewService(self.session).load(piece_id)
+        except LookupError:
+            return None
         profile = piece.load_profile
         steps = await self.steps(piece_id)
         return {
@@ -302,6 +307,7 @@ class PublicPieceService(BaseService):
                 else None
             ),
             "library_credit": (piece.metadata_generation_model or "").startswith("score-library"),
+            "source": harvest_credit(piece),
             "updated": piece.metadata_generated_at,
         }
 

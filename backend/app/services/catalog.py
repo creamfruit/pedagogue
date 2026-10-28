@@ -20,6 +20,7 @@ from app.models.models import (
     Technique,
 )
 from app.services.difficulty import difficulty_band, mastery_for, personalize_difficulty
+from app.services.harvest_library import harvest_credit
 from app.services.repertoire_reference import lookup as ladder_lookup
 from app.services.onboarding import BaseService
 
@@ -31,6 +32,7 @@ PIECE_LOADERS = (
     selectinload(Piece.passages).selectinload(Passage.technique_links).selectinload(PassageTechnique.technique),
     selectinload(Piece.movements),
     selectinload(Piece.parent_piece),
+    selectinload(Piece.harvest),
 )
 
 
@@ -99,7 +101,7 @@ def difficulty_basis(piece) -> str:
 
 class PieceOverviewService(BaseService):
     async def load(self, piece_id: int) -> Piece:
-        stmt = select(Piece).options(*PIECE_LOADERS).where(Piece.id == piece_id)
+        stmt = select(Piece).options(*PIECE_LOADERS).where(Piece.id == piece_id, Piece.hidden_at.is_(None))
         piece = (await self.session.execute(stmt)).scalars().unique().one_or_none()
         if piece is None:
             raise LookupError("piece not found")
@@ -159,6 +161,7 @@ class PieceOverviewService(BaseService):
             "sections": sections,
             "techniques": techniques,
             "load_profile": self.load_profile(piece),
+            "source": harvest_credit(piece),
             "movements": [
                 {
                     "id": movement.id,
@@ -456,7 +459,7 @@ class CatalogSearchService(BaseService):
             .options(*PIECE_LOADERS)
             .join(Composer, Piece.composer_id == Composer.id, isouter=True)
             .join(Genre, Piece.genre_id == Genre.id, isouter=True)
-            .where(or_(Piece.title.ilike(f"%{term}%"), Composer.name.ilike(f"%{term}%")))
+            .where(or_(Piece.title.ilike(f"%{term}%"), Composer.name.ilike(f"%{term}%")), Piece.hidden_at.is_(None))
             .order_by(Piece.difficulty_score)
             .limit(limit)
         )

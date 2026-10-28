@@ -106,7 +106,7 @@ class PracticeDNAService(BaseService):
             await self.session.execute(
                 select(Piece)
                 .options(selectinload(Piece.composer).selectinload(Composer.era))
-                .where(Piece.is_user_created.is_(False), Piece.composer_id.is_not(None))
+                .where(Piece.is_user_created.is_(False), Piece.composer_id.is_not(None), Piece.hidden_at.is_(None))
             )
         ).scalars().all()
         vectors = await TechniqueVectorService(self.session).vectors_for([piece.id for piece in pieces])
