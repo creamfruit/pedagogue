@@ -27,13 +27,23 @@ def source_files(ws: Workspace, candidate: Candidate) -> tuple[str, Path, list]:
     return "mxl", ws.abs(candidate.local["mxl"]), [ws.abs(candidate.local["mxl"])]
 
 
+def reference_for(data, measured: dict) -> dict:
+    from app.services.reference_notes import build_payload
+
+    notes = [(hit.onset, pitch, hit.bar) for hit in data.hits for pitch in hit.pitches]
+    used = {bar for _, _, bar in notes}
+    starts = {number: start for number, start, _ in data.bars if number in used}
+    lengths = {number: length for number, _, length in data.bars if number in used}
+    return build_payload(notes, starts, lengths, measured["tempo"]["mean_bpm"])
+
+
 def analyse_job(job: dict) -> dict:
     warnings.filterwarnings("ignore")
     try:
         lilypond_text = Path(job["ly"]).read_text(encoding="utf-8", errors="replace") if job.get("ly") else None
         data = scoredata.load_score(Path(job["path"]), job["kind"], lilypond_text)
         measured = feature_module.extract(data)
-        return {"key": job["key"], "features": measured, "vector": feature_module.to_vector(measured)}
+        return {"key": job["key"], "features": measured, "vector": feature_module.to_vector(measured), "reference": reference_for(data, measured)}
     except (scoredata.UnreadableScore, ValueError) as error:
         return {"key": job["key"], "error": str(error)}
     except Exception as error:
@@ -56,7 +66,8 @@ def extract(ws: Workspace, source_stage: str, *, workers: Optional[int] = None, 
         target = output_path(ws, candidate)
         kind, path, hashed = source_files(ws, candidate)
         candidate.extra["content_hash"] = digest(hashed)
-        if target.exists() and json.loads(target.read_text(encoding="utf-8")).get("content_hash") == candidate.extra["content_hash"]:
+        held = json.loads(target.read_text(encoding="utf-8")) if target.exists() else {}
+        if held.get("content_hash") == candidate.extra["content_hash"] and "reference" in held:
             candidate.local["features"] = ws.rel(target)
             kept.append(candidate)
             continue
@@ -73,7 +84,7 @@ def extract(ws: Workspace, source_stage: str, *, workers: Optional[int] = None, 
             else:
                 target = output_path(ws, candidate)
                 target.parent.mkdir(parents=True, exist_ok=True)
-                payload = {"content_hash": candidate.extra["content_hash"], "features": result["features"], "vector": result["vector"]}
+                payload = {"content_hash": candidate.extra["content_hash"], "features": result["features"], "vector": result["vector"], "reference": result["reference"]}
                 target.write_text(json.dumps(payload), encoding="utf-8")
                 candidate.local["features"] = ws.rel(target)
                 kept.append(candidate)

@@ -258,7 +258,20 @@ class ReferenceService(BaseService):
                 continue
             if reference.notes:
                 return remember(key, reference)
-        return None
+        return await self.harvested(entry_id)
+
+    async def harvested(self, entry_id: uuid.UUID) -> Optional[Reference]:
+        from app.services.reference_notes import load_reference
+
+        piece_id = (await self.session.execute(select(RepertoireEntry.piece_id).where(RepertoireEntry.id == entry_id))).scalar_one_or_none()
+        if piece_id is None:
+            return None
+        key = f"piece:{piece_id}"
+        if key in _cache:
+            _cache.move_to_end(key)
+            return _cache[key]
+        reference = await load_reference(self.session, piece_id)
+        return remember(key, reference) if reference is not None and reference.notes else None
 
     async def passages(self, entry: RepertoireEntry, reference: Optional[Reference]) -> list:
         stmt = select(Passage).where(Passage.piece_id == entry.piece_id).order_by(Passage.difficulty_score.desc().nulls_last(), Passage.start_measure)

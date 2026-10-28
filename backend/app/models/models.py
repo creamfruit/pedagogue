@@ -520,10 +520,25 @@ class PieceSource(Base):
     feature_version: Mapped[Optional[int]] = mapped_column(SmallInteger)
     computed_difficulty: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 1))
     calibration_version: Mapped[Optional[str]] = mapped_column(String(40))
+    scoring_ready: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    scoring_issues: Mapped[Optional[dict[str, Any]]]
     harvested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     piece: Mapped[Piece] = relationship(back_populates="harvest")
+
+
+class PieceReferenceNotes(Base):
+    __tablename__ = "piece_reference_notes"
+
+    piece_id: Mapped[int] = mapped_column(ForeignKey("pieces.id", ondelete="CASCADE"), primary_key=True)
+    quarter_bpm: Mapped[Decimal] = mapped_column(Numeric(6, 2))
+    note_count: Mapped[int] = mapped_column(Integer)
+    bar_count: Mapped[int] = mapped_column(Integer)
+    notes: Mapped[dict[str, Any]]
+    bar_starts: Mapped[dict[str, Any]]
+    bar_lengths: Mapped[dict[str, Any]]
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Passage(IntPrimaryKeyMixin, Base):
