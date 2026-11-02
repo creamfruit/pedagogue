@@ -97,6 +97,10 @@ async function loadVisual(step) {
       const blob = await api.blob(section.score_crop);
       return { kind: "image", url: URL.createObjectURL(blob), alt: `${step.bars} of ${step.piece_title}, from your score` };
     }
+    if (section?.image) {
+      const blob = await api.blob(section.image);
+      return { kind: "image", url: URL.createObjectURL(blob), alt: `${step.bars} of ${step.piece_title}, from an open score` };
+    }
   } catch {
     return loadPattern(step);
   }

@@ -5856,7 +5856,8 @@ html.reduce-motion .star-burst-spark {
   .back-btn,
   .tabs .tab,
   .reveal-btn,
-  .ambient-toggle {
+  .ambient-toggle,
+  .btn-small {
     min-height: 44px;
   }
 

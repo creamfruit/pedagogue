@@ -289,6 +289,18 @@ describe("a practice step on the music stand", () => {
     expect(root.textContent).toContain("Hands apart first.");
   });
 
+  it("shows the engraved crop of an open score when the player has not uploaded their own", async () => {
+    const opened = await open({ initial: mission({ progress: done([0]), next_index: 1 }) });
+    opened.spies.overview.mockResolvedValue({ sections: [{ id: 11, image: "/catalog/passages/11/image" }] });
+    opened.root.click();
+    for (let i = 0; i < 4; i += 1) await vi.advanceTimersByTimeAsync(0);
+    expect(opened.spies.blob).toHaveBeenCalledWith("/catalog/passages/11/image");
+    const image = opened.root.querySelector(".mission-score");
+    expect(image.getAttribute("src")).toBe("blob:crop");
+    expect(image.getAttribute("alt")).toContain("open score");
+    expect(opened.spies.sight).not.toHaveBeenCalled();
+  });
+
   it("falls back to plain words when there is neither a score crop nor a pattern", async () => {
     const opened = await open({ initial: mission({ progress: done([0]), next_index: 1 }) });
     opened.spies.overview.mockResolvedValue({ sections: [] });
