@@ -335,7 +335,11 @@ class MissionService(BaseService):
                 selectinload(RepertoireEntry.piece).selectinload(Piece.technique_links),
                 selectinload(RepertoireEntry.piece).selectinload(Piece.passages),
             )
-            .where(RepertoireEntry.user_id == user.id, RepertoireEntry.status.in_(REVIEWABLE_STATUSES))
+            .where(
+                RepertoireEntry.user_id == user.id,
+                RepertoireEntry.status.in_(REVIEWABLE_STATUSES),
+                RepertoireEntry.piece.has(Piece.hidden_at.is_(None)),
+            )
         )
         return list((await self.session.execute(stmt)).scalars().all())
 

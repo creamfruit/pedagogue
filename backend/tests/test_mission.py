@@ -322,6 +322,20 @@ async def test_a_passage_practised_by_hand_yesterday_is_avoided_too(world):
 
 
 @needs_db
+async def test_a_piece_an_admin_has_hidden_is_left_out_of_the_mission(world):
+    from app.models.models import Piece
+
+    await seed_pieces(world)
+    async with world.factory() as session:
+        piece = await session.get(Piece, world.ids.piece)
+        piece.hidden_at = datetime.now(timezone.utc)
+        await session.commit()
+    async with client() as http:
+        mission = await get_mission(http)
+    assert all(step.get("entry_id") != str(world.ids.entry) for step in mission["steps"])
+
+
+@needs_db
 async def test_a_user_with_no_pieces_still_gets_a_mission(world):
     from sqlalchemy import delete
 
